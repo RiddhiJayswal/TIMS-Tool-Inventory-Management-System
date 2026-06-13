@@ -89,4 +89,16 @@ export const reportsAPI = {
 export const calibrationAPI = {
   list: (params) => api.get('/calibration', { params }),
   record: (tool_id, data) => api.post(`/calibration/${tool_id}`, data),
+  history: (tool_id) => api.get(`/calibration/${tool_id}/history`),
+}
+
+export const binsAPI = {
+  list: () => api.get('/bins'),
+  create: (data) => api.post('/bins', data),
+  update: (id, data) => api.put(`/bins/${id}`, data),
+}
+
+export const damageAPI = {
+  record: (issuance_id, data) => api.post(`/damage/${issuance_id}`, data),
+  writeoff: (tool_id, data) => api.post(`/damage/writeoff/${tool_id}`, data),
 }

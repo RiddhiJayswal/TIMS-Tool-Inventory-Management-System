@@ -5,7 +5,7 @@
 
 ## Overview
 
-TIMS replaces a manual Excel-based process for the UltraTech Cement plant maintenance department with a structured, real-time, role-aware web application for issuing, tracking, returning, and maintaining plant tools.
+This project replaces a manual Excel-based process for the UltraTech Cement plant maintenance department with a structured, real-time, role-aware web application for issuing, tracking, returning, and maintaining plant tools.
 
 **Problems solved:**
 - No real-time visibility into which tools are available, who has them, and when they are due back

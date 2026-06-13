@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
@@ -8,8 +9,17 @@ from app.database import get_db
 from app.models.transaction import User
 from app.auth.roles import verify_password, create_access_token
 from app.config import settings
+from app.scheduler import start_scheduler, stop_scheduler
 
-app = FastAPI(title="TIMS - Tool Inventory Management System")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    start_scheduler()
+    yield
+    stop_scheduler()
+
+
+app = FastAPI(title="TIMS — Tool Inventory Management System", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

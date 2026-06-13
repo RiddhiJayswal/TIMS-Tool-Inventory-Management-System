@@ -64,6 +64,10 @@ def run_overdue_check():
 
         for log in overdue_logs:
             days_overdue = (today - log.expected_return_date).days
+            # FR-10.4: Notify on day 1 (first day overdue) and every 3 days after (day 4, 7, 10...)
+            if (days_overdue - 1) % 3 != 0:
+                continue
+
             requester = db.query(User).filter(User.id == log.issued_to).first()
             dept_head = db.query(User).filter(
                 User.department == requester.department,

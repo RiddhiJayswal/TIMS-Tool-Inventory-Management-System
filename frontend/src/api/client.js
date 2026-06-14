@@ -18,7 +18,8 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const requestUrl = error.config?.url || ''
+    if (error.response?.status === 401 && !requestUrl.includes('/auth/login')) {
       localStorage.removeItem('tims_token')
       localStorage.removeItem('tims_user')
       window.location.href = '/login'
@@ -39,6 +40,9 @@ export const authAPI = {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     })
   },
+  signup: (data) => api.post('/auth/signup', data),
+  forgotPassword: (data) => api.post('/auth/forgot-password', data),
+  resetPassword: (data) => api.post('/auth/reset-password', data),
   me: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
   getNotifications: () => api.get('/auth/notifications'),
@@ -101,4 +105,10 @@ export const binsAPI = {
 export const damageAPI = {
   record: (issuance_id, data) => api.post(`/damage/${issuance_id}`, data),
   writeoff: (tool_id, data) => api.post(`/damage/writeoff/${tool_id}`, data),
+}
+
+export const usersAPI = {
+  list: () => api.get('/users'),
+  create: (data) => api.post('/users', data),
+  toggleActive: (id) => api.put(`/users/${id}/toggle-active`),
 }

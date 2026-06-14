@@ -27,7 +27,7 @@ def _bin_to_dict(bin_: StorageBin, tool_count: int = 0) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 def list_bins(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -40,7 +40,7 @@ def list_bins(
     return result
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 def create_bin(
     payload: StorageBinCreate,
     current_user: User = Depends(RequireAdmin),

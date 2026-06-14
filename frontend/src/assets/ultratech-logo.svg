@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-labelledby="title desc">
+  <title id="title">Aditya Birla UltraTech logo</title>
+  <desc id="desc">A compact UltraTech brand mark with Aditya Birla text, geometric red and orange panels, and a yellow UltraTech name plate.</desc>
+  <rect width="640" height="480" fill="#ffffff"/>
+  <text x="320" y="72" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="50" font-weight="700" letter-spacing="5" fill="#b7362d" stroke="#6f211d" stroke-width="1.5">ADITYA BIRLA</text>
+  <g transform="translate(92 92)">
+    <rect x="0" y="0" width="456" height="244" fill="#bf2e26" stroke="#92231d" stroke-width="6"/>
+    <polygon points="0,0 92,0 180,244 0,190" fill="#7d211d" opacity=".86"/>
+    <polygon points="92,0 228,0 180,244" fill="#f47c27" opacity=".92"/>
+    <polygon points="228,0 228,244 112,92" fill="#d62824" opacity=".93"/>
+    <polygon points="228,0 344,244 228,244" fill="#f3d44b" opacity=".9"/>
+    <polygon points="228,0 456,0 344,244" fill="#e94b2d" opacity=".82"/>
+    <polygon points="456,0 456,190 344,244" fill="#84221e" opacity=".86"/>
+    <polygon points="0,190 180,244 0,244" fill="#f09a28" opacity=".9"/>
+    <polygon points="456,190 456,244 344,244" fill="#f7cf44" opacity=".93"/>
+    <path d="M112 244a116 116 0 0 1 232 0Z" fill="#98251f" opacity=".9"/>
+    <polygon points="228,0 206,244 228,244" fill="#fa4e2f" opacity=".9"/>
+    <polygon points="228,0 250,244 228,244" fill="#b51f1d" opacity=".88"/>
+    <line x1="0" y1="0" x2="456" y2="0" stroke="#f89c57" stroke-width="5" opacity=".8"/>
+    <line x1="0" y1="244" x2="456" y2="244" stroke="#6e201c" stroke-width="5" opacity=".65"/>
+  </g>
+  <g transform="translate(92 350)">
+    <rect x="0" y="0" width="456" height="70" fill="#ffec00" stroke="#e0d100" stroke-width="5"/>
+    <text x="228" y="47" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-style="italic" font-size="48" font-weight="900" fill="#24313a">UltraTech</text>
+  </g>
+</svg>

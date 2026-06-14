@@ -57,7 +57,7 @@ def _issuance_to_dict(log: IssuanceLog, db: Session) -> dict:
     }
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 def issue_tool(
     payload: IssuanceCreate,
     current_user: User = Depends(RequireMaintenance),
@@ -167,7 +167,7 @@ def get_overdue_issuances(
     return [_issuance_to_dict(log, db) for log in logs]
 
 
-@router.get("/")
+@router.get("")
 def list_issuances(
     status: Optional[str] = None,
     tool_id: Optional[UUID] = None,

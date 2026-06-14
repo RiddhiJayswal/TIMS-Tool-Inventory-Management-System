@@ -82,16 +82,16 @@ function ReturnModal({ log, onClose, onReturned }) {
 
   return (
     <ModalShell onClose={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
           <h2 className="text-base font-semibold text-gray-900">Process Return</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="px-6 py-5 space-y-4">
+        <form onSubmit={handleSubmit} className="min-h-0 flex flex-1 flex-col">
+          <div className="px-6 py-5 space-y-4 overflow-y-auto min-h-0 flex-1">
             {/* Summary */}
             <div className="p-3 bg-gray-50 rounded-lg text-sm space-y-1.5">
               <div className="flex justify-between">
@@ -177,7 +177,7 @@ function ReturnModal({ log, onClose, onReturned }) {
             )}
           </div>
 
-          <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+          <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -244,15 +244,15 @@ function DamageModal({ log, onClose, onAssessed }) {
 
   return (
     <ModalShell onClose={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
           <h2 className="text-base font-semibold text-gray-900">Record Damage Assessment</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={18} />
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-6 py-5 space-y-4 overflow-y-auto min-h-0 flex-1">
           {/* Summary */}
           <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-sm space-y-1.5">
             <div className="flex justify-between">
@@ -350,7 +350,7 @@ function DamageModal({ log, onClose, onAssessed }) {
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"

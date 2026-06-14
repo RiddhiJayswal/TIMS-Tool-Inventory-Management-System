@@ -9,8 +9,10 @@ import {
   BarChart2,
   Activity,
   Archive,
+  Users,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
+import BrandLogo from './BrandLogo'
 
 const ALL_ROLES = ['requester', 'dept_head', 'maintenance_staff', 'maintenance_admin']
 const MAINTENANCE_ROLES = ['maintenance_staff', 'maintenance_admin']
@@ -25,6 +27,7 @@ const NAV_ITEMS = [
   { label: 'Reports',      path: '/reports',        icon: BarChart2,        roles: MAINTENANCE_ROLES },
   { label: 'Calibration',  path: '/calibration',    icon: Activity,         roles: ['maintenance_admin'] },
   { label: 'Storage Bins', path: '/bins',           icon: Archive,          roles: ['maintenance_admin'] },
+  { label: 'User Mgmt',    path: '/users',          icon: Users,            roles: ['maintenance_admin'] },
 ]
 
 export default function Sidebar() {
@@ -35,10 +38,11 @@ export default function Sidebar() {
   return (
     <aside className="w-56 min-h-screen bg-navy-900 flex flex-col shrink-0">
       {/* Logo area */}
-      <div className="px-6 py-5 border-b border-navy-700">
-        <div className="text-white font-bold text-lg leading-tight">TIMS</div>
-        <div className="text-navy-700 text-xs mt-0.5" style={{ color: '#6b8fa8' }}>
-          UltraTech Cement
+      <div className="px-4 py-5 border-b border-navy-700">
+        <BrandLogo className="h-24 w-full object-contain mix-blend-screen" compact />
+        <div className="text-white font-bold text-sm leading-tight mt-2">TIMS</div>
+        <div className="text-xs mt-0.5" style={{ color: '#6b8fa8' }}>
+          Tool Inventory Management
         </div>
       </div>
 

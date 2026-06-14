@@ -53,7 +53,7 @@ def _tool_to_dict(tool: Tool) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 def list_tools(
     search: Optional[str] = None,
     tool_type: Optional[str] = None,
@@ -93,7 +93,7 @@ def list_tools(
     return [_tool_to_dict(t) for t in tools]
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 def create_tool(
     payload: ToolCreate,
     current_user: User = Depends(RequireAdmin),

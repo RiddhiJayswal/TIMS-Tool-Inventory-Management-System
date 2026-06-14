@@ -12,6 +12,7 @@ import Issuance from './pages/Issuance'
 import Returns from './pages/Returns'
 import Calibration from './pages/Calibration'
 import Reports from './pages/Reports'
+import Users from './pages/Users'
 import Layout from './components/Layout'
 
 function StorageBinsPlaceholder() {
@@ -72,6 +73,10 @@ export default function App() {
 
             <Route path="/bins" element={
               <ProtectedRoute roles={ADMIN_ROLES}><StorageBinsPlaceholder /></ProtectedRoute>
+            } />
+
+            <Route path="/users" element={
+              <ProtectedRoute roles={ADMIN_ROLES}><Users /></ProtectedRoute>
             } />
 
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

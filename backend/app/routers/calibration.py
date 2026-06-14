@@ -45,7 +45,7 @@ def _tool_cal_dict(tool: Tool, today: date) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 def list_calibration_tools(
     status: Optional[str] = None,
     days: int = 30,

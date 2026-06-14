@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { Bell, LogOut, ChevronDown } from 'lucide-react'
+import { Bell, LogOut } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { authAPI } from '../api/client'
+import BrandLogo from './BrandLogo'
 
 const ROLE_LABELS = {
   requester: 'Requester',
@@ -22,6 +23,9 @@ export default function Navbar() {
   const [notifications, setNotifications] = useState([])
   const [showNotifs, setShowNotifs] = useState(false)
   const notifRef = useRef(null)
+
+  const newNotifications = notifications.filter(n => !n.is_read)
+  const olderNotifications = notifications.filter(n => n.is_read)
 
   useEffect(() => {
     const fetchNotifs = async () => {
@@ -48,15 +52,18 @@ export default function Navbar() {
 
   const markRead = async (id) => {
     try {
-      await authAPI.markRead(id)
-      setNotifications(prev => prev.filter(n => n.id !== id))
+      const res = await authAPI.markRead(id)
+      setNotifications(prev => prev.map(n => n.id === id ? res.data : n))
     } catch {}
   }
 
   return (
-    <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0">
-      <div className="text-slate-600 text-sm font-medium">
-        Tool Inventory Management System
+    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0">
+      <div className="flex items-center gap-5 min-w-0">
+        <BrandLogo className="h-14 w-28 shrink-0" compact />
+        <div className="text-slate-600 text-sm font-medium truncate">
+          Tool Inventory Management System
+        </div>
       </div>
 
       <div className="flex items-center gap-4">
@@ -67,39 +74,36 @@ export default function Navbar() {
             className="relative p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
           >
             <Bell size={18} />
-            {notifications.length > 0 && (
+            {newNotifications.length > 0 && (
               <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center leading-none">
-                {notifications.length > 9 ? '9+' : notifications.length}
+                {newNotifications.length > 9 ? '9+' : newNotifications.length}
               </span>
             )}
           </button>
 
           {showNotifs && (
-            <div className="absolute right-0 top-10 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+            <div className="absolute right-0 top-10 w-96 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
               <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
                 <span className="text-sm font-semibold text-gray-700">Notifications</span>
-                <span className="text-xs text-gray-400">{notifications.length} unread</span>
+                <span className="text-xs text-gray-400">{newNotifications.length} new</span>
               </div>
-              <div className="max-h-64 overflow-y-auto">
+              <div className="max-h-80 overflow-y-auto">
                 {notifications.length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-6">No new notifications</p>
                 ) : (
-                  notifications.map(n => (
-                    <div key={n.id} className="px-4 py-3 border-b border-gray-50 hover:bg-gray-50">
-                      <p className="text-xs text-gray-700 leading-relaxed">{n.message}</p>
-                      <div className="flex items-center justify-between mt-1.5">
-                        <span className="text-xs text-gray-400">
-                          {new Date(n.created_at).toLocaleDateString()}
-                        </span>
-                        <button
-                          onClick={() => markRead(n.id)}
-                          className="text-xs text-blue-500 hover:text-blue-700"
-                        >
-                          Mark read
-                        </button>
-                      </div>
-                    </div>
-                  ))
+                  <>
+                    <NotificationSection
+                      title="New"
+                      emptyText="No new messages"
+                      notifications={newNotifications}
+                      onMarkRead={markRead}
+                    />
+                    <NotificationSection
+                      title="Older"
+                      emptyText="No older messages"
+                      notifications={olderNotifications}
+                    />
+                  </>
                 )}
               </div>
             </div>
@@ -128,5 +132,42 @@ export default function Navbar() {
         </button>
       </div>
     </header>
+  )
+}
+
+function NotificationSection({ title, emptyText, notifications, onMarkRead }) {
+  return (
+    <section>
+      <div className="sticky top-0 bg-gray-50 px-4 py-2 border-b border-gray-100 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {title}
+      </div>
+      {notifications.length === 0 ? (
+        <p className="text-sm text-gray-400 text-center py-5">{emptyText}</p>
+      ) : (
+        notifications.map(n => (
+          <div
+            key={n.id}
+            className={`px-4 py-3 border-b border-gray-50 ${n.is_read ? 'bg-white' : 'bg-amber-50/60'} hover:bg-gray-50`}
+          >
+            <p className={`text-xs leading-relaxed ${n.is_read ? 'text-gray-500' : 'text-gray-800 font-medium'}`}>
+              {n.message}
+            </p>
+            <div className="flex items-center justify-between mt-1.5">
+              <span className="text-xs text-gray-400">
+                {new Date(n.created_at).toLocaleString()}
+              </span>
+              {!n.is_read && onMarkRead && (
+                <button
+                  onClick={() => onMarkRead(n.id)}
+                  className="text-xs text-blue-500 hover:text-blue-700"
+                >
+                  Mark read
+                </button>
+              )}
+            </div>
+          </div>
+        ))
+      )}
+    </section>
   )
 }

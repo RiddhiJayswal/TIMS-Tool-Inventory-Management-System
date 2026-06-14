@@ -47,7 +47,7 @@ def _req_to_dict(req: Requisition, db: Session) -> dict:
     }
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 def create_requisition(
     payload: RequisitionCreate,
     current_user: User = Depends(get_current_user),
@@ -125,7 +125,7 @@ def create_requisition(
     return _req_to_dict(req, db)
 
 
-@router.get("/")
+@router.get("")
 def list_requisitions(
     status: Optional[str] = None,
     department: Optional[str] = None,

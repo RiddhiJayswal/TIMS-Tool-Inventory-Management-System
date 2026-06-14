@@ -1,6 +1,24 @@
-from app.models.transaction import AuditLog
-from sqlalchemy.orm import Session
 import uuid
+from datetime import date, datetime
+from decimal import Decimal
+
+from sqlalchemy.orm import Session
+
+from app.models.transaction import AuditLog
+
+
+def _json_safe(value):
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return value
 
 
 def log_action(
@@ -17,7 +35,7 @@ def log_action(
         action=action,
         entity=entity,
         entity_id=entity_id,
-        details=details,
+        details=_json_safe(details),
     )
     db.add(entry)
     db.flush()

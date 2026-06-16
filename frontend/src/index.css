@@ -2,10 +2,132 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+@layer base {
+  * {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+
+  ::selection {
+    @apply bg-amber-200 text-slate-950;
+  }
 }
 
-body {
-  @apply bg-gray-50 text-gray-900;
+@layer components {
+  .brand-logo {
+    @apply block object-contain select-none;
+  }
+
+  .brand-logo-sidebar {
+    @apply h-16 w-28;
+  }
+
+  .brand-logo-navbar {
+    @apply h-12 w-28;
+  }
+
+  .brand-logo-login {
+    @apply h-28 w-auto;
+  }
+
+  .app-shell {
+    @apply flex h-screen overflow-hidden bg-slate-50;
+  }
+
+  .app-main {
+    @apply flex-1 overflow-y-auto bg-slate-50 p-5 sm:p-6 lg:p-7;
+  }
+
+  .card {
+    @apply bg-white border border-slate-200 rounded-lg shadow-sm;
+  }
+
+  .card-hover {
+    @apply transition-all duration-200 ease-in-out hover:border-slate-300 hover:shadow-soft;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 bg-amber-500 text-white shadow-sm shadow-amber-500/20 hover:bg-amber-600 hover:-translate-y-px focus:ring-amber-400;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 focus:ring-slate-300;
+  }
+
+  .btn-blue {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 bg-blue-600 text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700 hover:-translate-y-px focus:ring-blue-400;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 bg-red-600 text-white shadow-sm shadow-red-600/20 hover:bg-red-700 hover:-translate-y-px focus:ring-red-400;
+  }
+
+  .btn-soft {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200 ease-in-out hover:-translate-y-px;
+  }
+
+  .input-control {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition-all duration-200 ease-in-out placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-amber-400;
+  }
+
+  .tab-shell {
+    @apply flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1;
+  }
+
+  .table-shell {
+    @apply card overflow-hidden;
+  }
+
+  .data-table {
+    @apply w-full text-sm;
+  }
+
+  .data-table thead tr {
+    @apply border-b border-slate-100 bg-slate-50;
+  }
+
+  .data-table th {
+    @apply whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500;
+  }
+
+  .data-table td {
+    @apply px-4 py-3;
+  }
+
+  .data-table tbody {
+    @apply divide-y divide-slate-50;
+  }
+
+  .data-table tbody tr {
+    @apply transition-all duration-200 ease-in-out hover:bg-amber-50/35;
+  }
+
+  .sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 999px;
+  }
 }

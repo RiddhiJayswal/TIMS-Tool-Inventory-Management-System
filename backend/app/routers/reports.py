@@ -13,7 +13,9 @@ from app.auth.roles import RequireMaintenance, get_current_user
 from app.database import get_db
 from app.models.master import StorageBin, Tool
 from app.models.transaction import IssuanceLog, Requisition, User
+from app.services.calibration_status import sync_calibration_statuses
 from app.services.depreciation import calculate_current_value
+from app.services.stock import get_tool_stock_snapshot
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -45,16 +47,35 @@ def report_stock(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    query = db.query(Tool)
-    if not include_written_off:
-        query = query.filter(Tool.status != "written_off")
-    tools = query.order_by(Tool.name).all()
-
+    sync_calibration_statuses(db)
     data = []
-    for t in tools:
+    for row in get_tool_stock_snapshot(db, include_written_off=include_written_off):
+        t = row["tool"]
         storage_bin = (
             db.query(StorageBin).filter(StorageBin.id == t.storage_bin_id).first()
             if t.storage_bin_id
+            else None
+        )
+        unit_cost = float(t.purchase_price) if t.purchase_price is not None else None
+        current_unit_value = calculate_current_value(
+            unit_cost,
+            t.purchase_date,
+            t.standard_life_months,
+        ) if unit_cost is not None else None
+        current_unit_value_f = float(current_unit_value) if current_unit_value is not None else unit_cost
+        current_value = (
+            round(row["available_quantity"] * current_unit_value_f, 2)
+            if current_unit_value_f is not None
+            else None
+        )
+        total_value = (
+            round(row["total_quantity"] * current_unit_value_f, 2)
+            if current_unit_value_f is not None
+            else None
+        )
+        issued_value = (
+            round(row["currently_issued"] * current_unit_value_f, 2)
+            if current_unit_value_f is not None
             else None
         )
         data.append(
@@ -64,11 +85,24 @@ def report_stock(
                 "category": t.category,
                 "tool_type": t.tool_type,
                 "department_access": t.department_access,
-                "total_quantity": t.total_quantity,
-                "available_quantity": t.available_quantity,
-                "currently_issued": t.total_quantity - t.available_quantity,
+                "total_quantity": row["total_quantity"],
+                "available_quantity": row["available_quantity"],
+                "currently_issued": row["currently_issued"],
+                "issued_quantity": row["issued_quantity"],
+                "unavailable_quantity": row["unavailable_quantity"],
                 "status": t.status,
                 "storage_bin": storage_bin.bin_code if storage_bin else None,
+                "storage_location": (
+                    f"{storage_bin.bin_code} - {storage_bin.shelf_label}" if storage_bin else None
+                ),
+                "unit_cost": unit_cost,
+                "current_unit_value": current_unit_value_f,
+                "current_value": current_value,
+                "total_value": total_value,
+                "issued_value": issued_value,
+                "purchase_date": t.purchase_date,
+                "standard_life_months": t.standard_life_months,
+                "calibration_status": t.status if t.requires_calibration else None,
             }
         )
 
@@ -89,6 +123,7 @@ def report_issuance_history(
     current_user=Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     query = db.query(IssuanceLog)
 
     if tool_id:
@@ -144,6 +179,7 @@ def report_overdue(
     current_user=Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     today = date.today()
     logs = (
         db.query(IssuanceLog)
@@ -185,6 +221,7 @@ def report_calibration(
     current_user=Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     today = date.today()
     tools = db.query(Tool).filter(Tool.requires_calibration == True).all()
 
@@ -232,6 +269,7 @@ def report_damage_penalty(
     current_user=Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     query = db.query(IssuanceLog).filter(IssuanceLog.damage_type != None)
     if from_date:
         query = query.filter(IssuanceLog.actual_return_date >= from_date)
@@ -275,6 +313,7 @@ def report_utilization(
     current_user=Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     today = date.today()
     if not from_date:
         from_date = today - timedelta(days=30)
@@ -321,6 +360,16 @@ def report_utilization(
             )
             .count()
         )
+        active_issuances = (
+            db.query(IssuanceLog)
+            .join(Requisition, IssuanceLog.requisition_id == Requisition.id)
+            .filter(
+                Requisition.requester_dept == dept,
+                IssuanceLog.actual_return_date == None,
+            )
+            .count()
+        )
+        rejected_requests = base_req.filter(Requisition.status == "rejected").count()
 
         most_borrowed = (
             db.query(Tool.name, func.count(IssuanceLog.id).label("cnt"))
@@ -341,7 +390,10 @@ def report_utilization(
                 "department": dept,
                 "total_requests": total_requests,
                 "approved_requests": approved_requests,
+                "rejected_requests": rejected_requests,
+                "active_issuances": active_issuances,
                 "total_tools_issued": total_issued,
+                "total_issued": total_issued,
                 "overdue_count": overdue_count,
                 "most_borrowed_tool": most_borrowed[0] if most_borrowed else None,
                 "period_from": from_date,
@@ -363,6 +415,7 @@ def report_depreciation(
     current_user=Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     today = date.today()
     query = db.query(Tool).filter(Tool.purchase_price != None)
     if not include_written_off:
@@ -394,6 +447,11 @@ def report_depreciation(
                 "months_elapsed": months_elapsed,
                 "current_value": current_val_f,
                 "depreciation_to_date": round(purchase_price_f - current_val_f, 2),
+                "depreciation_pct": (
+                    round(((purchase_price_f - current_val_f) / purchase_price_f) * 100, 2)
+                    if purchase_price_f
+                    else None
+                ),
                 "status": t.status,
             }
         )

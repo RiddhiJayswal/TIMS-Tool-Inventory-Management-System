@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 
 from app.database import get_db
-from app.models.transaction import User, Notification
+from app.models.transaction import User, Notification, AccessRequest
 from app.auth.roles import verify_password, create_access_token, get_current_user, hash_password
 from app.config import settings
 from app.services.email import send_password_reset_email
@@ -34,13 +34,10 @@ class SignupRequest(BaseModel):
     employee_id: str = Field(min_length=3, max_length=50)
     full_name: str = Field(min_length=2, max_length=200)
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=6, max_length=128)
     department: str = Field(min_length=2, max_length=100)
-
-    @field_validator("password")
-    @classmethod
-    def strong_password(cls, value: str) -> str:
-        return _validate_password(value)
+    requested_role: str = "requester"
+    reason: str | None = None
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -68,6 +65,33 @@ def _user_out(user: User) -> dict:
         "department": user.department,
         "is_active": user.is_active,
         "created_at": user.created_at,
+    }
+
+
+def _access_request_out(req: AccessRequest) -> dict:
+    return {
+        "id": str(req.id),
+        "requestId": req.request_id,
+        "request_id": req.request_id,
+        "name": req.full_name,
+        "full_name": req.full_name,
+        "email": req.email,
+        "username": req.email,
+        "employeeId": req.employee_id,
+        "employee_id": req.employee_id,
+        "department": req.department,
+        "requestedRole": req.requested_role,
+        "requested_role": req.requested_role,
+        "reason": req.reason,
+        "notes": req.reason,
+        "status": req.status,
+        "createdAt": req.created_at,
+        "created_at": req.created_at,
+        "approvedBy": str(req.approved_by) if req.approved_by else None,
+        "approved_by": str(req.approved_by) if req.approved_by else None,
+        "approvedAt": req.approved_at,
+        "approved_at": req.approved_at,
+        "rejection_reason": req.rejection_reason,
     }
 
 
@@ -108,25 +132,61 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     employee_id = payload.employee_id.strip().upper()
     email = payload.email.strip().lower()
+    role_map = {
+        "requester": "requester",
+        "Requester": "requester",
+        "dept_head": "dept_head",
+        "Dept Head": "dept_head",
+        "maintenance_staff": "maintenance_staff",
+        "Maintenance Staff": "maintenance_staff",
+        "maintenance_admin": "maintenance_admin",
+        "Admin": "maintenance_admin",
+    }
+    requested_role = role_map.get(payload.requested_role, payload.requested_role)
 
     if db.query(User).filter(User.employee_id == employee_id).first():
         raise HTTPException(status_code=400, detail="Employee ID already exists")
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
+    if requested_role not in {"requester", "dept_head", "maintenance_staff", "maintenance_admin"}:
+        raise HTTPException(status_code=400, detail="Invalid requested role")
 
-    user = User(
+    existing = (
+        db.query(AccessRequest)
+        .filter(
+            AccessRequest.status == "pending",
+            ((AccessRequest.employee_id == employee_id) | (AccessRequest.email == email)),
+        )
+        .first()
+    )
+    if existing:
+        return {"message": "Access request already pending", "request": _access_request_out(existing)}
+
+    count = db.query(AccessRequest).count() + 1
+    access_request = AccessRequest(
+        request_id=f"AR-{datetime.utcnow().year}-{count:04d}",
         employee_id=employee_id,
         full_name=payload.full_name.strip(),
         email=email,
         hashed_password=hash_password(payload.password),
-        role="requester",
         department=payload.department.strip(),
-        is_active=True,
+        requested_role=requested_role,
+        reason=(payload.reason or "").strip() or None,
+        status="pending",
     )
-    db.add(user)
+    db.add(access_request)
+    db.flush()
+
+    admins = db.query(User).filter(User.role == "maintenance_admin", User.is_active == True).all()
+    for admin in admins:
+        db.add(Notification(
+            user_id=admin.id,
+            message=f"New access request {access_request.request_id}: {access_request.full_name} requested {requested_role.replace('_', ' ')} access.",
+            is_read=False,
+        ))
     db.commit()
-    db.refresh(user)
-    return _user_out(user)
+    db.refresh(access_request)
+    return {"message": "Access request submitted", "request": _access_request_out(access_request)}
 
 
 @router.post("/forgot-password")

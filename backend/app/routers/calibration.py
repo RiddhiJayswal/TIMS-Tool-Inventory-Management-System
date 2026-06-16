@@ -11,6 +11,7 @@ from app.models.master import Tool
 from app.models.transaction import AuditLog, User
 from app.schemas.calibration import CalibrationRecord
 from app.services.audit import log_action
+from app.services.calibration_status import sync_calibration_statuses
 
 router = APIRouter(prefix="/calibration", tags=["calibration"])
 
@@ -52,6 +53,7 @@ def list_calibration_tools(
     current_user: User = Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     today = date.today()
     tools = db.query(Tool).filter(Tool.requires_calibration == True).all()
 
@@ -82,6 +84,7 @@ def record_calibration(
     current_user: User = Depends(RequireAdmin),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     tool = db.query(Tool).filter(Tool.id == tool_id).first()
     if not tool:
         raise HTTPException(404, "Tool not found")
@@ -133,6 +136,7 @@ def get_calibration_history(
     current_user: User = Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     tool = db.query(Tool).filter(Tool.id == tool_id).first()
     if not tool:
         raise HTTPException(404, "Tool not found")

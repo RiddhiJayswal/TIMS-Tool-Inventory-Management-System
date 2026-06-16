@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { UserPlus, Shield, Users as UsersIcon, ChevronDown } from 'lucide-react'
 import Layout from '../components/Layout'
 import { usersAPI } from '../api/client'
+import { useDataSync } from '../data/DataSyncContext'
 
 const ROLES = [
   { value: 'requester',          label: 'Requester',           desc: 'View tools, raise requisitions' },
@@ -42,6 +43,7 @@ const EMPTY_FORM = {
 }
 
 function AddUserModal({ onClose, onCreated }) {
+  const { actions } = useDataSync()
   const [form, setForm] = useState(EMPTY_FORM)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -62,7 +64,7 @@ function AddUserModal({ onClose, onCreated }) {
     setSaving(true)
     try {
       const { confirm_password, ...payload } = form
-      const res = await usersAPI.create(payload)
+      const res = await actions.addUser(payload)
       onCreated(res.data)
       onClose()
     } catch (err) {
@@ -74,7 +76,7 @@ function AddUserModal({ onClose, onCreated }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg">
         <div className="px-6 py-4 border-b flex items-center justify-between">
           <h2 className="text-base font-semibold text-gray-900">Add New Employee</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
@@ -94,7 +96,7 @@ function AddUserModal({ onClose, onCreated }) {
                 required value={form.employee_id}
                 onChange={e => set('employee_id', e.target.value.toUpperCase())}
                 placeholder="e.g. USR002"
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                className="input-control"
               />
             </div>
             <div>
@@ -103,7 +105,7 @@ function AddUserModal({ onClose, onCreated }) {
                 required value={form.full_name}
                 onChange={e => set('full_name', e.target.value)}
                 placeholder="e.g. Ravi Sharma"
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                className="input-control"
               />
             </div>
           </div>
@@ -114,7 +116,7 @@ function AddUserModal({ onClose, onCreated }) {
               required type="email" value={form.email}
               onChange={e => set('email', e.target.value)}
               placeholder="ravi.sharma@ultratech.com"
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              className="input-control"
             />
           </div>
 
@@ -123,7 +125,7 @@ function AddUserModal({ onClose, onCreated }) {
               <label className="block text-xs font-medium text-gray-700 mb-1">Role *</label>
               <select
                 value={form.role} onChange={e => set('role', e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                className="input-control"
               >
                 {ROLES.map(r => (
                   <option key={r.value} value={r.value}>{r.label}</option>
@@ -137,7 +139,7 @@ function AddUserModal({ onClose, onCreated }) {
               <label className="block text-xs font-medium text-gray-700 mb-1">Department *</label>
               <select
                 value={form.department} onChange={e => set('department', e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                className="input-control"
               >
                 {DEPARTMENTS.map(d => <option key={d}>{d}</option>)}
               </select>
@@ -151,7 +153,7 @@ function AddUserModal({ onClose, onCreated }) {
                 required type="password" value={form.password}
                 onChange={e => set('password', e.target.value)}
                 placeholder="Min 6 characters"
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                className="input-control"
               />
             </div>
             <div>
@@ -160,18 +162,18 @@ function AddUserModal({ onClose, onCreated }) {
                 required type="password" value={form.confirm_password}
                 onChange={e => set('confirm_password', e.target.value)}
                 placeholder="Repeat password"
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                className="input-control"
               />
             </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose}
-              className="px-4 py-2 text-sm rounded-lg border text-gray-600 hover:bg-gray-50">
+              className="btn-secondary">
               Cancel
             </button>
             <button type="submit" disabled={saving}
-              className="px-5 py-2 text-sm rounded-lg bg-amber-500 text-white font-medium hover:bg-amber-600 disabled:opacity-50">
+              className="btn-primary">
               {saving ? 'Creating…' : 'Create Employee'}
             </button>
           </div>
@@ -182,6 +184,7 @@ function AddUserModal({ onClose, onCreated }) {
 }
 
 export default function Users() {
+  const { actions, version } = useDataSync()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -200,12 +203,12 @@ export default function Users() {
     }
   }
 
-  useEffect(() => { fetchUsers() }, [])
+  useEffect(() => { fetchUsers() }, [version])
 
   const handleToggle = async (userId) => {
     setTogglingId(userId)
     try {
-      const res = await usersAPI.toggleActive(userId)
+      const res = await actions.toggleUserActive(userId)
       setUsers(prev => prev.map(u => u.id === userId ? res.data : u))
     } catch (err) {
       alert(err.response?.data?.detail || 'Failed to update user')
@@ -235,7 +238,7 @@ export default function Users() {
           </div>
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600"
+            className="btn-primary"
           >
             <UserPlus size={16} />
             Add Employee
@@ -249,7 +252,7 @@ export default function Users() {
             { label: 'Active Accounts', value: counts.active, icon: UsersIcon, color: 'text-green-600' },
             { label: 'Admins',          value: counts.admin,  icon: Shield,    color: 'text-purple-600' },
           ].map(({ label, value, icon: Icon, color }) => (
-            <div key={label} className="bg-white rounded-xl border p-4 flex items-center gap-4">
+            <div key={label} className="card card-hover p-4 flex items-center gap-4">
               <Icon size={20} className={color} />
               <div>
                 <div className={`text-2xl font-bold ${color}`}>{value}</div>
@@ -262,7 +265,7 @@ export default function Users() {
         {/* Role info cards */}
         <div className="grid grid-cols-4 gap-3">
           {ROLES.map(r => (
-            <div key={r.value} className="bg-white border rounded-lg p-3">
+            <div key={r.value} className="card card-hover p-3">
               <RoleBadge role={r.value} />
               <div className="text-xs text-gray-500 mt-1.5">{r.desc}</div>
               <div className="text-lg font-bold text-gray-800 mt-1">
@@ -273,14 +276,14 @@ export default function Users() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-xl border">
+        <div className="table-shell">
           <div className="px-4 py-3 border-b flex items-center justify-between">
             <div className="flex gap-2">
               {['all', ...ROLES.map(r => r.value)].map(r => (
                 <button
                   key={r}
                   onClick={() => setFilterRole(r)}
-                  className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 ease-in-out ${
                     filterRole === r
                       ? 'bg-amber-500 text-white'
                       : 'text-gray-500 hover:bg-gray-100'
@@ -300,7 +303,7 @@ export default function Users() {
           ) : filtered.length === 0 ? (
             <div className="text-center py-12 text-gray-400 text-sm">No employees found.</div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="data-table">
               <thead>
                 <tr className="text-xs text-gray-500 uppercase tracking-wide border-b">
                   <th className="px-4 py-3 text-left">Employee</th>
@@ -313,7 +316,7 @@ export default function Users() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filtered.map(u => (
-                  <tr key={u.id} className={`hover:bg-gray-50 ${!u.is_active ? 'opacity-50' : ''}`}>
+                  <tr key={u.id} className={!u.is_active ? 'opacity-50' : ''}>
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{u.full_name}</div>
                       <div className="text-xs text-gray-400">{u.email}</div>

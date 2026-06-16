@@ -1,15 +1,11 @@
-# Maintenance Tool Recording System
+# Maintenance Tool Recording System (TIMS)
 ## UltraTech Cement · Maintenance Department
 
 ---
 
 ## What is TIMS?
 
-<<<<<<< HEAD
-This project replaces a manual Excel-based process for the UltraTech Cement plant maintenance department with a structured, real-time, role-aware web application for issuing, tracking, returning, and maintaining plant tools.
-=======
 TIMS replaces a manual Excel-based process with a structured, real-time web application for issuing, tracking, returning, and maintaining plant maintenance tools.
->>>>>>> e06917f (Fix app setup and workflow bugs)
 
 Key problems it solves:
 - No visibility into which tools are available or who has them
@@ -25,127 +21,130 @@ Key problems it solves:
 | Layer | Technology |
 |---|---|
 | Backend | FastAPI (Python 3.11) |
-| Database | PostgreSQL 15 |
-| ORM | SQLAlchemy 2.0 + Alembic |
-| Frontend | React 18 + Tailwind CSS + Vite |
+| Database | SQLite (dev) / PostgreSQL (production) |
+| ORM | SQLAlchemy 2.0 |
+| Frontend | Vanilla React 18 via CDN + TIMS Design System |
 | Auth | JWT (HS256) + bcrypt |
+| Dev Server | Vite (static file serving + API proxy) |
 | Background Jobs | APScheduler (daily calibration + overdue checks) |
-| Infrastructure | Docker + docker-compose |
 
 ---
 
 ## How to Start the Project
 
 ### Prerequisites
-- Docker Desktop must be **running** (open it from the Start Menu, wait for the whale icon in the system tray)
-- Git Bash or any terminal
 
-### Step 1 — Go to the project folder
+- Python 3.11+
+- Node.js 18+ and npm
 
-Open Git Bash and run:
+---
 
-```bash
-cd "C:\Users\Lenovo\Desktop\Maintenance Tool Recording System"
-```
+### Step 1 — Install backend dependencies
 
-### Step 2 — Start all services
+Open a terminal and run:
 
 ```bash
-"C:\Program Files\Docker\Docker\resources\bin\docker.exe" compose up --build -d
+cd "C:\Users\Lenovo\Desktop\Maintenance Tool Recording System\backend"
+pip install -r requirements.txt
 ```
 
-This builds and starts 3 containers:
-- `db` — PostgreSQL database
-- `backend` — FastAPI API server on port 8000
-- `frontend` — React app on port 3000
+---
 
-Wait about 30–60 seconds. Check everything is running:
+### Step 2 — Set up the database (first time only)
+
+The project uses SQLite for local development — no database server needed.
 
 ```bash
-"C:\Program Files\Docker\Docker\resources\bin\docker.exe" ps
+cd "C:\Users\Lenovo\Desktop\Maintenance Tool Recording System\backend"
+python -c "from dotenv import load_dotenv; load_dotenv(); from app.database import engine, Base; import app.models.master, app.models.transaction; Base.metadata.create_all(bind=engine); print('Done')"
+python seed.py
 ```
 
-You should see all 3 containers with status **Up**.
-
-### Step 3 — Seed the database (first time only)
-
-```bash
-"C:\Program Files\Docker\Docker\resources\bin\docker.exe" exec maintenancetoolrecordingsystem-backend-1 python seed.py
-```
-
-Expected output:
+Expected output from `seed.py`:
 ```
 === Seeding Users ===
   added user ADM001
+  added user STF001
+  added user HD001
+  added user USR001
+=== Seeding Storage Bins ===
   ...
 === Seed complete ===
 ```
 
-### Step 4 — Open the website
+> This step is only needed once. The database file (`backend/tims.db`) persists between restarts.
+
+---
+
+### Step 3 — Install frontend dependencies
+
+```bash
+cd "C:\Users\Lenovo\Desktop\Maintenance Tool Recording System\frontend"
+npm install
+```
+
+---
+
+### Step 4 — Start both servers (two separate terminals)
+
+**Terminal 1 — Backend API:**
+
+```bash
+cd "C:\Users\Lenovo\Desktop\Maintenance Tool Recording System\backend"
+uvicorn app.main:app --port 8000 --reload
+```
+
+**Terminal 2 — Frontend Dev Server:**
+
+```bash
+cd "C:\Users\Lenovo\Desktop\Maintenance Tool Recording System\frontend"
+npm run dev
+```
+
+---
+
+### Step 5 — Open the app
+
+Open your browser and go to:
 
 ```
-http://localhost:3000
+http://localhost:5173
 ```
+
+> **Important:** Do NOT use VS Code Live Server to open the app. Always use `http://localhost:5173` from the Vite dev server — it correctly serves all assets and proxies API calls to the backend.
+
+---
+
+## Starting Again (after the first-time setup)
+
+Just repeat Step 4 (two terminals) and open `http://localhost:5173`. No seeding needed — data from last time is preserved in `tims.db`.
 
 ---
 
 ## Stopping the Project
 
-```bash
-"C:\Program Files\Docker\Docker\resources\bin\docker.exe" compose down
-```
-
-Your database data is saved in a Docker volume and will be there next time.
+Press `Ctrl + C` in each terminal.
 
 ---
 
-## Starting Again Next Time (no rebuild needed)
+## API Documentation
 
-```bash
-cd "C:\Users\Lenovo\Desktop\Maintenance Tool Recording System"
-"C:\Program Files\Docker\Docker\resources\bin\docker.exe" compose up -d
-```
-
-Then open `http://localhost:3000`. No seeding needed — data from last time is preserved.
+While the backend is running:
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
 
 ---
 
-## View Logs (if something seems wrong)
+## Default Login Credentials
 
-```bash
-# All containers
-"C:\Program Files\Docker\Docker\resources\bin\docker.exe" compose logs
+| Role | Employee ID | Password | Department |
+|---|---|---|---|
+| Maintenance Admin | `ADM001` | `Admin@123` | Maintenance |
+| Maintenance Staff | `STF001` | `Staff@123` | Maintenance |
+| Department Head (E&I) | `HD001` | `Head@123` | E&I |
+| Requester (E&I) | `USR001` | `User@123` | E&I |
 
-# Backend only
-"C:\Program Files\Docker\Docker\resources\bin\docker.exe" logs maintenancetoolrecordingsystem-backend-1
-
-# Follow live logs
-"C:\Program Files\Docker\Docker\resources\bin\docker.exe" compose logs -f
-```
-
----
-
-## Sign In / Sign Up / Password Reset
-
-### Auth Page (`/login`)
-
-There is **one single auth page** for everyone - no separate admin login, staff login, etc.
-
-```
-Employee ID  →  e.g. ADM001
-Password     →  your password
-             [Sign In]
-```
-
-After login, the backend checks the user's role and the frontend automatically shows the correct menu and pages for that role.
-
-### Sign Up
-
-The login page includes **Sign Up**. Self-registered users are created as `requester` accounts only. A Maintenance Admin can still create and manage all roles from **User Management**.
-
-### Forgot Password
-
-The login page includes **Forgot**. Enter the employee ID and registered email to generate a short-lived reset token, then enter a new password. Reset tokens expire after 15 minutes and become invalid after the password is changed.
+> Change these passwords before deploying to production.
 
 ---
 
@@ -160,7 +159,7 @@ There are 4 roles. Each user has exactly one role.
 | `maintenance_staff` | Tool room / issuing person | Issue tools against approved requests, process returns, view reports |
 | `maintenance_admin` | Full system administrator | Full access — add/edit tools, calibration, damage write-offs, reports, user management |
 
-**Important rules enforced at the API (not just the UI):**
+**Rules enforced at the API (not just the UI):**
 - A requester **cannot approve their own** requisition (HTTP 403)
 - A dept_head can **only approve their own department's** requests (HTTP 403)
 - Tools with **overdue calibration are blocked** from issuance (HTTP 400)
@@ -186,37 +185,24 @@ There are 4 roles. Each user has exactly one role.
 
 ---
 
-## Default Login Credentials (after seeding)
-
-| Role | Employee ID | Password | Department |
-|---|---|---|---|
-| Maintenance Admin | `ADM001` | `Admin@123` | Maintenance |
-| Maintenance Staff | `STF001` | `Staff@123` | Maintenance |
-| Department Head (E&I) | `HD001` | `Head@123` | E&I |
-| Requester (E&I) | `USR001` | `User@123` | E&I |
-
-> Change these passwords before deploying to production.
-
----
-
-## How to Use — Key Workflows
+## Key Workflows
 
 ### 1. Request a Tool (as Requester)
-1. Log in as USR001
+1. Log in as `USR001`
 2. Go to **Tools** → find the tool → click **Request**
 3. Fill in quantity, purpose, from/to dates → Submit
 4. Track status under **My Requests**
 
 ### 2. Approve / Reject a Request (as Dept Head)
-1. Log in as HD001
+1. Log in as `HD001`
 2. Go to **Approvals** → Pending tab
 3. Click **Approve** or **Reject** (with reason)
 4. Stock does NOT change yet — only changes when issued
 
 ### 3. Issue a Tool (as Maintenance Staff)
-1. Log in as STF001
+1. Log in as `STF001`
 2. Go to **Issue Tool** → Approved queue
-3. Click **Issue Tool** → confirm
+3. Click **Issue** → confirm the acknowledgement checkbox → **Confirm Issue**
 4. Stock reduces immediately
 
 ### 4. Return a Tool (as Maintenance Staff)
@@ -226,60 +212,38 @@ There are 4 roles. Each user has exactly one role.
 4. Damaged/missing → admin must complete damage assessment
 
 ### 5. Record Calibration (as Admin)
-1. Log in as ADM001
+1. Log in as `ADM001`
 2. Go to **Calibration** → overdue tools shown in red
 3. Click **Record** → enter date, service partner
 4. Next calibration due date auto-calculates
 
 ### 6. Add a New Employee (as Admin)
-1. Log in as ADM001
+1. Log in as `ADM001`
 2. Go to **User Management** → click **Add Employee**
 3. Fill in Employee ID, name, email, role, department, password
 4. Employee can now log in with those credentials
 
 ### 7. View Reports (as Staff or Admin)
 1. Go to **Reports**
-2. Choose tab: Stock Status / Issuance History / Overdue / Calibration / Damage & Penalty / Utilization / Depreciation
+2. Choose a tab: Stock Status / Issuance History / Overdue / Calibration / Damage & Penalty
 3. Click **Export CSV** to download
-
----
-
-## API Documentation
-
-When the project is running:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-
-All endpoints require JWT auth. In Swagger, click **Authorize** and paste a token from the login response.
-
----
-
-## Running Tests
-
-```bash
-# Unit tests — no database needed
-"C:\Program Files\Docker\Docker\resources\bin\docker.exe" exec maintenancetoolrecordingsystem-backend-1 python -m pytest tests/test_services.py -v
-
-# Integration tests — requires test database
-"C:\Program Files\Docker\Docker\resources\bin\docker.exe" exec maintenancetoolrecordingsystem-db-1 psql -U tims_user -c "CREATE DATABASE tims_test;"
-"C:\Program Files\Docker\Docker\resources\bin\docker.exe" exec maintenancetoolrecordingsystem-backend-1 python -m pytest tests/test_integration.py -v --tb=short
-```
 
 ---
 
 ## Environment Variables
 
-The `.env` file in the project root:
+The `backend/.env` file (already created for local dev):
 
 ```env
-POSTGRES_USER=tims_user
-POSTGRES_PASSWORD=tims_pass
-POSTGRES_DB=tims_db
-
-DATABASE_URL=postgresql://tims_user:tims_pass@db:5432/tims_db
-SECRET_KEY=your-secret-key-here
+DATABASE_URL=sqlite:///./tims.db
+SECRET_KEY=tims-dev-secret-key-ultratech-2026-change-in-production
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=480
+```
+
+For production with PostgreSQL, change `DATABASE_URL` to:
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/tims_db
 ```
 
 > Never commit `.env` to git. It is already in `.gitignore`.
@@ -299,52 +263,52 @@ Maintenance Tool Recording System/
 │   │   │   ├── master.py        # Tool, StorageBin
 │   │   │   └── transaction.py   # User, Requisition, IssuanceLog, Notification
 │   │   ├── routers/
-│   │   │   ├── auth.py          # Login, logout, /me, notifications
+│   │   │   ├── auth.py          # Login, /me, notifications
 │   │   │   ├── users.py         # User management (admin only)
 │   │   │   ├── tools.py         # Tool catalogue CRUD
 │   │   │   ├── storage_bins.py
 │   │   │   ├── requisitions.py  # Raise, approve, reject
 │   │   │   ├── issuance.py      # Issue tools
 │   │   │   ├── returns.py       # Process returns
-│   │   │   ├── damage.py        # Damage assessment, write-off
 │   │   │   ├── calibration.py   # Calibration tracking
-│   │   │   ├── reports.py       # 7 report endpoints + CSV export
+│   │   │   ├── reports.py       # Report endpoints
 │   │   │   └── dashboard.py     # Role-filtered summary
 │   │   ├── services/
-│   │   │   ├── stock.py         # Stock logic with row-level locking
+│   │   │   ├── stock.py         # Stock logic
 │   │   │   ├── depreciation.py  # Monthly depreciation + penalty
 │   │   │   └── notifications.py
 │   │   └── auth/
 │   │       └── roles.py         # JWT, bcrypt, role guards
-│   ├── tests/
-│   │   ├── test_services.py     # 13 unit tests
-│   │   └── test_integration.py  # 25+ integration tests
 │   ├── seed.py                  # Seed users, bins, tools
+│   ├── tims.db                  # SQLite database (auto-created, not committed)
+│   ├── .env                     # Local environment vars (not committed)
 │   └── requirements.txt
 ├── frontend/
-│   ├── src/
-│   │   ├── pages/
-│   │   │   ├── Login.jsx        # Single login page for all roles
-│   │   │   ├── Dashboard.jsx    # Role-aware summary
-│   │   │   ├── Tools.jsx        # Tool catalogue
-│   │   │   ├── ToolDetail.jsx
-│   │   │   ├── Requisitions.jsx # My requests
-│   │   │   ├── Approvals.jsx    # Dept head approval queue
-│   │   │   ├── Issuance.jsx     # Issue tools (staff/admin)
-│   │   │   ├── Returns.jsx      # Process returns (staff/admin)
-│   │   │   ├── Calibration.jsx  # Calibration management (admin)
-│   │   │   ├── Reports.jsx      # 7-tab reports (staff/admin)
-│   │   │   └── Users.jsx        # User management (admin only)
-│   │   ├── components/
-│   │   │   ├── Sidebar.jsx      # Role-filtered navigation
-│   │   │   ├── Navbar.jsx
-│   │   │   ├── Layout.jsx
-│   │   │   └── ProtectedRoute.jsx
-│   │   ├── auth/AuthContext.jsx  # JWT + role helpers
-│   │   └── api/client.js        # Axios + all API namespaces
-│   └── vite.config.js           # Proxy /api → backend:8000
-├── docker-compose.yml
-├── .env                         # Not committed to git
+│   ├── index.html               # App entry point — loads React + design system
+│   ├── public/
+│   │   ├── _ds_bundle.js        # TIMS design system bundle
+│   │   ├── styles.css           # Design system styles
+│   │   ├── tokens/              # CSS design tokens
+│   │   ├── assets/
+│   │   │   └── ultratech-logo.png
+│   │   └── screens/             # All UI screen files (JSX, CDN-compiled)
+│   │       ├── Icons.jsx
+│   │       ├── Data.jsx         # API client — all backend calls
+│   │       ├── AppShell.jsx     # Sidebar + Navbar layout
+│   │       ├── LoginScreen.jsx
+│   │       ├── DashboardScreen.jsx
+│   │       ├── ToolsScreen.jsx
+│   │       ├── RequisitionsScreen.jsx
+│   │       ├── ApprovalsScreen.jsx
+│   │       ├── IssuanceScreen.jsx
+│   │       ├── ReturnsScreen.jsx
+│   │       ├── CalibrationScreen.jsx
+│   │       ├── StorageBinsScreen.jsx
+│   │       ├── ReportsScreen.jsx
+│   │       └── UsersScreen.jsx
+│   ├── vite.config.js           # Static server + /api proxy to backend:8000
+│   └── package.json
+├── docs/
 └── README.md
 ```
 
@@ -362,5 +326,4 @@ Maintenance Tool Recording System/
 | Partial returns only for consumables | `validate_consumable_return()` in `stock.py` |
 | Depreciation snapshotted at issuance time | Before `db.commit()` in issuance router |
 | All stock operations transactional | `try/except/db.rollback()` in all stock routes |
-| Row-level locking prevents race conditions | `SELECT FOR UPDATE` in `get_tool_locked()` |
 | Only admin can create/deactivate users | `RequireAdmin` dependency on `/api/users` |

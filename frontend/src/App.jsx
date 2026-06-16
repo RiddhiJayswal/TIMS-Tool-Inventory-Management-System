@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
+import { DataSyncProvider } from './data/DataSyncContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -13,6 +14,7 @@ import Returns from './pages/Returns'
 import Calibration from './pages/Calibration'
 import Reports from './pages/Reports'
 import Users from './pages/Users'
+import StorageBins from './pages/StorageBins'
 import Layout from './components/Layout'
 
 function StorageBinsPlaceholder() {
@@ -31,8 +33,9 @@ export default function App() {
   return (
     <AuthProvider>
       <ToastProvider>
-        <BrowserRouter>
-          <Routes>
+        <DataSyncProvider>
+          <BrowserRouter>
+            <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
@@ -72,7 +75,7 @@ export default function App() {
             } />
 
             <Route path="/bins" element={
-              <ProtectedRoute roles={ADMIN_ROLES}><StorageBinsPlaceholder /></ProtectedRoute>
+              <ProtectedRoute roles={ADMIN_ROLES}><StorageBins /></ProtectedRoute>
             } />
 
             <Route path="/users" element={
@@ -80,8 +83,9 @@ export default function App() {
             } />
 
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </BrowserRouter>
+            </Routes>
+          </BrowserRouter>
+        </DataSyncProvider>
       </ToastProvider>
     </AuthProvider>
   )

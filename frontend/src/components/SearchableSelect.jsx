@@ -68,7 +68,7 @@ export default function SearchableSelect({ value, onChange, placeholder = 'Searc
           onChange={handleInput}
           onFocus={() => { if (results.length) setOpen(true) }}
           placeholder={placeholder}
-          className="w-full pl-8 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+          className="input-control pl-8"
         />
         {loading && (
           <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />
@@ -76,7 +76,7 @@ export default function SearchableSelect({ value, onChange, placeholder = 'Searc
       </div>
 
       {open && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-30 max-h-56 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-panel z-30 max-h-56 overflow-y-auto">
           {results.map(tool => {
             const disabled = isDisabled(tool)
             const lowStock = !disabled && tool.available_quantity <= 1
@@ -86,7 +86,7 @@ export default function SearchableSelect({ value, onChange, placeholder = 'Searc
                 type="button"
                 onClick={() => handleSelect(tool)}
                 disabled={disabled}
-                className={`w-full text-left px-4 py-2.5 flex items-center justify-between gap-3 transition-colors
+                className={`w-full text-left px-4 py-2.5 flex items-center justify-between gap-3 transition-all duration-200 ease-in-out
                   ${disabled ? 'opacity-40 cursor-not-allowed bg-gray-50' : 'hover:bg-amber-50 cursor-pointer'}`}
               >
                 <div className="min-w-0">

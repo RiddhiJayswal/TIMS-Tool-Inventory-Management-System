@@ -11,6 +11,7 @@ from app.models.transaction import IssuanceLog, Requisition, User
 from app.schemas.damage import DamageAssessment, WriteOffPayload
 from app.services.audit import log_action
 from app.services.depreciation import calculate_penalty
+from app.services.stock import consume_stock
 
 router = APIRouter(prefix="/damage", tags=["damage"])
 
@@ -120,15 +121,12 @@ def record_damage(
     if payload.notes:
         log.notes = payload.notes
 
-    # Wear and tear: write off one physical unit permanently.
-    # The returns router already restored available_quantity, so we reduce by 1
-    # to reflect the destroyed unit leaving total inventory.
+    # Damage assessment closes the inventory impact for all unusable units.
+    # consume_stock clamps availability for older damaged returns that were restored.
     tool = db.query(Tool).filter(Tool.id == log.tool_id).first()
-    if payload.damage_type == "wear_and_tear" and tool:
-        tool.total_quantity -= 1
-        tool.available_quantity = max(0, tool.available_quantity - 1)
-        if tool.total_quantity <= 0:
-            tool.status = "written_off"
+    if tool:
+        affected_quantity = log.quantity_issued
+        consume_stock(db, str(tool.id), affected_quantity)
 
     # Requisition for borrower name and department
     req = db.query(Requisition).filter(Requisition.id == log.requisition_id).first()

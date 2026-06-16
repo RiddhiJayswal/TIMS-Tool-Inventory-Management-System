@@ -9,4 +9,9 @@ frontend/dist/
 frontend/build/
 frontend/.env
 
+frontend/take_screenshots.mjs/
+frontend/take_tools_screenshots.mjs/
+frontend/take_users_screenshots.mjs/
+
 screenshots/
+fix.md/

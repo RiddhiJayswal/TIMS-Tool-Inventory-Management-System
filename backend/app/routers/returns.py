@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.auth.roles import RequireMaintenance
+from app.auth.roles import get_current_user
 from app.database import get_db
 from app.models.master import Tool
 from app.models.transaction import IssuanceLog, Requisition, User
@@ -12,7 +12,7 @@ from app.routers.issuance import _issuance_to_dict
 from app.schemas.issuance import ReturnCreate
 from app.services.audit import log_action
 from app.services.notifications import notify_user
-from app.services.stock import restore_stock, validate_consumable_return
+from app.services.stock import consume_stock, restore_stock, validate_consumable_return
 
 router = APIRouter(prefix="/returns", tags=["returns"])
 
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/returns", tags=["returns"])
 def process_return(
     issuance_id: UUID,
     payload: ReturnCreate,
-    current_user: User = Depends(RequireMaintenance),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
@@ -31,12 +31,16 @@ def process_return(
             raise HTTPException(404, "Issuance log not found")
         if log.actual_return_date is not None:
             raise HTTPException(400, "Tool already returned")
+        if current_user.role not in ("maintenance_admin", "maintenance_staff") and log.issued_to != current_user.id:
+            raise HTTPException(403, "You can only return tools issued to you")
 
         if payload.quantity_returned > log.quantity_issued:
             raise HTTPException(
                 400,
                 f"quantity_returned ({payload.quantity_returned}) cannot exceed quantity_issued ({log.quantity_issued})",
             )
+        if payload.return_condition in ("damaged", "missing") and not (payload.notes or "").strip():
+            raise HTTPException(400, "Notes are required for damaged or missing returns")
 
         tool = db.query(Tool).filter(Tool.id == log.tool_id).first()
         if not tool:
@@ -71,9 +75,14 @@ def process_return(
         if payload.notes:
             log.notes = payload.notes
 
-        # Step 4 — Restore stock (only for units actually returned)
-        if payload.quantity_returned > 0:
+        # Step 4 — Restore only usable returned units.
+        # Damaged/missing returns stay unavailable until damage assessment writes them off.
+        if payload.return_condition in ("good", "partial") and payload.quantity_returned > 0:
             restore_stock(db, str(tool.id), payload.quantity_returned)
+
+        # Step 4b — Consumed consumables permanently leave total stock.
+        if quantity_consumed > 0:
+            consume_stock(db, str(tool.id), quantity_consumed)
 
         # Step 5 — Flag damage / notify admin
         if payload.return_condition in ("damaged", "missing"):
@@ -91,6 +100,13 @@ def process_return(
                     f"Tool '{tool.name}' returned {payload.return_condition} by {borrower_name}. "
                     "Damage assessment required before closing.",
                 )
+        borrower = db.query(User).filter(User.id == log.issued_to).first()
+        if borrower:
+            notify_user(
+                db,
+                str(borrower.id),
+                f"Tool returned: '{tool.name}' return recorded with condition {payload.return_condition}.",
+            )
 
         # Step 6 — Update requisition status
         req = db.query(Requisition).filter(Requisition.id == log.requisition_id).first()

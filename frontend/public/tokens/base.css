@@ -1,0 +1,56 @@
+/* ============================================================
+   MTRS BASE LAYER
+   Foundational element styling + a small set of shared helper
+   classes used by primitives and specimen cards.
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--text-default);
+  background: var(--surface-page);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Consistent focus treatment on ALL interactive elements (yellow, low alpha) */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-color: var(--focus-ring-color);
+}
+
+/* Mono numerics align in tables */
+.mtrs-mono {
+  font-family: var(--font-mono);
+  font-size: var(--type-mono-size);
+  font-weight: var(--type-mono-weight);
+  letter-spacing: var(--type-mono-tracking);
+  font-variant-numeric: tabular-nums;
+}
+
+.mtrs-tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Table header convention: uppercase, tracked, muted */
+.mtrs-th {
+  font-size: var(--type-table-header-size);
+  line-height: var(--type-table-header-lh);
+  font-weight: var(--type-table-header-weight);
+  letter-spacing: var(--type-table-header-tracking);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Specimen-card scaffolding (Design System tab) */
+.card-pad { padding: 16px 20px; }
+.card-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }

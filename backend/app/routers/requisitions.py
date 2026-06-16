@@ -11,6 +11,7 @@ from app.models.master import Tool
 from app.models.transaction import Requisition, User
 from app.schemas.requisition import RejectPayload, RequisitionCreate
 from app.services.audit import log_action
+from app.services.calibration_status import is_calibration_blocked, sync_calibration_statuses
 from app.services.notifications import (
     notify_requisition_approved,
     notify_requisition_raised,
@@ -33,6 +34,7 @@ def _req_to_dict(req: Requisition, db: Session) -> dict:
         "tool_name": tool.name if tool else None,
         "requested_by": str(req.requested_by),
         "requester_name": requester.full_name if requester else None,
+        "requester_employee_id": requester.employee_id if requester else None,
         "requester_dept": req.requester_dept,
         "quantity_requested": req.quantity_requested,
         "purpose_of_job": req.purpose_of_job,
@@ -53,15 +55,16 @@ def create_requisition(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     # 1. Validate tool
     tool = db.query(Tool).filter(Tool.id == payload.tool_id).first()
     if not tool:
         raise HTTPException(404, "Tool not found")
     if tool.status == "written_off":
         raise HTTPException(400, "Tool is written off and cannot be requisitioned")
-    if tool.status == "calibration_due":
+    if tool.status == "calibration_due" or is_calibration_blocked(tool):
         raise HTTPException(400, "Tool is blocked: calibration overdue. Contact maintenance admin.")
-    if tool.status == "damaged":
+    if tool.status in ("damaged", "blocked"):
         raise HTTPException(400, "Tool is currently marked as damaged")
 
     # 2. Validate department access
@@ -134,6 +137,7 @@ def list_requisitions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     query = db.query(Requisition)
 
     # Role-based filtering

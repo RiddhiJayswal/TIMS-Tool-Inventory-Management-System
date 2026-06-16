@@ -9,6 +9,8 @@ from app.database import get_db
 from app.models.master import Tool
 from app.models.transaction import IssuanceLog, Requisition, User
 from app.routers.issuance import _issuance_to_dict
+from app.services.calibration_status import sync_calibration_statuses
+from app.services.stock import get_stock_summary, get_tool_stock_snapshot
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -18,21 +20,52 @@ def get_dashboard_summary(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     today = date.today()
     warn_threshold = today + timedelta(days=7)
 
-    # Counts common to all roles
-    non_written_off = db.query(Tool).filter(Tool.status != "written_off").all()
-    total_tools = len(non_written_off)
-    available_tools = sum(t.available_quantity for t in non_written_off)
-    tools_issued = sum(t.total_quantity - t.available_quantity for t in non_written_off)
+    # Counts common to all roles. Keep units and catalogue rows separate.
+    stock = get_stock_summary(db)
 
-    overdue_count = db.query(IssuanceLog).filter(
+    role = current_user.role
+    dept = current_user.department
+
+    req_scope = db.query(Requisition)
+    issuance_scope = db.query(IssuanceLog)
+    tool_scope = db.query(Tool)
+
+    if role == "requester":
+        req_scope = req_scope.filter(Requisition.requested_by == current_user.id)
+        issuance_scope = issuance_scope.filter(IssuanceLog.issued_to == current_user.id)
+        tool_scope = tool_scope.filter(
+            or_(Tool.department_access == None, Tool.department_access == dept)
+        )
+    elif role == "dept_head":
+        req_scope = req_scope.filter(Requisition.requester_dept == dept)
+        issuance_scope = issuance_scope.join(User, IssuanceLog.issued_to == User.id).filter(User.department == dept)
+        tool_scope = tool_scope.filter(
+            or_(Tool.department_access == None, Tool.department_access == dept)
+        )
+
+    if role not in ("maintenance_admin", "maintenance_staff"):
+        visible_stock_rows = [
+            row for row in get_tool_stock_snapshot(db, include_written_off=True)
+            if not row["tool"].department_access or row["tool"].department_access == dept
+        ]
+        stock = {
+            "total_quantity": sum(row["total_quantity"] for row in visible_stock_rows),
+            "total_tool_types": len(visible_stock_rows),
+            "available_quantity": sum(row["available_quantity"] for row in visible_stock_rows),
+            "currently_issued": sum(row["currently_issued"] for row in visible_stock_rows),
+            "unavailable_quantity": sum(row["unavailable_quantity"] for row in visible_stock_rows),
+        }
+
+    overdue_count = issuance_scope.filter(
         IssuanceLog.actual_return_date == None,
         IssuanceLog.expected_return_date < today,
     ).count()
 
-    calibration_due_count = db.query(Tool).filter(
+    calibration_due_count = tool_scope.filter(
         Tool.requires_calibration == True,
         or_(
             Tool.status == "calibration_due",
@@ -44,11 +77,26 @@ def get_dashboard_summary(
     ).count()
 
     summary = {
-        "total_tools": total_tools,
-        "available_tools": available_tools,
-        "tools_issued": tools_issued,
+        "total_tools": stock["total_quantity"],
+        "total_tool_types": stock["total_tool_types"],
+        "available_tools": stock["available_quantity"],
+        "tools_issued": stock["currently_issued"],
+        "issued_count": stock["currently_issued"],
+        "unavailable_tools": stock["unavailable_quantity"],
         "overdue_count": overdue_count,
         "calibration_due_count": calibration_due_count,
+        "pending_requests_count": req_scope.filter(Requisition.status == "pending").count(),
+        "approved_requests_count": req_scope.filter(Requisition.status == "approved").count(),
+        "rejected_requests_count": req_scope.filter(Requisition.status == "rejected").count(),
+        "issued_requests_count": req_scope.filter(Requisition.status == "issued").count(),
+        "returned_requests_count": req_scope.filter(Requisition.status == "returned").count(),
+        "cancelled_requests_count": req_scope.filter(Requisition.status == "cancelled").count(),
+        "active_users_count": db.query(User).filter(User.is_active == True).count()
+        if role in ("maintenance_admin", "maintenance_staff")
+        else None,
+        "damaged_or_lost_count": db.query(IssuanceLog).filter(
+            IssuanceLog.return_condition.in_(["damaged", "missing"])
+        ).count() if role in ("maintenance_admin", "maintenance_staff") else 0,
     }
 
     # Every role sees their own active issuances and pending request count
@@ -69,25 +117,33 @@ def get_dashboard_summary(
             Requisition.requester_dept == current_user.department,
             Requisition.status == "pending",
         ).count()
+        summary["approved_queue_count"] = db.query(Requisition).filter(
+            Requisition.requester_dept == current_user.department,
+            Requisition.status == "approved",
+        ).count()
 
     # Maintenance roles see the issuance queue and low-stock alerts
     if current_user.role in ("maintenance_staff", "maintenance_admin"):
+        summary["pending_approvals_count"] = db.query(Requisition).filter(
+            Requisition.status == "pending",
+        ).count()
+
         summary["approved_queue_count"] = db.query(Requisition).filter(
             Requisition.status == "approved",
         ).count()
 
-        low_stock = db.query(Tool).filter(
-            Tool.status == "active",
-            Tool.available_quantity <= 1,
-        ).all()
+        low_stock = [
+            row for row in get_tool_stock_snapshot(db)
+            if row["tool"].status == "active" and row["available_quantity"] <= 1
+        ]
         summary["low_stock_tools"] = [
             {
-                "tool_code": t.tool_code,
-                "name": t.name,
-                "available_quantity": t.available_quantity,
-                "total_quantity": t.total_quantity,
+                "tool_code": row["tool"].tool_code,
+                "name": row["tool"].name,
+                "available_quantity": row["available_quantity"],
+                "total_quantity": row["total_quantity"],
             }
-            for t in low_stock
+            for row in low_stock
         ]
 
     return summary

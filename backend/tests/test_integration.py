@@ -226,6 +226,7 @@ class TestHappyPath:
         # quantity_consumed = 10 - 7 = 3
         assert returned["quantity_consumed"] == 3
         assert returned["quantity_returned"] == 7
+        assert tool.total_quantity == 17, "Consumed consumables must reduce total stock"
 
     def test_depreciation_snapshot_stored_at_issuance(self, client, db):
         """
@@ -251,6 +252,27 @@ class TestHappyPath:
             assert abs(actual - expected_val) <= Decimal("1.00"), (
                 f"Snapshot mismatch: expected {expected_val}, got {actual}"
             )
+
+    def test_damage_assessment_removes_unusable_unit_from_stock(self, client, db):
+        """Damaged returns must not become available stock after assessment."""
+        tool = make_tool(db, quantity=2)
+        usr_token = get_token(client, "USR001", "User@123")
+        hd_token = get_token(client, "HD001", "Head@123")
+        stf_token = get_token(client, "STF001", "Staff@123")
+        adm_token = get_token(client, "ADM001", "Admin@123")
+
+        req = raise_req(client, usr_token, tool.id)
+        approve_req(client, hd_token, req["id"])
+        issued = issue_tool(client, stf_token, req["id"])
+        return_tool(client, stf_token, issued["id"], qty_returned=1, condition="damaged")
+
+        db.refresh(tool)
+        assert tool.available_quantity == 1
+
+        record_damage(client, adm_token, issued["id"], damage_type="mishandling")
+        db.refresh(tool)
+        assert tool.total_quantity == 1
+        assert tool.available_quantity == 1
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -681,6 +703,25 @@ class TestDashboard:
         data = res.json()
         for field in ("total_tools", "available_tools", "issued_count", "overdue_count"):
             assert field in data, f"Missing field '{field}' in dashboard summary"
+
+    def test_dashboard_and_stock_report_use_same_inventory_totals(self, client, db):
+        """Dashboard totals must match the stock report's unit totals."""
+        tool = make_tool(db, quantity=6)
+        usr_token = get_token(client, "USR001", "User@123")
+        hd_token = get_token(client, "HD001", "Head@123")
+        stf_token = get_token(client, "STF001", "Staff@123")
+        adm_token = get_token(client, "ADM001", "Admin@123")
+
+        req = raise_req(client, usr_token, tool.id, qty=2)
+        approve_req(client, hd_token, req["id"])
+        issue_tool(client, stf_token, req["id"])
+
+        dashboard = client.get("/api/dashboard/summary", headers=auth(adm_token)).json()
+        stock_rows = client.get("/api/reports/stock", headers=auth(adm_token)).json()
+
+        assert dashboard["total_tools"] == sum(r["total_quantity"] for r in stock_rows)
+        assert dashboard["available_tools"] == sum(r["available_quantity"] for r in stock_rows)
+        assert dashboard["tools_issued"] == sum(r["issued_quantity"] for r in stock_rows)
 
     def test_my_issuances_returns_only_current_user(self, client, db):
         """GET /dashboard/my-issuances must only return issuances for the logged-in user."""

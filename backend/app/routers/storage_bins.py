@@ -7,10 +7,22 @@ from sqlalchemy.orm import Session
 from app.auth.roles import RequireAdmin, get_current_user
 from app.database import get_db
 from app.models.master import StorageBin, Tool
-from app.models.transaction import User
+from app.models.transaction import Notification, User
 from app.schemas.storage_bin import StorageBinCreate, StorageBinUpdate
+from app.services.calibration_status import sync_calibration_statuses
+from app.services.stock import get_tool_stock_snapshot
 
-router = APIRouter(prefix="/bins", tags=["storage-bins"])
+router = APIRouter(prefix="/storage-bins", tags=["storage-bins"])
+
+
+def _notify_maintenance(db: Session, message: str) -> None:
+    users = (
+        db.query(User)
+        .filter(User.role.in_(["maintenance_admin", "maintenance_staff"]), User.is_active == True)
+        .all()
+    )
+    for user in users:
+        db.add(Notification(user_id=user.id, message=message, is_read=False))
 
 
 def _bin_to_dict(bin_: StorageBin, tool_count: int = 0) -> dict:
@@ -19,7 +31,11 @@ def _bin_to_dict(bin_: StorageBin, tool_count: int = 0) -> dict:
         "bin_code": bin_.bin_code,
         "shelf_label": bin_.shelf_label,
         "section": bin_.section,
-        "department_cat": bin_.department_cat,
+        "department_category": bin_.department_cat,
+        "row_label": bin_.row_label,
+        "rack_number": bin_.rack_number,
+        "shelf_level": bin_.shelf_level,
+        "floor_area": bin_.floor_area,
         "description": bin_.description,
         "capacity": bin_.capacity,
         "tool_count": tool_count,
@@ -32,6 +48,7 @@ def list_bins(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     bins = db.query(StorageBin).all()
     result = []
     for b in bins:
@@ -55,10 +72,15 @@ def create_bin(
         shelf_label=payload.shelf_label,
         section=payload.section,
         department_cat=payload.department_cat,
+        row_label=payload.row_label,
+        rack_number=payload.rack_number,
+        shelf_level=payload.shelf_level,
+        floor_area=payload.floor_area,
         description=payload.description,
         capacity=payload.capacity,
     )
     db.add(bin_)
+    _notify_maintenance(db, f"Storage bin added: {bin_.bin_code} - {bin_.shelf_label} was created by {current_user.full_name}.")
     db.commit()
     db.refresh(bin_)
     return _bin_to_dict(bin_, 0)
@@ -71,6 +93,7 @@ def update_bin(
     current_user: User = Depends(RequireAdmin),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     bin_ = db.query(StorageBin).filter(StorageBin.id == bin_id).first()
     if not bin_:
         raise HTTPException(404, "Storage bin not found")
@@ -78,6 +101,7 @@ def update_bin(
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(bin_, field, value)
 
+    _notify_maintenance(db, f"Storage bin updated: {bin_.bin_code} was edited by {current_user.full_name}.")
     db.commit()
     db.refresh(bin_)
     count = db.query(Tool).filter(Tool.storage_bin_id == bin_.id).count()
@@ -94,6 +118,7 @@ def get_bin_tools(
     if not bin_:
         raise HTTPException(404, "Storage bin not found")
 
+    stock_by_tool = {row["tool"].id: row for row in get_tool_stock_snapshot(db, include_written_off=True)}
     tools = db.query(Tool).filter(Tool.storage_bin_id == bin_id).all()
     return [
         {
@@ -101,8 +126,10 @@ def get_bin_tools(
             "tool_code": t.tool_code,
             "name": t.name,
             "tool_type": t.tool_type,
-            "available_quantity": t.available_quantity,
-            "total_quantity": t.total_quantity,
+            "available_quantity": stock_by_tool.get(t.id, {}).get("available_quantity", t.available_quantity),
+            "total_quantity": stock_by_tool.get(t.id, {}).get("total_quantity", t.total_quantity),
+            "issued_quantity": stock_by_tool.get(t.id, {}).get("issued_quantity", 0),
+            "unavailable_quantity": stock_by_tool.get(t.id, {}).get("unavailable_quantity", 0),
             "status": t.status,
         }
         for t in tools

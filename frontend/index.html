@@ -1,15 +1,170 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TIMS — Tool Inventory Management System</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TIMS — Tool Inventory Management System</title>
+<link rel="stylesheet" href="/styles.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="/_ds_bundle.js"></script>
+<style>
+  html, body { height: 100%; margin: 0; }
+  #app { height: 100vh; }
+  @keyframes _tims_spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- Static scripts: no window.MOCK dependency at module level -->
+<script type="text/babel" src="/screens/Icons.jsx"></script>
+<script src="/screens/Data.jsx"></script>
+<script type="text/babel" src="/screens/AppShell.jsx"></script>
+<script type="text/babel" src="/screens/LoginScreen.jsx"></script>
+
+<!-- App bootstrap: loads remaining screens dynamically after auth + data are ready -->
+<script type="text/babel">
+
+/* ── Dynamic screen loader ────────────────────────────────────────────
+   Loads each screen JSX file via fetch, compiles it in-browser with Babel,
+   and injects the resulting <script> after window.MOCK is populated.
+   This avoids module-level window.MOCK reads happening before data loads.
+──────────────────────────────────────────────────────────────────────── */
+let _screensPromise = null;
+const _loadedScreens = new Set();
+
+async function loadAllScreens() {
+  if (_screensPromise) return _screensPromise;
+  const files = [
+    '/screens/DashboardScreen.jsx',
+    '/screens/ToolsScreen.jsx',
+    '/screens/RequisitionsScreen.jsx',
+    '/screens/ApprovalsScreen.jsx',
+    '/screens/IssuanceScreen.jsx',
+    '/screens/ReturnsScreen.jsx',
+    '/screens/CalibrationScreen.jsx',
+    '/screens/StorageBinsScreen.jsx',
+    '/screens/ReportsScreen.jsx',
+    '/screens/UsersScreen.jsx',
+  ];
+  _screensPromise = (async () => {
+    for (const src of files) {
+      if (_loadedScreens.has(src)) continue;
+      const res  = await fetch(src);
+      if (!res.ok) throw new Error(`Could not load ${src}`);
+      const code = await res.text();
+      const compiled = Babel.transform(code, { presets: ['react'] }).code;
+      const el = document.createElement('script');
+      el.text = compiled;
+      document.body.appendChild(el);
+      _loadedScreens.add(src);
+    }
+  })();
+  return _screensPromise;
+}
+
+/* ── Loading spinner ─────────────────────────────────────────────── */
+function Spinner({ message }) {
+  return (
+    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-page, #f5f6f8)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+        <div style={{ width: 36, height: 36, border: '3px solid var(--border-default, #e3e5e8)', borderTopColor: 'var(--brand-yellow, #f5c518)', borderRadius: '50%', animation: '_tims_spin 0.8s linear infinite' }} />
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted, #6b7280)', fontFamily: 'var(--font-sans, sans-serif)' }}>{message || 'Loading…'}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ── Root App component ──────────────────────────────────────────── */
+function App() {
+  const [authed,  setAuthed]  = React.useState(!!localStorage.getItem('tims_token'));
+  const [ready,   setReady]   = React.useState(false);
+  const [route,   setRoute]   = React.useState('dashboard');
+  const [tick,    setTick]    = React.useState(0); // triggers re-render after MOCK data updates
+
+  /* After login (called by LoginScreen's onLogin prop) */
+  const handleLogin = React.useCallback(async () => {
+    try {
+      await window.API.loadDashboard();
+      await window.API.loadNotifications().catch(() => {});
+      await loadAllScreens();
+      setRoute('dashboard');
+      setReady(true);
+      setAuthed(true);
+      setTick(t => t + 1);
+    } catch (e) {
+      console.error('Post-login init failed:', e);
+      window.API.logout();
+      _screensPromise = null;
+      setAuthed(false);
+      setReady(false);
+      throw e;
+    }
+  }, []);
+
+  /* On page reload with existing token: resume session */
+  React.useEffect(() => {
+    if (!authed) return;
+    window.API.loadDashboard()
+      .then(() => window.API.loadNotifications().catch(() => {}))
+      .then(() => loadAllScreens())
+      .then(() => { setReady(true); setTick(t => t + 1); })
+      .catch(() => {
+        /* Token expired or backend down — go back to login */
+        window.API.logout();
+        setAuthed(false);
+      });
+  }, []); // runs once on mount
+
+  /* Refresh data whenever the user navigates to a route */
+  React.useEffect(() => {
+    if (!ready) return;
+    window.API.loadForRoute(route)
+      .then(() => setTick(t => t + 1))
+      .catch(e => console.warn('Route refresh failed:', e));
+  }, [route, ready]);
+
+  const handleLogout = () => {
+    window.API.logout();
+    _screensPromise = null; // allow re-load on next login
+    setAuthed(false);
+    setReady(false);
+  };
+
+  /* ── Render states ── */
+  if (!authed) {
+    return <window.LoginScreen onLogin={handleLogin} />;
+  }
+
+  if (!ready) {
+    return <Spinner message="Loading your workspace…" />;
+  }
+
+  const user   = window.MOCK.USER   || { full_name: '', department: '', role: 'requester' };
+  const notifs = window.MOCK.NOTIFS || [];
+
+  let screen = null;
+  if      (route === 'dashboard')    screen = <window.DashboardScreen onNavigate={setRoute} />;
+  else if (route === 'tools')        screen = <window.ToolsScreen />;
+  else if (route === 'requisitions') screen = <window.RequisitionsScreen />;
+  else if (route === 'approvals')    screen = <window.ApprovalsScreen />;
+  else if (route === 'issuance')     screen = <window.IssuanceScreen />;
+  else if (route === 'returns')      screen = <window.ReturnsScreen />;
+  else if (route === 'calibration')  screen = <window.CalibrationScreen />;
+  else if (route === 'bins')         screen = <window.StorageBinsScreen />;
+  else if (route === 'reports')      screen = <window.ReportsScreen />;
+  else if (route === 'users')        screen = <window.UsersScreen />;
+
+  return (
+    <window.AppShell user={user} route={route} onNavigate={setRoute} notifs={notifs} onLogout={handleLogout}>
+      {screen}
+    </window.AppShell>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+</script>
+</body>
 </html>

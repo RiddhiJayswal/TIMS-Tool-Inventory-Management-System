@@ -32,7 +32,7 @@ export default function ConfirmDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel() }}
     >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 mx-4">
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-md p-6 mx-4">
         <div className="flex items-start gap-3 mb-4">
           <div className="p-2 bg-amber-100 rounded-lg shrink-0">
             <AlertTriangle size={18} className="text-amber-600" />
@@ -49,14 +49,14 @@ export default function ConfirmDialog({
           <button
             onClick={onCancel}
             disabled={loading}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none transition-colors"
+            className="btn-secondary"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
             disabled={loading}
-            className={`px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors disabled:opacity-60 ${CONFIRM_STYLES[confirmStyle]}`}
+            className={`btn ${CONFIRM_STYLES[confirmStyle]}`}
           >
             {loading ? 'Processing…' : confirmLabel}
           </button>

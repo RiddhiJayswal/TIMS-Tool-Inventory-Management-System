@@ -11,11 +11,12 @@ import {
 } from 'lucide-react'
 import { dashboardAPI } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useDataSync } from '../data/DataSyncContext'
 import Layout from '../components/Layout'
 
 function SummaryCard({ label, value, icon: Icon, color, subtext }) {
   return (
-    <div className={`bg-white rounded-xl border shadow-sm p-5 flex items-start gap-4 ${color}`}>
+    <div className={`card card-hover p-5 flex items-start gap-4 ${color}`}>
       <div className={`p-2.5 rounded-lg ${color.includes('red') ? 'bg-red-100' : color.includes('amber') ? 'bg-amber-100' : 'bg-slate-100'}`}>
         <Icon size={20} className={color.includes('red') ? 'text-red-600' : color.includes('amber') ? 'text-amber-600' : 'text-slate-600'} />
       </div>
@@ -44,6 +45,7 @@ function daysLabel(issuance) {
 
 export default function Dashboard() {
   const { user, isAdmin, isMaintenance } = useAuth()
+  const { version } = useDataSync()
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -60,7 +62,7 @@ export default function Dashboard() {
       }
     }
     fetchData()
-  }, [])
+  }, [version])
 
   if (loading) {
     return (
@@ -98,10 +100,11 @@ export default function Dashboard() {
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <SummaryCard
-            label="Total Tools"
+            label="Total Units"
             value={s.total_tools}
             icon={Wrench}
             color=""
+            subtext={s.total_tool_types != null ? `${s.total_tool_types} tool types` : undefined}
           />
           <SummaryCard
             label="Available"
@@ -115,7 +118,7 @@ export default function Dashboard() {
             icon={Package}
             color=""
           />
-          <div className={`bg-white rounded-xl border shadow-sm p-5 flex items-start gap-4 ${hasOverdue ? 'border-red-300 bg-red-50' : ''}`}>
+          <div className={`card card-hover p-5 flex items-start gap-4 ${hasOverdue ? 'border-red-300 bg-red-50' : ''}`}>
             <div className={`p-2.5 rounded-lg ${hasOverdue ? 'bg-red-100' : 'bg-slate-100'}`}>
               <Clock size={20} className={hasOverdue ? 'text-red-600' : 'text-slate-500'} />
             </div>
@@ -131,7 +134,7 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          <div className={`bg-white rounded-xl border shadow-sm p-5 flex items-start gap-4 ${hasCalDue ? 'border-amber-300 bg-amber-50' : ''}`}>
+          <div className={`card card-hover p-5 flex items-start gap-4 ${hasCalDue ? 'border-amber-300 bg-amber-50' : ''}`}>
             <div className={`p-2.5 rounded-lg ${hasCalDue ? 'bg-amber-100' : 'bg-slate-100'}`}>
               <Activity size={20} className={hasCalDue ? 'text-amber-600' : 'text-slate-500'} />
             </div>
@@ -153,7 +156,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           {/* My Active Issuances — all roles */}
-          <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+          <div className="table-shell">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-800">My Active Issuances</h2>
               <span className="text-xs text-gray-400">{(s.my_active_issuances || []).length} open</span>
@@ -189,14 +192,14 @@ export default function Dashboard() {
           <div className="space-y-4">
 
             {/* My Pending Requests */}
-            <div className="bg-white rounded-xl border shadow-sm p-5 flex items-center justify-between">
+            <div className="card card-hover p-5 flex items-center justify-between">
               <div>
                 <div className="text-2xl font-bold text-gray-900">{s.my_pending_requests ?? 0}</div>
                 <div className="text-sm text-gray-500 mt-0.5">My Pending Requests</div>
               </div>
               <Link
                 to="/requisitions"
-                className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-2 rounded-lg"
+                className="btn-soft bg-blue-50 text-blue-700 hover:bg-blue-100"
               >
                 View <ArrowRight size={12} />
               </Link>
@@ -204,7 +207,7 @@ export default function Dashboard() {
 
             {/* dept_head: Pending Approvals */}
             {(user?.role === 'dept_head' || isAdmin) && s.pending_approvals_count !== undefined && (
-              <div className={`bg-white rounded-xl border shadow-sm p-5 flex items-center justify-between ${(s.pending_approvals_count || 0) > 0 ? 'border-yellow-200 bg-yellow-50' : ''}`}>
+              <div className={`card card-hover p-5 flex items-center justify-between ${(s.pending_approvals_count || 0) > 0 ? 'border-yellow-200 bg-yellow-50' : ''}`}>
                 <div>
                   <div className={`text-2xl font-bold ${(s.pending_approvals_count || 0) > 0 ? 'text-yellow-700' : 'text-gray-900'}`}>
                     {s.pending_approvals_count ?? 0}
@@ -213,7 +216,7 @@ export default function Dashboard() {
                 </div>
                 <Link
                   to="/approvals"
-                  className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 bg-amber-50 px-3 py-2 rounded-lg"
+                  className="btn-soft bg-amber-50 text-amber-700 hover:bg-amber-100"
                 >
                   Review <ArrowRight size={12} />
                 </Link>
@@ -222,7 +225,7 @@ export default function Dashboard() {
 
             {/* Maintenance: Approved Queue */}
             {isMaintenance && s.approved_queue_count !== undefined && (
-              <div className={`bg-white rounded-xl border shadow-sm p-5 flex items-center justify-between ${(s.approved_queue_count || 0) > 0 ? 'border-blue-200 bg-blue-50' : ''}`}>
+              <div className={`card card-hover p-5 flex items-center justify-between ${(s.approved_queue_count || 0) > 0 ? 'border-blue-200 bg-blue-50' : ''}`}>
                 <div>
                   <div className={`text-2xl font-bold ${(s.approved_queue_count || 0) > 0 ? 'text-blue-700' : 'text-gray-900'}`}>
                     {s.approved_queue_count ?? 0}
@@ -231,7 +234,7 @@ export default function Dashboard() {
                 </div>
                 <Link
                   to="/issuance"
-                  className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-2 rounded-lg"
+                  className="btn-soft bg-blue-50 text-blue-700 hover:bg-blue-100"
                 >
                   Issue <ArrowRight size={12} />
                 </Link>
@@ -245,7 +248,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
             {/* Overdue Returns */}
-            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+            <div className="table-shell">
               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-gray-800">
                   Overdue Returns
@@ -270,7 +273,7 @@ export default function Dashboard() {
             </div>
 
             {/* Low Stock */}
-            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+            <div className="table-shell">
               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-gray-800">Low Stock Tools</h2>
                 <span className="text-xs text-gray-400">{(s.low_stock_tools || []).length} tools</span>

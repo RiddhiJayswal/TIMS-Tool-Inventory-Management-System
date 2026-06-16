@@ -12,6 +12,7 @@ from app.models.master import Tool
 from app.models.transaction import IssuanceLog, Requisition, User
 from app.schemas.issuance import IssuanceCreate
 from app.services.audit import log_action
+from app.services.calibration_status import is_calibration_blocked, sync_calibration_statuses
 from app.services.depreciation import snapshot_value_at_issuance
 from app.services.notifications import notify_tool_issued
 from app.services.stock import get_tool_locked, reduce_stock
@@ -63,6 +64,7 @@ def issue_tool(
     current_user: User = Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     try:
         # Check 1: Requisition exists and is approved
         req = db.query(Requisition).filter(Requisition.id == payload.requisition_id).first()
@@ -75,19 +77,13 @@ def issue_tool(
         tool = get_tool_locked(db, str(req.tool_id))
 
         # Check 2: Calibration block
-        today = date.today()
-        cal_overdue = (
-            tool.requires_calibration
-            and tool.next_calibration_due
-            and tool.next_calibration_due <= today
-        )
-        if tool.status == "calibration_due" or cal_overdue:
+        if tool.status == "calibration_due" or is_calibration_blocked(tool):
             raise HTTPException(
                 400, "Tool blocked: calibration overdue. Contact maintenance admin."
             )
 
         # Check 3: Tool not written off or damaged
-        if tool.status in ("written_off", "damaged"):
+        if tool.status in ("written_off", "damaged", "blocked"):
             raise HTTPException(400, f"Tool is not available (status: {tool.status})")
 
         # Check 4: Stock availability (clear message before reduce_stock also validates)
@@ -155,6 +151,7 @@ def get_overdue_issuances(
     current_user: User = Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     today = date.today()
     logs = (
         db.query(IssuanceLog)
@@ -172,10 +169,18 @@ def list_issuances(
     status: Optional[str] = None,
     tool_id: Optional[UUID] = None,
     issued_to: Optional[UUID] = None,
-    current_user: User = Depends(RequireMaintenance),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     query = db.query(IssuanceLog)
+
+    if current_user.role == "requester":
+        query = query.filter(IssuanceLog.issued_to == current_user.id)
+    elif current_user.role == "dept_head":
+        query = query.join(User, IssuanceLog.issued_to == User.id).filter(
+            User.department == current_user.department
+        )
 
     if status == "open":
         query = query.filter(IssuanceLog.actual_return_date == None)

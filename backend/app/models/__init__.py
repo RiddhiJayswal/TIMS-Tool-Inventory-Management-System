@@ -1,4 +1,4 @@
 from app.models.master import StorageBin, Tool
-from app.models.transaction import User, Requisition, IssuanceLog, AuditLog, Notification
+from app.models.transaction import User, Requisition, IssuanceLog, AuditLog, Notification, AccessRequest
 
-__all__ = ["StorageBin", "Tool", "User", "Requisition", "IssuanceLog", "AuditLog", "Notification"]
+__all__ = ["StorageBin", "Tool", "User", "Requisition", "IssuanceLog", "AuditLog", "Notification", "AccessRequest"]

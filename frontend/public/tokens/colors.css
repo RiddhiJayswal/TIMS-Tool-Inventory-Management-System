@@ -1,0 +1,82 @@
+/* ============================================================
+   MTRS COLOR SYSTEM — UltraTech Cement / Aditya Birla Group
+   ------------------------------------------------------------
+   Brand tension resolved:
+   - BLACK is the workhorse (chrome + primary buttons)
+   - YELLOW is a sparing accent (active nav, focus, key figures)
+   - RED is identity-only (logo / login) — in-app red ALWAYS = danger
+   - Warm "concrete" grey neutral base nods to cement
+   ============================================================ */
+
+:root {
+  /* ---- Brand / chrome -------------------------------------- */
+  --brand-black: #1A1A1A;          /* sidebar, top bar, footers, login bg, PRIMARY BUTTON FILL */
+  --brand-black-hover: #000000;    /* primary button / chrome hover */
+  --brand-on-black: #FFFFFF;       /* text on black */
+
+  --brand-yellow: #F5C518;         /* ACCENT ONLY: active-nav rail, focus, key metric, small emphasis */
+  --brand-yellow-hover: #E0B30E;   /* yellow link / accent hover */
+  --brand-on-yellow: #1A1A1A;      /* text on yellow (never white) */
+
+  --brand-red: #D81E25;            /* IDENTITY ONLY: logo lockup + login brand moment + optional 2px top line */
+
+  /* ---- Neutrals (warm concrete greys, NOT blue-greys) ------ */
+  --surface-page: #F6F5F3;         /* app background */
+  --surface-card: #FFFFFF;         /* card / panel / table surface */
+  --surface-raised: #FCFBFA;       /* raised header rows, filter bars, hover fills */
+  --surface-sunken: #F1EFEC;       /* zebra / inset wells */
+
+  --border-subtle: #ECEAE6;        /* hairline dividers inside cards */
+  --border-default: #E0DCD6;       /* card / input borders */
+  --border-strong: #C9C4BC;        /* emphasized borders, dividers */
+
+  --text-strong: #1A1A1A;          /* headings, key figures */
+  --text-default: #4B4844;         /* body copy */
+  --text-muted: #8A857E;           /* secondary / meta */
+  --text-subtle: #B4AFA8;          /* placeholders, disabled, tertiary */
+  --text-on-dark: #FFFFFF;         /* on black chrome */
+  --text-on-dark-muted: #A8A39B;   /* secondary on black chrome */
+
+  /* ---- Semantic state: SUCCESS (active, returned, good, on-time) ---- */
+  --success-solid: #16A34A;
+  --success-text:  #15803D;
+  --success-bg:    #E7F6EC;
+  --success-border:#BBE6C8;
+
+  /* ---- Semantic state: WARNING (calibration-due, due-soon) ----
+     Deliberately a DEEPER ORANGE, pushed away from brand-yellow. */
+  --warning-solid: #D97706;
+  --warning-text:  #B45309;
+  --warning-bg:    #FBF0E2;
+  --warning-border:#F3D8AE;
+
+  /* ---- Semantic state: DANGER (overdue, damaged, missing, write-off, rejected) ---- */
+  --danger-solid:  #DC2626;
+  --danger-text:   #B91C1C;
+  --danger-bg:     #FBE9E9;
+  --danger-border: #F3C2C2;
+
+  /* ---- Semantic state: INFO (approved, issued, neutral emphasis) ---- */
+  --info-solid:    #2563EB;
+  --info-text:     #1D4ED8;
+  --info-bg:       #E8EFFD;
+  --info-border:   #C2D6F7;
+
+  /* ---- Neutral state (cancelled, written-off) -------------- */
+  --neutral-text:  #6B665F;
+  --neutral-bg:    #EFEDEA;
+  --neutral-border:#DCD8D2;
+
+  /* ---- Role chips ------------------------------------------ */
+  --role-requester-bg:   #E8EFFD;  --role-requester-text:   #1D4ED8;
+  --role-depthead-bg:    #EFEDEA;  --role-depthead-text:    #4B4844;
+  --role-maintenance-bg: #E7F6EC;  --role-maintenance-text: #15803D;
+  --role-admin-bg:       #FBF3D6;  --role-admin-text:       #8A6D08;
+
+  /* ---- Focus ring (brand-yellow, low alpha) on ALL interactive els ---- */
+  --focus-ring: 0 0 0 3px rgba(245, 197, 24, 0.45);
+  --focus-ring-color: #F5C518;
+
+  /* ---- Overlay --------------------------------------------- */
+  --overlay-scrim: rgba(26, 26, 26, 0.45);
+}

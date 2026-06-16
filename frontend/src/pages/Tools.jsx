@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Loader2, Wrench } from 'lucide-react'
 import { toolsAPI, binsAPI } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useDataSync } from '../data/DataSyncContext'
 import { useToast } from '../contexts/ToastContext'
 import Layout from '../components/Layout'
 import StatusBadge from '../components/StatusBadge'
@@ -39,14 +40,14 @@ function Field({ label, children, full }) {
   )
 }
 
-const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent'
+const inputCls = 'input-control'
 
 function Toggle({ checked, onChange, label }) {
   return (
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${checked ? 'bg-amber-500' : 'bg-gray-300'}`}
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 ease-in-out ${checked ? 'bg-amber-500' : 'bg-gray-300'}`}
     >
       <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow ${checked ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
     </button>
@@ -55,6 +56,7 @@ function Toggle({ checked, onChange, label }) {
 
 function ToolModal({ onClose, onSaved, editTool }) {
   const addToast = useToast()
+  const { actions } = useDataSync()
   const [form, setForm] = useState(editTool ? { ...editTool, storage_bin_id: editTool.storage_bin_id || '' } : emptyForm())
   const [bins, setBins] = useState([])
   const [saving, setSaving] = useState(false)
@@ -86,10 +88,10 @@ function ToolModal({ onClose, onSaved, editTool }) {
         last_calibration_date: form.last_calibration_date || null,
       }
       if (editTool) {
-        await toolsAPI.update(editTool.id, payload)
+        await actions.updateTool(editTool.id, payload)
         addToast(`Tool '${form.name}' updated successfully`)
       } else {
-        await toolsAPI.create(payload)
+        await actions.addTool(payload)
         addToast(`Tool '${form.name}' created successfully`)
       }
       onSaved()
@@ -183,8 +185,8 @@ function ToolModal({ onClose, onSaved, editTool }) {
           {err && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">{err}</div>}
         </form>
         <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end shrink-0">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
-          <button onClick={handleSubmit} disabled={saving} className="px-5 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-60 rounded-lg flex items-center gap-2">
+          <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={handleSubmit} disabled={saving} className="btn-primary">
             {saving && <Loader2 size={14} className="animate-spin" />}
             {saving ? 'Saving…' : editTool ? 'Save Changes' : 'Create Tool'}
           </button>
@@ -197,6 +199,7 @@ function ToolModal({ onClose, onSaved, editTool }) {
 export default function Tools() {
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
+  const { version } = useDataSync()
   const [tools, setTools] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -221,7 +224,7 @@ export default function Tools() {
     }
   }
 
-  useEffect(() => { loadTools() }, [])
+  useEffect(() => { loadTools() }, [version])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -260,7 +263,7 @@ export default function Tools() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">Tools</h1>
           {isAdmin && (
-            <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg">
+            <button onClick={openAdd} className="btn-primary">
               <Plus size={16} /> Add Tool
             </button>
           )}
@@ -269,7 +272,7 @@ export default function Tools() {
         {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">{error}</div>}
 
         {/* Filters */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
+        <div className="card p-4">
           <div className="flex flex-wrap gap-3">
             <div className="relative flex-1 min-w-44">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -277,25 +280,25 @@ export default function Tools() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search name or code…"
-                className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                className="input-control pl-8"
               />
             </div>
-            <select value={filterType} onChange={e => setFilterType(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+            <select value={filterType} onChange={e => setFilterType(e.target.value)} className="input-control w-auto">
               <option value="">All Types</option>
               <option value="general">General</option>
               <option value="specialized">Specialized</option>
             </select>
-            <select value={filterDept} onChange={e => setFilterDept(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+            <select value={filterDept} onChange={e => setFilterDept(e.target.value)} className="input-control w-auto">
               <option value="">All Depts</option>
               {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="input-control w-auto">
               <option value="">All Statuses</option>
               <option value="active">Active</option>
               <option value="calibration_due">Calibration Due</option>
               <option value="damaged">Damaged</option>
             </select>
-            <select value={filterCal} onChange={e => setFilterCal(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+            <select value={filterCal} onChange={e => setFilterCal(e.target.value)} className="input-control w-auto">
               <option value="">All Calibration</option>
               <option value="yes">Requires Cal.</option>
               <option value="no">No Cal. Required</option>
@@ -304,7 +307,7 @@ export default function Tools() {
         </div>
 
         {/* Table */}
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="table-shell">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-gray-400">
               <Wrench size={32} className="mb-3 opacity-40" />
@@ -312,7 +315,7 @@ export default function Tools() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="data-table">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50">
                     {['Tool Code', 'Name', 'Type', 'Dept Access', 'Available / Total', 'Status', 'Storage Bin', 'Actions'].map(h => (
@@ -325,7 +328,7 @@ export default function Tools() {
                     <tr
                       key={tool.id}
                       onClick={() => navigate(`/tools/${tool.id}`)}
-                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="cursor-pointer"
                     >
                       <td className="px-4 py-3 font-mono text-xs text-gray-500">{tool.tool_code}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{tool.name}</td>
@@ -343,14 +346,14 @@ export default function Tools() {
                         <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                           <button
                             onClick={(e) => handleRequest(e, tool)}
-                            className="px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-md transition-colors"
+                            className="btn-soft bg-blue-50 text-blue-700 hover:bg-blue-100"
                           >
                             Request
                           </button>
                           {isAdmin && (
                             <button
                               onClick={(e) => openEdit(e, tool)}
-                              className="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-md transition-colors"
+                              className="btn-soft bg-slate-100 text-slate-700 hover:bg-slate-200"
                             >
                               Edit
                             </button>

@@ -1,7 +1,8 @@
-import { useState, useEffect, useLocation } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation as useRouterLocation } from 'react-router-dom'
 import { Plus, Loader2, ClipboardList, X, ArrowRight, ArrowLeft } from 'lucide-react'
 import { requisitionsAPI } from '../api/client'
+import { useDataSync } from '../data/DataSyncContext'
 import { useToast } from '../contexts/ToastContext'
 import Layout from '../components/Layout'
 import StatusBadge from '../components/StatusBadge'
@@ -42,6 +43,7 @@ function ModalOverlay({ onClose, children }) {
 
 function RequisitionModal({ prefillTool, onClose, onCreated }) {
   const addToast = useToast()
+  const { actions } = useDataSync()
   const [step, setStep] = useState(prefillTool ? 2 : 1)
   const [selectedTool, setSelectedTool] = useState(prefillTool || null)
   const [quantity, setQuantity] = useState(1)
@@ -69,7 +71,7 @@ function RequisitionModal({ prefillTool, onClose, onCreated }) {
 
     setSubmitting(true)
     try {
-      const res = await requisitionsAPI.create({
+      const res = await actions.createRequest({
         tool_id: selectedTool.id,
         quantity_requested: Number(quantity),
         purpose_of_job: purpose.trim(),
@@ -86,7 +88,7 @@ function RequisitionModal({ prefillTool, onClose, onCreated }) {
     }
   }
 
-  const inputCls = 'w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent'
+  const inputCls = 'input-control'
 
   return (
     <ModalOverlay onClose={onClose}>
@@ -171,14 +173,14 @@ function RequisitionModal({ prefillTool, onClose, onCreated }) {
         </div>
 
         <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+          <button onClick={onClose} className="btn-secondary">
             Cancel
           </button>
           {step === 1 && (
             <button
               disabled={!selectedTool}
               onClick={() => setStep(2)}
-              className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 rounded-lg flex items-center gap-2"
+              className="btn-blue"
             >
               Next <ArrowRight size={14} />
             </button>
@@ -187,7 +189,7 @@ function RequisitionModal({ prefillTool, onClose, onCreated }) {
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="px-5 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-60 rounded-lg flex items-center gap-2"
+              className="btn-primary"
             >
               {submitting && <Loader2 size={14} className="animate-spin" />}
               {submitting ? 'Submitting…' : 'Submit Request'}
@@ -234,7 +236,7 @@ function DetailModal({ req, onClose }) {
           ))}
         </div>
         <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">Close</button>
+          <button onClick={onClose} className="btn-secondary">Close</button>
         </div>
       </div>
     </ModalOverlay>
@@ -244,6 +246,7 @@ function DetailModal({ req, onClose }) {
 export default function Requisitions() {
   const location = useRouterLocation()
   const addToast = useToast()
+  const { version } = useDataSync()
   const [reqs, setReqs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -273,7 +276,7 @@ export default function Requisitions() {
     }
   }
 
-  useEffect(() => { loadReqs() }, [tab])
+  useEffect(() => { loadReqs() }, [tab, version])
 
   const openNew = () => { setPrefillTool(null); setShowNew(true) }
 
@@ -282,7 +285,7 @@ export default function Requisitions() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">My Requests</h1>
-          <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg">
+          <button onClick={openNew} className="btn-primary">
             <Plus size={16} /> New Request
           </button>
         </div>
@@ -290,12 +293,12 @@ export default function Requisitions() {
         {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">{error}</div>}
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit flex-wrap">
+        <div className="tab-shell w-fit">
           {TABS.map(t => (
             <button
               key={t.value}
               onClick={() => { setTab(t.value); setLoading(true) }}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === t.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ease-in-out ${tab === t.value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
             >
               {t.label}
             </button>
@@ -303,7 +306,7 @@ export default function Requisitions() {
         </div>
 
         {/* Table */}
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="table-shell">
           {loading ? (
             <div className="flex items-center justify-center py-12 gap-2 text-gray-400">
               <Loader2 size={16} className="animate-spin" /> Loading…
@@ -318,7 +321,7 @@ export default function Requisitions() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="data-table">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50">
                     {['Req #', 'Tool', 'Qty', 'Purpose', 'From', 'To', 'Status', 'Submitted', 'Action'].map(h => (
@@ -328,7 +331,7 @@ export default function Requisitions() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {reqs.map(req => (
-                    <tr key={req.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={req.id}>
                       <td className="px-4 py-3 font-mono text-xs text-gray-600">{req.requisition_number}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{req.tool_name}</td>
                       <td className="px-4 py-3 text-gray-600">{req.quantity_requested}</td>
@@ -340,7 +343,7 @@ export default function Requisitions() {
                       <td className="px-4 py-3">
                         <button
                           onClick={() => setViewReq(req)}
-                          className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md"
+                          className="btn-soft bg-slate-100 text-slate-700 hover:bg-slate-200"
                         >
                           View
                         </button>

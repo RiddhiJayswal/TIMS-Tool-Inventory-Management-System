@@ -10,20 +10,55 @@ from sqlalchemy.orm import Session
 from app.auth.roles import RequireAdmin, get_current_user
 from app.database import get_db
 from app.models.master import StorageBin, Tool
-from app.models.transaction import AuditLog, IssuanceLog, User
+from app.models.transaction import AuditLog, IssuanceLog, Notification, User
 from app.schemas.tool import ToolCreate, ToolUpdate
+from app.services.calibration_status import sync_calibration_statuses
 from app.services.audit import log_action
 from app.services.depreciation import calculate_current_value
+from app.services.stock import get_open_issued_by_tool, get_tool_stock_snapshot
 
 router = APIRouter(prefix="/tools", tags=["tools"])
 
 
-def _tool_to_dict(tool: Tool) -> dict:
+def _notify_maintenance(db: Session, message: str) -> None:
+    users = (
+        db.query(User)
+        .filter(User.role.in_(["maintenance_admin", "maintenance_staff"]), User.is_active == True)
+        .all()
+    )
+    for user in users:
+        db.add(Notification(user_id=user.id, message=message, is_read=False))
+
+
+def _stock_row_for_tool(db: Session, tool_id) -> dict | None:
+    for row in get_tool_stock_snapshot(db, include_written_off=True):
+        if row["tool"].id == tool_id:
+            return row
+    return None
+
+
+def _tool_to_dict(tool: Tool, db: Session | None = None, stock_row: dict | None = None) -> dict:
     current_val = calculate_current_value(
         float(tool.purchase_price) if tool.purchase_price else None,
         tool.purchase_date,
         tool.standard_life_months,
     )
+    storage_bin = None
+    if db and tool.storage_bin_id:
+        storage_bin = db.query(StorageBin).filter(StorageBin.id == tool.storage_bin_id).first()
+
+    available_quantity = stock_row["available_quantity"] if stock_row else tool.available_quantity
+    currently_issued = (
+        stock_row["currently_issued"]
+        if stock_row
+        else max(tool.total_quantity - available_quantity, 0)
+    )
+    unavailable_quantity = (
+        stock_row["unavailable_quantity"]
+        if stock_row
+        else max(tool.total_quantity - available_quantity - currently_issued, 0)
+    )
+
     return {
         "id": str(tool.id),
         "tool_code": tool.tool_code,
@@ -40,8 +75,12 @@ def _tool_to_dict(tool: Tool) -> dict:
         "standard_life_months": tool.standard_life_months,
         "current_value": float(current_val) if current_val is not None else None,
         "total_quantity": tool.total_quantity,
-        "available_quantity": tool.available_quantity,
+        "available_quantity": available_quantity,
+        "currently_issued": currently_issued,
+        "issued_quantity": currently_issued,
+        "unavailable_quantity": unavailable_quantity,
         "storage_bin_id": str(tool.storage_bin_id) if tool.storage_bin_id else None,
+        "storage_bin_code": storage_bin.bin_code if storage_bin else None,
         "requires_calibration": tool.requires_calibration,
         "calibration_freq_days": tool.calibration_freq_days,
         "last_calibration_date": tool.last_calibration_date,
@@ -63,6 +102,7 @@ def list_tools(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     query = db.query(Tool)
 
     if search:
@@ -81,16 +121,9 @@ def list_tools(
     if requires_calibration is not None:
         query = query.filter(Tool.requires_calibration == requires_calibration)
 
+    stock_by_tool = {row["tool"].id: row for row in get_tool_stock_snapshot(db, include_written_off=True)}
     tools = query.all()
-
-    # Maintenance roles see all tools; others see only tools matching their dept or unrestricted
-    if current_user.role not in ("maintenance_admin", "maintenance_staff"):
-        tools = [
-            t for t in tools
-            if t.department_access is None or t.department_access == current_user.department
-        ]
-
-    return [_tool_to_dict(t) for t in tools]
+    return [_tool_to_dict(t, db, stock_by_tool.get(t.id)) for t in tools]
 
 
 @router.post("", status_code=201)
@@ -140,10 +173,11 @@ def create_tool(
         "tool_code": tool.tool_code,
         "name": tool.name,
     })
+    _notify_maintenance(db, f"Tool added: {tool.tool_code} - {tool.name} was added by {current_user.full_name}.")
 
     db.commit()
     db.refresh(tool)
-    return _tool_to_dict(tool)
+    return _tool_to_dict(tool, db, _stock_row_for_tool(db, tool.id))
 
 
 @router.get("/{tool_id}")
@@ -152,6 +186,7 @@ def get_tool(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    sync_calibration_statuses(db)
     tool = db.query(Tool).filter(Tool.id == tool_id).first()
     if not tool:
         raise HTTPException(404, "Tool not found")
@@ -181,7 +216,7 @@ def get_tool(
         .all()
     )
 
-    result = _tool_to_dict(tool)
+    result = _tool_to_dict(tool, db, _stock_row_for_tool(db, tool.id))
     result["current_issuances"] = []
     for i in open_issuances:
         borrower = db.query(User).filter(User.id == i.issued_to).first()
@@ -222,11 +257,13 @@ def update_tool(
     # Handle total_quantity change
     if "total_quantity" in update_data:
         new_total = update_data["total_quantity"]
-        current_issued = tool.total_quantity - tool.available_quantity
-        if new_total < current_issued:
+        current_stock = _stock_row_for_tool(db, tool.id) or {}
+        current_issued = current_stock.get("currently_issued", get_open_issued_by_tool(db).get(tool.id, 0))
+        committed_quantity = current_issued + current_stock.get("pending_damage_quantity", 0)
+        if new_total < committed_quantity:
             raise HTTPException(
                 400,
-                f"Cannot reduce total_quantity below currently issued quantity ({current_issued})",
+                f"Cannot reduce total_quantity below committed quantity ({committed_quantity})",
             )
         delta = new_total - tool.total_quantity
         tool.available_quantity += delta
@@ -244,9 +281,10 @@ def update_tool(
             )
 
     log_action(db, str(current_user.id), "TOOL_UPDATED", "tools", str(tool.id), update_data)
+    _notify_maintenance(db, f"Tool updated: {tool.tool_code} - {tool.name} was edited by {current_user.full_name}.")
     db.commit()
     db.refresh(tool)
-    return _tool_to_dict(tool)
+    return _tool_to_dict(tool, db, _stock_row_for_tool(db, tool.id))
 
 
 @router.delete("/{tool_id}")

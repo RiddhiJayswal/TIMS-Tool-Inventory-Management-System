@@ -109,18 +109,34 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4 py-8">
-      <div className="w-full max-w-xl">
-        <section className="bg-white rounded-lg shadow-2xl p-6 sm:p-8 flex flex-col">
-          <div className="flex items-center justify-between gap-4 border-b border-gray-100 pb-5">
-            <BrandLogo className="h-20 w-40" compact />
-            <div className="text-right">
+    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top_left,#334155_0,#111827_42%,#0f172a_100%)] px-4 py-8">
+      <div className="w-full max-w-5xl grid lg:grid-cols-[1fr_520px] gap-8 items-center">
+        <section className="hidden lg:flex flex-col items-start justify-center text-white">
+          <div className="flex flex-col items-start mb-2">
+            <BrandLogo variant="login" className="mb-5" compact />
+            <h1 className="text-4xl font-bold tracking-tight">TIMS</h1>
+          </div>
+          <p className="mt-3 max-w-md text-lg text-slate-200">
+            Maintenance tool control for issuing, returns, calibration, and inventory visibility.
+          </p>
+          <div className="mt-8 grid grid-cols-3 gap-3 max-w-lg">
+            {['Inventory', 'Approvals', 'Calibration'].map(item => (
+              <div key={item} className="rounded-lg border border-white/10 bg-white/8 px-4 py-3 text-sm font-semibold text-slate-100">
+                {item}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="bg-white rounded-lg shadow-2xl shadow-black/30 border border-white/20 p-6 sm:p-8 flex flex-col">
+          <div className="flex flex-col items-center text-center border-b border-slate-100 pb-5">
+            <div>
               <h1 className="text-xl font-bold text-slate-900">TIMS</h1>
-              <p className="text-sm text-slate-500">Maintenance Tool Inventory System</p>
+              <p className="text-sm text-slate-500">Tool Inventory Management System</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 bg-gray-100 rounded-lg p-1 mt-6">
+          <div className="grid grid-cols-3 bg-slate-100 rounded-lg p-1 mt-6">
             {[
               ['signin', 'Sign In'],
               ['signup', 'Sign Up'],
@@ -130,8 +146,8 @@ export default function Login() {
                 key={key}
                 type="button"
                 onClick={() => switchMode(key)}
-                className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
-                  mode === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                className={`rounded-md px-3 py-2 text-sm font-semibold transition-all duration-200 ease-in-out ${
+                  mode === key ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
                 }`}
               >
                 {label}
@@ -160,7 +176,7 @@ export default function Login() {
                 show={showPassword}
                 setShow={setShowPassword}
               />
-              <button className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white font-semibold py-2.5 px-4 rounded-lg text-sm transition-colors" disabled={loading}>
+              <button className="btn-primary w-full" disabled={loading}>
                 {loading ? 'Signing in...' : 'Sign In'}
               </button>
             </form>
@@ -176,7 +192,7 @@ export default function Login() {
                 <PasswordInput label="Password" value={signup.password} onChange={(v) => setSignup({ ...signup, password: v })} show={showPassword} setShow={setShowPassword} />
                 <p className="text-xs text-slate-500 mt-1.5">Use 8+ characters with uppercase, lowercase, number, and special character.</p>
               </div>
-              <button className="sm:col-span-2 w-full bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white font-semibold py-2.5 px-4 rounded-lg text-sm transition-colors" disabled={loading}>
+              <button className="btn-primary sm:col-span-2 w-full" disabled={loading}>
                 {loading ? 'Creating account...' : 'Create Requester Account'}
               </button>
             </form>
@@ -187,14 +203,14 @@ export default function Login() {
               <form onSubmit={handleForgot} className="space-y-4">
                 <Input label="Employee ID" value={forgot.employee_id} onChange={(v) => setForgot({ ...forgot, employee_id: v })} placeholder="e.g. USR001" autoFocus />
                 <Input label="Registered Email" type="email" value={forgot.email} onChange={(v) => setForgot({ ...forgot, email: v })} placeholder="user@ultratech.com" />
-                <button className="w-full bg-slate-800 hover:bg-slate-900 disabled:bg-slate-400 text-white font-semibold py-2.5 px-4 rounded-lg text-sm transition-colors" disabled={loading}>
+                <button className="btn-blue w-full" disabled={loading}>
                   {loading ? 'Sending instructions...' : 'Send Reset Instructions'}
                 </button>
               </form>
               <form onSubmit={handleReset} className="space-y-4 border-t border-gray-100 pt-5">
                 <Input label="Reset Token" value={reset.token} onChange={(v) => setReset({ ...reset, token: v })} placeholder="Paste token from your email" />
                 <PasswordInput label="New Password" value={reset.new_password} onChange={(v) => setReset({ ...reset, new_password: v })} show={showPassword} setShow={setShowPassword} />
-                <button className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white font-semibold py-2.5 px-4 rounded-lg text-sm transition-colors" disabled={loading}>
+                <button className="btn-primary w-full" disabled={loading}>
                   {loading ? 'Resetting password...' : 'Reset Password'}
                 </button>
               </form>
@@ -219,7 +235,7 @@ function Input({ label, value, onChange, type = 'text', placeholder, autoFocus =
         placeholder={placeholder}
         required
         autoFocus={autoFocus}
-        className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-shadow"
+        className="input-control"
       />
     </div>
   )
@@ -238,12 +254,12 @@ function PasswordInput({ label, value, onChange, show, setShow }) {
           onChange={(e) => onChange(e.target.value)}
           placeholder="Enter password"
           required
-          className="w-full px-3.5 py-2.5 pr-10 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-shadow"
+          className="input-control pr-10"
         />
         <button
           type="button"
           onClick={() => setShow(!show)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
           tabIndex={-1}
           aria-label={show ? 'Hide password' : 'Show password'}
         >

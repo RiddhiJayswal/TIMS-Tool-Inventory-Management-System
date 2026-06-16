@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-labelledby="title desc">
   <title id="title">Aditya Birla UltraTech logo</title>
   <desc id="desc">A compact UltraTech brand mark with Aditya Birla text, geometric red and orange panels, and a yellow UltraTech name plate.</desc>
-  <rect width="640" height="480" fill="#ffffff"/>
+  <!-- Placeholder local SVG. Replace with the official UltraTech logo asset when available. -->
   <text x="320" y="72" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="50" font-weight="700" letter-spacing="5" fill="#b7362d" stroke="#6f211d" stroke-width="1.5">ADITYA BIRLA</text>
   <g transform="translate(92 92)">
     <rect x="0" y="0" width="456" height="244" fill="#bf2e26" stroke="#92231d" stroke-width="6"/>

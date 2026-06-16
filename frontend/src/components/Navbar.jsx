@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Bell, LogOut } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { authAPI } from '../api/client'
+import { useDataSync } from '../data/DataSyncContext'
 import BrandLogo from './BrandLogo'
 
 const ROLE_LABELS = {
@@ -20,6 +21,7 @@ const ROLE_COLORS = {
 
 export default function Navbar() {
   const { user, logout } = useAuth()
+  const { version } = useDataSync()
   const [notifications, setNotifications] = useState([])
   const [showNotifs, setShowNotifs] = useState(false)
   const notifRef = useRef(null)
@@ -27,17 +29,22 @@ export default function Navbar() {
   const newNotifications = notifications.filter(n => !n.is_read)
   const olderNotifications = notifications.filter(n => n.is_read)
 
+  const fetchNotifs = async () => {
+    try {
+      const res = await authAPI.getNotifications()
+      setNotifications(res.data)
+    } catch {}
+  }
+
   useEffect(() => {
-    const fetchNotifs = async () => {
-      try {
-        const res = await authAPI.getNotifications()
-        setNotifications(res.data)
-      } catch {}
-    }
     fetchNotifs()
     const interval = setInterval(fetchNotifs, 60000)
     return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    fetchNotifs()
+  }, [version])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -58,20 +65,20 @@ export default function Navbar() {
   }
 
   return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0">
+    <header className="h-16 bg-white/95 border-b border-slate-200 flex items-center justify-between px-5 sm:px-6 shrink-0 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
       <div className="flex items-center gap-5 min-w-0">
-        <BrandLogo className="h-14 w-28 shrink-0" compact />
-        <div className="text-slate-600 text-sm font-medium truncate">
+        <BrandLogo variant="navbar" compact />
+        <div className="text-slate-700 text-sm font-semibold truncate">
           Tool Inventory Management System
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
         {/* Notification Bell */}
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => setShowNotifs(!showNotifs)}
-            className="relative p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            className="relative p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all duration-200 ease-in-out"
           >
             <Bell size={18} />
             {newNotifications.length > 0 && (
@@ -82,9 +89,9 @@ export default function Navbar() {
           </button>
 
           {showNotifs && (
-            <div className="absolute right-0 top-10 w-96 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-              <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
-                <span className="text-sm font-semibold text-gray-700">Notifications</span>
+            <div className="absolute right-0 top-11 w-96 bg-white border border-slate-200 rounded-lg shadow-panel z-50 overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-800">Notifications</span>
                 <span className="text-xs text-gray-400">{newNotifications.length} new</span>
               </div>
               <div className="max-h-80 overflow-y-auto">
@@ -111,7 +118,7 @@ export default function Navbar() {
         </div>
 
         {/* User Info */}
-        <div className="flex items-center gap-2 text-sm">
+        <div className="hidden sm:flex items-center gap-2 text-sm">
           <div className="text-right">
             <div className="font-medium text-gray-800 leading-tight">{user?.full_name}</div>
             <div className="text-xs text-gray-400">{user?.department}</div>
@@ -124,7 +131,7 @@ export default function Navbar() {
         {/* Logout */}
         <button
           onClick={logout}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 transition-colors px-2 py-1.5 rounded-md hover:bg-red-50"
+          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-red-600 transition-all duration-200 ease-in-out px-2.5 py-2 rounded-lg hover:bg-red-50"
           title="Logout"
         >
           <LogOut size={16} />

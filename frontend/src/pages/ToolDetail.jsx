@@ -110,12 +110,12 @@ export default function ToolDetail() {
     <Layout>
       <div className="space-y-5">
         {/* Back button */}
-        <button onClick={() => navigate('/tools')} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
+        <button onClick={() => navigate('/tools')} className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">
           <ArrowLeft size={14} /> Back to Tools
         </button>
 
         {/* Header */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <div className="card card-hover p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 flex-wrap">
@@ -142,13 +142,13 @@ export default function ToolDetail() {
             <div className="mt-4 flex gap-3">
               <button
                 onClick={() => navigate('/tools', { state: { editId: tool.id } })}
-                className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg"
+                className="btn-primary"
               >
                 Edit Tool
               </button>
               <button
                 onClick={() => setShowWriteOff(true)}
-                className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg"
+                className="btn-soft border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
               >
                 Write Off Tool
               </button>
@@ -158,7 +158,7 @@ export default function ToolDetail() {
 
         {/* Details grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="table-shell">
             <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
               <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Tool Details</h2>
             </div>
@@ -171,7 +171,7 @@ export default function ToolDetail() {
             <DetailRow label="Serial Number" value={tool.serial_number} />
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="table-shell">
             <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
               <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Financial & Calibration</h2>
             </div>
@@ -197,13 +197,13 @@ export default function ToolDetail() {
 
         {/* Current Issuances */}
         {(tool.current_issuances?.length > 0) && (
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="table-shell">
             <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Current Issuances</h2>
               <span className="text-xs text-gray-400">{tool.current_issuances.length} open</span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="data-table">
                 <thead>
                   <tr className="border-b border-gray-100">
                     {['Borrower', 'Department', 'Qty', 'Issued', 'Due Date', 'Days'].map(h => (
@@ -241,12 +241,12 @@ export default function ToolDetail() {
 
         {/* Calibration History */}
         {isMaintenance && tool.calibration_history?.length > 0 && (
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="table-shell">
             <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
               <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Calibration History</h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="data-table">
                 <thead>
                   <tr className="border-b border-gray-100">
                     {['Date', 'Next Due', 'Service Partner', 'Notes', 'Recorded At'].map(h => (
@@ -272,7 +272,7 @@ export default function ToolDetail() {
 
         {/* Issuance History (maintenance only) */}
         {isMaintenance && (
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="table-shell">
             <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Issuance History</h2>
               <span className="text-xs text-gray-400">Last {issuanceHistory.length} records</span>
@@ -283,7 +283,7 @@ export default function ToolDetail() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="data-table">
                   <thead>
                     <tr className="border-b border-gray-100">
                       {['Borrower', 'Dept', 'Qty', 'Issued', 'Returned', 'Condition', 'Penalty'].map(h => (

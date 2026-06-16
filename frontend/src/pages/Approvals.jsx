@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { CheckSquare, Loader2, X } from 'lucide-react'
 import { requisitionsAPI } from '../api/client'
+import { useDataSync } from '../data/DataSyncContext'
 import { useToast } from '../contexts/ToastContext'
 import Layout from '../components/Layout'
 import StatusBadge from '../components/StatusBadge'
@@ -33,6 +34,7 @@ function ModalOverlay({ onClose, children }) {
 
 export default function Approvals() {
   const addToast = useToast()
+  const { actions, version } = useDataSync()
   const [reqs, setReqs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -61,12 +63,12 @@ export default function Approvals() {
     }
   }
 
-  useEffect(() => { loadReqs() }, [tab])
+  useEffect(() => { loadReqs() }, [tab, version])
 
   const handleApprove = async () => {
     setApproveLoading(true)
     try {
-      await requisitionsAPI.approve(approving.id)
+      await actions.approveRequest(approving.id)
       addToast(`Requisition ${approving.requisition_number} approved`)
       setApproving(null)
       loadReqs()
@@ -82,7 +84,7 @@ export default function Approvals() {
     if (!rejectReason.trim()) { setRejectErr('Rejection reason is required'); return }
     setRejectLoading(true)
     try {
-      await requisitionsAPI.reject(rejecting.id, rejectReason.trim())
+      await actions.rejectRequest(rejecting.id, rejectReason.trim())
       addToast(`Requisition ${rejecting.requisition_number} rejected`)
       setRejecting(null)
       setRejectReason('')
@@ -105,12 +107,12 @@ export default function Approvals() {
         {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">{error}</div>}
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+        <div className="tab-shell w-fit">
           {TABS.map(t => (
             <button
               key={t.value}
               onClick={() => setTab(t.value)}
-              className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === t.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ease-in-out ${tab === t.value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
             >
               {t.label}
             </button>
@@ -118,7 +120,7 @@ export default function Approvals() {
         </div>
 
         {/* Table */}
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="table-shell">
           {loading ? (
             <div className="flex items-center justify-center py-12 gap-2 text-gray-400">
               <Loader2 size={16} className="animate-spin" /> Loading…
@@ -130,7 +132,7 @@ export default function Approvals() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="data-table">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50">
                     {['Req #', 'Tool', 'Qty', 'Requested By', 'Purpose', 'From', 'To', 'Submitted', ...(tab === 'pending' ? ['Actions'] : ['Status'])].map(h => (
@@ -140,7 +142,7 @@ export default function Approvals() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {reqs.map(req => (
-                    <tr key={req.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={req.id}>
                       <td className="px-4 py-3 font-mono text-xs text-gray-600">{req.requisition_number}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{req.tool_name}</td>
                       <td className="px-4 py-3 text-gray-600">{req.quantity_requested}</td>
@@ -157,13 +159,13 @@ export default function Approvals() {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setApproving(req)}
-                              className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-md"
+                              className="btn-soft bg-green-600 text-white hover:bg-green-700"
                             >
                               Approve
                             </button>
                             <button
                               onClick={() => { setRejecting(req); setRejectReason(''); setRejectErr('') }}
-                              className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md"
+                              className="btn-soft border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
                             >
                               Reject
                             </button>
@@ -211,17 +213,17 @@ export default function Approvals() {
                 onChange={e => setRejectReason(e.target.value)}
                 rows={3}
                 placeholder="Provide a clear reason so the requester can understand the decision…"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent resize-none"
+                className="input-control resize-none focus:ring-red-400"
                 autoFocus
               />
               {rejectErr && <p className="text-xs text-red-600 mt-1.5">{rejectErr}</p>}
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
-              <button onClick={() => setRejecting(null)} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+              <button onClick={() => setRejecting(null)} className="btn-secondary">Cancel</button>
               <button
                 onClick={handleReject}
                 disabled={rejectLoading}
-                className="px-5 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 rounded-lg flex items-center gap-2"
+                className="btn-danger"
               >
                 {rejectLoading && <Loader2 size={14} className="animate-spin" />}
                 {rejectLoading ? 'Rejecting…' : 'Reject Request'}

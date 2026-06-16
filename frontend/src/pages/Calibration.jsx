@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Loader2, X, CheckCircle2 } from 'lucide-react'
 import { calibrationAPI } from '../api/client'
 import { useToast } from '../contexts/ToastContext'
+import { useDataSync } from '../data/DataSyncContext'
 import Layout from '../components/Layout'
 
 const FILTER_TABS = [
@@ -46,6 +47,7 @@ function DueCell({ daysUntilDue, status }) {
 
 function RecordModal({ tool, onClose, onRecorded }) {
   const addToast = useToast()
+  const { actions } = useDataSync()
   const [calibDate, setCalibDate] = useState(TODAY_STR)
   const [servicePartner, setServicePartner] = useState(tool.service_partner || '')
   const [notes, setNotes] = useState('')
@@ -65,7 +67,7 @@ function RecordModal({ tool, onClose, onRecorded }) {
     if (!calibDate) { setErr('Calibration date is required'); return }
     setSubmitting(true)
     try {
-      await calibrationAPI.record(tool.id, {
+      await actions.updateCalibration(tool.id, {
         calibration_date: calibDate,
         service_partner: servicePartner.trim() || null,
         notes: notes.trim() || null,
@@ -87,7 +89,7 @@ function RecordModal({ tool, onClose, onRecorded }) {
   }, [onClose])
 
   const inputCls =
-    'w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent'
+    'input-control'
 
   return (
     <div
@@ -168,14 +170,14 @@ function RecordModal({ tool, onClose, onRecorded }) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              className="btn-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-60 rounded-lg flex items-center gap-2"
+              className="btn-primary"
             >
               {submitting && <Loader2 size={14} className="animate-spin" />}
               {submitting ? 'Recording…' : 'Save Calibration'}
@@ -188,6 +190,7 @@ function RecordModal({ tool, onClose, onRecorded }) {
 }
 
 export default function Calibration() {
+  const { version } = useDataSync()
   const [tools, setTools] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -207,7 +210,7 @@ export default function Calibration() {
     }
   }
 
-  useEffect(() => { loadTools() }, [])
+  useEffect(() => { loadTools() }, [version])
 
   const stats = useMemo(() => ({
     overdue: tools.filter((t) => t.calibration_status === 'overdue').length,
@@ -254,7 +257,7 @@ export default function Calibration() {
           ].map(({ label, value, color }) => (
             <div
               key={label}
-              className={`bg-white border rounded-xl px-4 py-4 ${
+              className={`card card-hover px-4 py-4 ${
                 color === 'red'
                   ? 'border-red-200'
                   : color === 'amber'
@@ -293,15 +296,15 @@ export default function Calibration() {
         )}
 
         {/* Filter Tabs */}
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+        <div className="tab-shell w-fit">
           {FILTER_TABS.map((t) => (
             <button
               key={t.value}
               onClick={() => setFilterTab(t.value)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ease-in-out ${
                 filterTab === t.value
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
               }`}
             >
               {t.label}
@@ -315,7 +318,7 @@ export default function Calibration() {
         </div>
 
         {/* Table */}
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="table-shell">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-gray-400 gap-2">
               <CheckCircle2 size={28} className="opacity-30" />
@@ -323,7 +326,7 @@ export default function Calibration() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="data-table">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50">
                     {['Tool', 'Code', 'Service Partner', 'Last Calibrated', 'Next Due', 'Days', 'Action'].map(
@@ -344,10 +347,10 @@ export default function Calibration() {
                       key={tool.id}
                       className={`transition-colors ${
                         tool.calibration_status === 'overdue'
-                          ? 'bg-red-50/50 hover:bg-red-50'
+                          ? 'bg-red-50/50'
                           : tool.calibration_status === 'due_soon'
-                          ? 'bg-amber-50/30 hover:bg-amber-50'
-                          : 'hover:bg-gray-50'
+                          ? 'bg-amber-50/30'
+                          : ''
                       }`}
                     >
                       <td className="px-4 py-3 font-medium text-gray-900">{tool.name}</td>
@@ -378,7 +381,7 @@ export default function Calibration() {
                       <td className="px-4 py-3">
                         <button
                           onClick={() => setRecordingTool(tool)}
-                          className="px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 border border-amber-200 rounded-md"
+                          className="btn-soft border border-amber-200 bg-amber-100 text-amber-700 hover:bg-amber-200"
                         >
                           Record
                         </button>

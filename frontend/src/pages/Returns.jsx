@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Search, ArrowLeftCircle, Loader2, X, AlertTriangle } from 'lucide-react'
-import { issuanceAPI, returnsAPI, damageAPI } from '../api/client'
+import { issuanceAPI } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useDataSync } from '../data/DataSyncContext'
 import { useToast } from '../contexts/ToastContext'
 import Layout from '../components/Layout'
 import StatusBadge from '../components/StatusBadge'
@@ -40,6 +41,7 @@ function ModalShell({ onClose, children }) {
 
 function ReturnModal({ log, onClose, onReturned }) {
   const addToast = useToast()
+  const { actions } = useDataSync()
   const [qtyReturned, setQtyReturned] = useState(log.quantity_issued)
   const [condition, setCondition] = useState('good')
   const [notes, setNotes] = useState('')
@@ -56,7 +58,7 @@ function ReturnModal({ log, onClose, onReturned }) {
     }
     setSubmitting(true)
     try {
-      await returnsAPI.processReturn(log.id, {
+      await actions.returnTool(log.id, {
         quantity_returned: qty,
         return_condition: condition,
         notes: notes.trim() || null,
@@ -78,7 +80,7 @@ function ReturnModal({ log, onClose, onReturned }) {
   }
 
   const inputCls =
-    'w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent'
+    'input-control'
 
   return (
     <ModalShell onClose={onClose}>
@@ -181,14 +183,14 @@ function ReturnModal({ log, onClose, onReturned }) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              className="btn-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-60 rounded-lg flex items-center gap-2"
+              className="btn-primary"
             >
               {submitting && <Loader2 size={14} className="animate-spin" />}
               {submitting ? 'Processing…' : 'Process Return'}
@@ -202,6 +204,7 @@ function ReturnModal({ log, onClose, onReturned }) {
 
 function DamageModal({ log, onClose, onAssessed }) {
   const addToast = useToast()
+  const { actions } = useDataSync()
   const [damageType, setDamageType] = useState('')
   const [marketRate, setMarketRate] = useState('')
   const [notes, setNotes] = useState('')
@@ -224,7 +227,7 @@ function DamageModal({ log, onClose, onAssessed }) {
     if (damageType === 'theft' && !marketRate) { setErr('Market rate is required for theft'); return }
     setSubmitting(true)
     try {
-      await damageAPI.record(log.id, {
+      await actions.markToolDamaged(log.id, {
         damage_type: damageType,
         market_rate_at_damage: damageType === 'theft' ? Number(marketRate) : null,
         notes: notes.trim() || null,
@@ -240,7 +243,7 @@ function DamageModal({ log, onClose, onAssessed }) {
   }
 
   const inputCls =
-    'w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent'
+    'input-control focus:ring-red-400'
 
   return (
     <ModalShell onClose={onClose}>
@@ -353,14 +356,14 @@ function DamageModal({ log, onClose, onAssessed }) {
         <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+            className="btn-secondary"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="px-5 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 rounded-lg flex items-center gap-2"
+            className="btn-danger"
           >
             {submitting && <Loader2 size={14} className="animate-spin" />}
             {submitting ? 'Recording…' : 'Record Assessment'}
@@ -373,6 +376,7 @@ function DamageModal({ log, onClose, onAssessed }) {
 
 export default function Returns() {
   const { isAdmin } = useAuth()
+  const { version } = useDataSync()
   const [openLogs, setOpenLogs] = useState([])
   const [damageQueue, setDamageQueue] = useState([])
   const [loading, setLoading] = useState(true)
@@ -402,7 +406,7 @@ export default function Returns() {
     }
   }
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => { loadData() }, [version, isAdmin])
 
   const filteredOpen = useMemo(() => {
     if (!search.trim()) return openLogs
@@ -442,7 +446,7 @@ export default function Returns() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by tool name or borrower…"
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+            className="input-control pl-9"
           />
         </div>
 
@@ -455,7 +459,7 @@ export default function Returns() {
             <span className="text-xs text-gray-400">{filteredOpen.length} items</span>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="table-shell">
             {filteredOpen.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-14 text-gray-400 gap-2">
                 <ArrowLeftCircle size={28} className="opacity-30" />
@@ -465,7 +469,7 @@ export default function Returns() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="data-table">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50">
                       {['Tool', 'Borrower', 'Dept', 'Qty', 'Issued', 'Due', 'Action'].map((h) => (
@@ -477,7 +481,7 @@ export default function Returns() {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {filteredOpen.map((log) => (
-                      <tr key={log.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={log.id}>
                         <td className="px-4 py-3 font-medium text-gray-900">{log.tool_name}</td>
                         <td className="px-4 py-3 text-gray-700">{log.borrower_name || '—'}</td>
                         <td className="px-4 py-3 text-gray-500">{log.borrower_dept || '—'}</td>
@@ -487,7 +491,7 @@ export default function Returns() {
                         <td className="px-4 py-3">
                           <button
                             onClick={() => setReturningLog(log)}
-                            className="px-3 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-md"
+                            className="btn-soft bg-amber-500 text-white hover:bg-amber-600"
                           >
                             Process Return
                           </button>
@@ -515,14 +519,14 @@ export default function Returns() {
               )}
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="table-shell">
               {damageQueue.length === 0 ? (
                 <div className="flex items-center justify-center py-10 text-gray-400 text-sm">
                   No damage assessments pending
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="data-table">
                     <thead>
                       <tr className="border-b border-gray-100 bg-gray-50">
                         {['Tool', 'Borrower', 'Condition', 'Returned On', 'Value at Issue', 'Action'].map((h) => (
@@ -534,7 +538,7 @@ export default function Returns() {
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                       {damageQueue.map((log) => (
-                        <tr key={log.id} className="bg-red-50/40 hover:bg-red-50 transition-colors">
+                        <tr key={log.id} className="bg-red-50/40">
                           <td className="px-4 py-3 font-medium text-gray-900">{log.tool_name}</td>
                           <td className="px-4 py-3 text-gray-700">{log.borrower_name || '—'}</td>
                           <td className="px-4 py-3"><StatusBadge status={log.return_condition} /></td>
@@ -545,7 +549,7 @@ export default function Returns() {
                           <td className="px-4 py-3">
                             <button
                               onClick={() => setAssessingLog(log)}
-                              className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 border border-red-200 rounded-md"
+                              className="btn-soft border border-red-200 bg-red-100 text-red-700 hover:bg-red-200"
                             >
                               Record Damage
                             </button>

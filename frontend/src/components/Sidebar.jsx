@@ -36,18 +36,22 @@ export default function Sidebar() {
   const visibleItems = NAV_ITEMS.filter(item => item.roles.includes(user?.role))
 
   return (
-    <aside className="w-56 min-h-screen bg-navy-900 flex flex-col shrink-0">
+    <aside className="w-56 min-h-screen bg-navy-950 flex flex-col shrink-0 border-r border-white/5">
       {/* Logo area */}
-      <div className="px-4 py-5 border-b border-navy-700">
-        <BrandLogo className="h-24 w-full object-contain mix-blend-screen" compact />
-        <div className="text-white font-bold text-sm leading-tight mt-2">TIMS</div>
-        <div className="text-xs mt-0.5" style={{ color: '#6b8fa8' }}>
-          Tool Inventory Management
+      <div className="px-4 pt-4 pb-3 border-b border-white/10 shrink-0">
+        <div className="flex items-center gap-3">
+          <BrandLogo variant="sidebar" compact />
+          <div className="min-w-0">
+            <div className="text-white font-bold text-sm leading-tight tracking-wide">TIMS</div>
+            <div className="text-[11px] mt-0.5 leading-snug text-slate-400">
+              Tool Inventory Management System
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 px-3 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1 sidebar-scroll">
         {visibleItems.map((item) => {
           const Icon = item.icon
           return (
@@ -55,14 +59,14 @@ export default function Sidebar() {
               key={item.path}
               to={item.path}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                `group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ease-in-out ${
                   isActive
-                    ? 'bg-amber-500 text-white'
-                    : 'text-slate-300 hover:bg-navy-700 hover:text-white'
+                    ? 'bg-amber-500 text-white shadow-sm shadow-amber-500/25'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white hover:translate-x-0.5'
                 }`
               }
             >
-              <Icon size={16} />
+              <Icon size={16} className="shrink-0 opacity-90 transition-transform duration-200 ease-in-out group-hover:scale-105" />
               {item.label}
             </NavLink>
           )

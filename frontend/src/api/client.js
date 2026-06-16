@@ -97,9 +97,10 @@ export const calibrationAPI = {
 }
 
 export const binsAPI = {
-  list: () => api.get('/bins'),
-  create: (data) => api.post('/bins', data),
-  update: (id, data) => api.put(`/bins/${id}`, data),
+  list: () => api.get('/storage-bins'),
+  tools: (id) => api.get(`/storage-bins/${id}/tools`),
+  create: (data) => api.post('/storage-bins', data),
+  update: (id, data) => api.put(`/storage-bins/${id}`, data),
 }
 
 export const damageAPI = {
@@ -110,5 +111,6 @@ export const damageAPI = {
 export const usersAPI = {
   list: () => api.get('/users'),
   create: (data) => api.post('/users', data),
+  update: (id, data) => api.put(`/users/${id}`, data),
   toggleActive: (id) => api.put(`/users/${id}/toggle-active`),
 }

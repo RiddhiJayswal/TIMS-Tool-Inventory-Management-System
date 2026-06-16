@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowRightCircle, Loader2, X } from 'lucide-react'
 import { requisitionsAPI, issuanceAPI } from '../api/client'
+import { useDataSync } from '../data/DataSyncContext'
 import { useToast } from '../contexts/ToastContext'
 import Layout from '../components/Layout'
 
@@ -36,6 +37,7 @@ function fmtDate(d) {
 
 function IssueModal({ req, onClose, onIssued }) {
   const addToast = useToast()
+  const { actions } = useDataSync()
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
 
@@ -49,7 +51,7 @@ function IssueModal({ req, onClose, onIssued }) {
     setErr('')
     setLoading(true)
     try {
-      await issuanceAPI.issue({ requisition_id: req.id })
+      await actions.issueTool({ requisition_id: req.id })
       addToast(`Tool '${req.tool_name}' issued to ${req.requester_name || req.requester_dept}`)
       onIssued()
       onClose()
@@ -107,14 +109,14 @@ function IssueModal({ req, onClose, onIssued }) {
           <button
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+            className="btn-secondary"
           >
             Cancel
           </button>
           <button
             onClick={handleIssue}
             disabled={loading}
-            className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 rounded-lg flex items-center gap-2"
+            className="btn-blue"
           >
             {loading && <Loader2 size={14} className="animate-spin" />}
             {loading ? 'Issuing…' : 'Issue Tool'}
@@ -126,6 +128,7 @@ function IssueModal({ req, onClose, onIssued }) {
 }
 
 export default function Issuance() {
+  const { version } = useDataSync()
   const [approved, setApproved] = useState([])
   const [active, setActive] = useState([])
   const [loading, setLoading] = useState(true)
@@ -149,7 +152,7 @@ export default function Issuance() {
     }
   }
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => { loadData() }, [version])
 
   const filteredActive = active.filter((log) => {
     if (!log.expected_return_date) return activeTab === 'all'
@@ -196,7 +199,7 @@ export default function Issuance() {
             </span>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="table-shell">
             {approved.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-14 text-gray-400 gap-2">
                 <ArrowRightCircle size={28} className="opacity-30" />
@@ -204,7 +207,7 @@ export default function Issuance() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="data-table">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50">
                       {['Req #', 'Tool', 'Qty', 'Requested By', 'Dept', 'Purpose', 'From', 'To', 'Action'].map((h) => (
@@ -216,7 +219,7 @@ export default function Issuance() {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {approved.map((req) => (
-                      <tr key={req.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={req.id}>
                         <td className="px-4 py-3 font-mono text-xs text-gray-500">{req.requisition_number}</td>
                         <td className="px-4 py-3 font-medium text-gray-900">{req.tool_name}</td>
                         <td className="px-4 py-3 text-gray-600">{req.quantity_requested}</td>
@@ -230,7 +233,7 @@ export default function Issuance() {
                         <td className="px-4 py-3">
                           <button
                             onClick={() => setIssuingReq(req)}
-                            className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+                            className="btn-soft bg-blue-600 text-white hover:bg-blue-700"
                           >
                             Issue Tool
                           </button>
@@ -258,15 +261,15 @@ export default function Issuance() {
           </div>
 
           {/* Filter tabs */}
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit mb-3">
+          <div className="tab-shell w-fit mb-3">
             {ACTIVE_TABS.map((t) => (
               <button
                 key={t.value}
                 onClick={() => setActiveTab(t.value)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ease-in-out ${
                   activeTab === t.value
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
                 }`}
               >
                 {t.label}
@@ -274,14 +277,14 @@ export default function Issuance() {
             ))}
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="table-shell">
             {filteredActive.length === 0 ? (
               <div className="flex items-center justify-center py-12 text-gray-400 text-sm">
                 No active issuances{activeTab !== 'all' ? ` in "${ACTIVE_TABS.find(t => t.value === activeTab)?.label}" category` : ''}
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="data-table">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50">
                       {['Tool', 'Borrower', 'Dept', 'Qty', 'Issued On', 'Due Date', 'Status'].map((h) => (

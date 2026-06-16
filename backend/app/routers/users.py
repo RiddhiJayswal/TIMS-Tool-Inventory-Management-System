@@ -1,10 +1,13 @@
+from datetime import datetime
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.database import get_db
-from app.models.transaction import User
+from app.models.transaction import AccessRequest, Notification, User
 from app.auth.roles import RequireAdmin, get_current_user, hash_password
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -29,6 +32,10 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
+class AccessDecision(BaseModel):
+    reason: Optional[str] = None
+
+
 def _user_out(u: User) -> dict:
     return {
         "id": str(u.id),
@@ -42,6 +49,45 @@ def _user_out(u: User) -> dict:
     }
 
 
+def _access_request_out(req: AccessRequest) -> dict:
+    return {
+        "id": str(req.id),
+        "requestId": req.request_id,
+        "request_id": req.request_id,
+        "name": req.full_name,
+        "full_name": req.full_name,
+        "email": req.email,
+        "username": req.email,
+        "employeeId": req.employee_id,
+        "employee_id": req.employee_id,
+        "department": req.department,
+        "requestedRole": req.requested_role,
+        "requested_role": req.requested_role,
+        "role": req.requested_role,
+        "reason": req.reason,
+        "notes": req.reason,
+        "status": req.status,
+        "createdAt": req.created_at,
+        "created_at": req.created_at,
+        "approvedBy": str(req.approved_by) if req.approved_by else None,
+        "approved_by": str(req.approved_by) if req.approved_by else None,
+        "approvedAt": req.approved_at,
+        "approved_at": req.approved_at,
+        "rejection_reason": req.rejection_reason,
+    }
+
+
+def _find_access_request(db: Session, request_id: str) -> AccessRequest | None:
+    try:
+        parsed = UUID(request_id)
+    except ValueError:
+        parsed = None
+    query = db.query(AccessRequest)
+    if parsed:
+        return query.filter(AccessRequest.id == parsed).first()
+    return query.filter(AccessRequest.request_id == request_id).first()
+
+
 @router.get("")
 def list_users(
     current_user: User = Depends(RequireAdmin),
@@ -49,6 +95,107 @@ def list_users(
 ):
     users = db.query(User).order_by(User.created_at.desc()).all()
     return [_user_out(u) for u in users]
+
+
+@router.get("/access-requests")
+def list_access_requests(
+    current_user: User = Depends(RequireAdmin),
+    db: Session = Depends(get_db),
+):
+    requests = db.query(AccessRequest).order_by(AccessRequest.created_at.desc()).all()
+    return [_access_request_out(r) for r in requests]
+
+
+@router.put("/access-requests/{request_id}/approve")
+def approve_access_request(
+    request_id: str,
+    current_user: User = Depends(RequireAdmin),
+    db: Session = Depends(get_db),
+):
+    req = _find_access_request(db, request_id)
+    if not req:
+        raise HTTPException(404, "Access request not found")
+    if req.status != "pending":
+        raise HTTPException(400, f"Access request is already {req.status}")
+    if req.requested_role not in VALID_ROLES:
+        raise HTTPException(400, "Invalid requested role")
+
+    employee_id = (req.employee_id or "").strip().upper()
+    if not employee_id:
+        raise HTTPException(400, "Employee ID is required before approval")
+
+    existing = (
+        db.query(User)
+        .filter((User.employee_id == employee_id) | (User.email == req.email.strip().lower()))
+        .first()
+    )
+    if existing:
+        existing.full_name = req.full_name.strip()
+        existing.email = req.email.strip().lower()
+        existing.role = req.requested_role
+        existing.department = req.department.strip()
+        existing.hashed_password = req.hashed_password
+        existing.is_active = True
+        user = existing
+    else:
+        user = User(
+            employee_id=employee_id,
+            full_name=req.full_name.strip(),
+            email=req.email.strip().lower(),
+            hashed_password=req.hashed_password,
+            role=req.requested_role,
+            department=req.department.strip(),
+            is_active=True,
+        )
+        db.add(user)
+        db.flush()
+
+    req.status = "approved"
+    req.approved_by = current_user.id
+    req.approved_at = datetime.utcnow()
+    db.add(Notification(
+        user_id=current_user.id,
+        message=f"Access request {req.request_id} approved: {req.full_name} is now active as {req.requested_role.replace('_', ' ')}.",
+        is_read=False,
+    ))
+    db.add(Notification(
+        user_id=user.id,
+        message=f"Access approved: Your TIMS account {user.employee_id} is active.",
+        is_read=False,
+    ))
+    db.commit()
+    db.refresh(req)
+    db.refresh(user)
+    return {"request": _access_request_out(req), "user": _user_out(user)}
+
+
+@router.put("/access-requests/{request_id}/reject")
+def reject_access_request(
+    request_id: str,
+    payload: AccessDecision,
+    current_user: User = Depends(RequireAdmin),
+    db: Session = Depends(get_db),
+):
+    req = _find_access_request(db, request_id)
+    if not req:
+        raise HTTPException(404, "Access request not found")
+    if req.status != "pending":
+        raise HTTPException(400, f"Access request is already {req.status}")
+    reason = (payload.reason or "").strip()
+    if not reason:
+        raise HTTPException(400, "Rejection reason is required")
+    req.status = "rejected"
+    req.rejection_reason = reason
+    req.approved_by = current_user.id
+    req.approved_at = datetime.utcnow()
+    db.add(Notification(
+        user_id=current_user.id,
+        message=f"Access request {req.request_id} rejected: {req.full_name}. Reason: {reason}",
+        is_read=False,
+    ))
+    db.commit()
+    db.refresh(req)
+    return _access_request_out(req)
 
 
 @router.post("", status_code=201)
@@ -78,6 +225,39 @@ def create_user(
     db.commit()
     db.refresh(new_user)
     return _user_out(new_user)
+
+
+@router.put("/{user_id}")
+def update_user(
+    user_id: str,
+    payload: UserUpdate,
+    current_user: User = Depends(RequireAdmin),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    update_data = payload.model_dump(exclude_unset=True)
+    if "role" in update_data and update_data["role"] not in VALID_ROLES:
+        raise HTTPException(400, f"Invalid role. Must be one of: {', '.join(sorted(VALID_ROLES))}")
+    if update_data.get("is_active") is False and str(user.id) == str(current_user.id):
+        raise HTTPException(400, "Cannot deactivate your own account")
+    if "email" in update_data:
+        existing = db.query(User).filter(User.email == str(update_data["email"]).strip().lower()).first()
+        if existing and existing.id != user.id:
+            raise HTTPException(400, f"Email '{update_data['email']}' already registered")
+
+    for field, value in update_data.items():
+        if field == "email" and value:
+            value = str(value).strip().lower()
+        elif field in ("full_name", "department") and value:
+            value = value.strip()
+        setattr(user, field, value)
+
+    db.commit()
+    db.refresh(user)
+    return _user_out(user)
 
 
 @router.put("/{user_id}/toggle-active")

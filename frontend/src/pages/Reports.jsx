@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Download, Loader2, BarChart3 } from 'lucide-react'
 import api, { reportsAPI } from '../api/client'
 import { useToast } from '../contexts/ToastContext'
+import { useDataSync } from '../data/DataSyncContext'
 import Layout from '../components/Layout'
 import StatusBadge from '../components/StatusBadge'
 
@@ -29,12 +30,12 @@ function fmtCurrency(v) {
 
 function TableShell({ children, exportLoading, onExport }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div className="table-shell">
       <div className="px-4 py-3 border-b border-gray-100 flex justify-end">
         <button
           onClick={onExport}
           disabled={exportLoading}
-          className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 rounded-md transition-colors"
+          className="btn-soft bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-60"
         >
           {exportLoading ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
           {exportLoading ? 'Exporting…' : 'Export CSV'}
@@ -58,7 +59,7 @@ function StockTable({ data }) {
   if (!data.length) return <EmptyState msg="No tools found" />
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="data-table">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50">
             {['Code', 'Name', 'Category', 'Type', 'Total', 'Available', 'Issued', 'Status'].map((h) => (
@@ -68,7 +69,7 @@ function StockTable({ data }) {
         </thead>
         <tbody className="divide-y divide-gray-50">
           {data.map((r) => (
-            <tr key={r.tool_id || r.id} className="hover:bg-gray-50">
+            <tr key={r.tool_id || r.id}>
               <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.tool_code}</td>
               <td className="px-4 py-3 font-medium text-gray-900">{r.tool_name || r.name}</td>
               <td className="px-4 py-3 text-gray-500">{r.category}</td>
@@ -79,7 +80,7 @@ function StockTable({ data }) {
                   {r.available_quantity}
                 </span>
               </td>
-              <td className="px-4 py-3">{r.issued_quantity ?? (r.total_quantity - r.available_quantity)}</td>
+              <td className="px-4 py-3">{r.issued_quantity ?? r.currently_issued ?? 0}</td>
               <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
             </tr>
           ))}
@@ -90,6 +91,7 @@ function StockTable({ data }) {
 }
 
 function IssuanceHistoryTab({ addToast }) {
+  const { version } = useDataSync()
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
@@ -111,7 +113,7 @@ function IssuanceHistoryTab({ addToast }) {
     } finally {
       setLoading(false)
     }
-  }, [fromDate, toDate, dept])
+  }, [fromDate, toDate, dept, version])
 
   useEffect(() => { load() }, [load])
 
@@ -137,18 +139,18 @@ function IssuanceHistoryTab({ addToast }) {
         <div>
           <label className="block text-xs text-gray-500 mb-1">From</label>
           <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+            className="input-control" />
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">To</label>
           <input type="date" value={toDate} max={TODAY} onChange={(e) => setToDate(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+            className="input-control" />
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">Department</label>
           <input type="text" value={dept} onChange={(e) => setDept(e.target.value)}
             placeholder="Filter by dept…"
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 w-40" />
+            className="input-control w-40" />
         </div>
       </div>
 
@@ -161,7 +163,7 @@ function IssuanceHistoryTab({ addToast }) {
           <EmptyState msg="No issuance history matching filters" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="data-table">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   {['Tool', 'Borrower', 'Dept', 'Qty', 'Issued', 'Returned', 'Condition', 'Penalty'].map((h) => (
@@ -171,7 +173,7 @@ function IssuanceHistoryTab({ addToast }) {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {data.map((r, i) => (
-                  <tr key={r.issuance_id || i} className="hover:bg-gray-50">
+                  <tr key={r.issuance_id || i}>
                     <td className="px-4 py-3 font-medium text-gray-900">{r.tool_name}</td>
                     <td className="px-4 py-3 text-gray-700">{r.borrower_name || '—'}</td>
                     <td className="px-4 py-3 text-gray-500">{r.borrower_dept || '—'}</td>
@@ -203,6 +205,7 @@ function triggerDownload(blob, name) {
 }
 
 function SimpleReportTab({ fetchFn, endpoint, columns, addToast }) {
+  const { version } = useDataSync()
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [exportLoading, setExportLoading] = useState(false)
@@ -212,7 +215,7 @@ function SimpleReportTab({ fetchFn, endpoint, columns, addToast }) {
       .then((r) => setData(r.data))
       .catch((ex) => addToast(ex.response?.data?.detail || 'Failed to load report', 'error'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [version])
 
   const handleExport = async () => {
     setExportLoading(true)
@@ -236,7 +239,7 @@ function SimpleReportTab({ fetchFn, endpoint, columns, addToast }) {
         <EmptyState />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="data-table">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 {columns.map((c) => (
@@ -248,7 +251,7 @@ function SimpleReportTab({ fetchFn, endpoint, columns, addToast }) {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {data.map((r, i) => (
-                <tr key={i} className="hover:bg-gray-50">
+                <tr key={i}>
                   {columns.map((c) => (
                     <td key={c.key} className="px-4 py-3 text-gray-700">
                       {c.render ? c.render(r) : (r[c.key] ?? '—')}
@@ -266,6 +269,7 @@ function SimpleReportTab({ fetchFn, endpoint, columns, addToast }) {
 
 export default function Reports() {
   const addToast = useToast()
+  const { version } = useDataSync()
   const [tab, setTab] = useState('stock')
   const [stockData, setStockData] = useState([])
   const [stockLoading, setStockLoading] = useState(true)
@@ -279,7 +283,7 @@ export default function Reports() {
         .catch((ex) => addToast(ex.response?.data?.detail || 'Failed to load stock report', 'error'))
         .finally(() => setStockLoading(false))
     }
-  }, [tab])
+  }, [tab, version])
 
   const handleStockExport = async () => {
     setStockExportLoading(true)
@@ -299,15 +303,15 @@ export default function Reports() {
         <h1 className="text-xl font-bold text-gray-900">Reports</h1>
 
         {/* Tab Navigation */}
-        <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-xl">
+        <div className="tab-shell">
           {TABS.map((t) => (
             <button
               key={t.value}
               onClick={() => setTab(t.value)}
-              className={`px-3 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
+              className={`px-3 py-2 text-xs font-semibold rounded-lg transition-all duration-200 ease-in-out whitespace-nowrap ${
                 tab === t.value
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
               }`}
             >
               {t.label}

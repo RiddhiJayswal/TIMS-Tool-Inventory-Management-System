@@ -1,4 +1,4 @@
-# Maintenance Tool Recording System (TIMS)
+# Tool Inventory Management System(TIMS)
 ## UltraTech Cement · Maintenance Department
 
 ---

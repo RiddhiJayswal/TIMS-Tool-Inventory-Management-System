@@ -87,6 +87,13 @@ function ToolDetailModal({ tool, onClose }) {
   const SectionHead = ({ label }) => (
     <div style={{ padding: '9px 24px 7px', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-subtle)', background: 'var(--surface-sunken)', borderBottom: '1px solid var(--border-subtle)' }}>{label}</div>
   );
+  const Info = ({ label, value }) => (
+    <div>
+      <div style={{ fontSize: 10.5, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>{label}</div>
+      <div style={{ marginTop: 3, fontSize: 13, color: value ? 'var(--text-default)' : 'var(--text-subtle)' }}>{value || 'Not set'}</div>
+    </div>
+  );
+  const unitStartFor = (idx) => issued.slice(0, idx).reduce((sum, row) => sum + Number(row.qty || 0), 0) + 1;
   return (
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{
       position: 'fixed', inset: 0, zIndex: 70,
@@ -125,18 +132,47 @@ function ToolDetailModal({ tool, onClose }) {
         </div>
         {/* Unit rows */}
         <div style={{ flex: 1, overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.1) transparent' }}>
+          <SectionHead label="Basic information" />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14, padding: '16px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
+            <Info label="Category" value={tool.category} />
+            <Info label="Make" value={tool.make} />
+            <Info label="Model" value={tool.model} />
+            <Info label="Serial No." value={tool.serial_number} />
+            <Info label="Department" value={tool.department_access || 'All'} />
+            <Info label="Condition" value={tool.status} />
+          </div>
+          <SectionHead label="Inventory, value and calibration" />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14, padding: '16px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
+            <Info label="Total qty" value={tool.total} />
+            <Info label="Available qty" value={tool.available} />
+            <Info label="Issued qty" value={issuedUnitCount || tool.issued || 0} />
+            <Info label="Purchase date" value={tool.purchase_date} />
+            <Info label="Purchase cost" value={tool.purchase_price != null ? window.inr(tool.purchase_price) : ''} />
+            <Info label="Current value" value={tool.current_value != null ? window.inr(tool.current_value) : ''} />
+            <Info label="Storage bin" value={tool.bin} />
+            <Info label="Calibration" value={tool.requires_calibration ? 'Required' : 'Not required'} />
+            <Info label="Service partner" value={tool.service_partner} />
+            <Info label="Last calibration" value={tool.last_calibration_date} />
+            <Info label="Next calibration" value={tool.next_calibration_due} />
+            <Info label="Frequency" value={tool.calibration_freq_days ? `${tool.calibration_freq_days} days` : ''} />
+          </div>
           {issued.length > 0 && (
             <>
               <SectionHead label={`Issued - ${issuedUnitCount} unit${issuedUnitCount !== 1 ? 's' : ''} out`} />
               {issued.map((i, idx) => {
                 const [bg, fg, lbl] = STATE_BADGE[i.state] || STATE_BADGE.on_time;
+                const start = unitStartFor(idx);
+                const qty = Number(i.qty || 0);
+                const unitLabel = qty > 1 ? `Units #${start}-${start + qty - 1}` : `Unit #${start}`;
                 return (
                   <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 24px', borderBottom: '1px solid var(--border-subtle)', background: i.state === 'overdue' ? 'var(--danger-bg)' : 'transparent' }}>
                     <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--surface-sunken)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
                       <Icon name="user" size={15} color="var(--text-muted)" />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, color: 'var(--text-strong)', fontSize: 13.5 }}>{i.issued_to}</div>
+                      <div style={{ fontWeight: 700, color: 'var(--text-strong)', fontSize: 13.5 }}>{unitLabel} - With {i.issued_to}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Issued to {i.issued_to} ({i.dept})</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>Home bin: {tool.bin || 'Not set'}</div>
                       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>{i.dept} · Qty {i.qty}</div>
                     </div>
                     <div style={{ textAlign: 'right', fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>
@@ -196,7 +232,6 @@ function DashboardScreen({ onNavigate }) {
   const [fDept, setFDept] = React.useState('');
   const [fState, setFState] = React.useState('');
   const [selectedTool, setSelectedTool] = React.useState(null);
-  const [returningId, setReturningId] = React.useState(null);
   const [message, setMessage] = React.useState(null);
   const [, setRefreshTick] = React.useState(0);
 
@@ -207,23 +242,9 @@ function DashboardScreen({ onNavigate }) {
     setFType(''); setFStatus(''); setFDept(''); setFState('');
   };
 
-  const returnOwnTool = async (issuance) => {
-    if (!issuance?.id || returningId) return;
-    setReturningId(issuance.id);
-    try {
-      await window.API.processReturn(issuance.id, {
-        quantity_returned: Number(issuance.quantity_issued || issuance.qty || 1),
-        return_condition: 'good',
-        notes: 'Returned by issued user',
-      });
-      await Promise.all([window.API.loadDashboard(), window.API.loadRequisitions(), window.API.loadIssuances(), window.API.loadReports()]);
-      setMessage({ tone: 'success', text: 'Tool returned successfully.' });
-      setRefreshTick(t => t + 1);
-    } catch (e) {
-      setMessage({ tone: 'danger', text: e.message || 'Tool return failed' });
-    } finally {
-      setReturningId(null);
-    }
+  const returnOwnTool = () => {
+    setMessage({ tone: 'success', text: 'Open My Requests and use Return Tool to confirm quantity and condition.' });
+    onNavigate('requisitions');
   };
 
   /* ── Filtered rows ─────────────────────────────────────────────── */
@@ -278,7 +299,7 @@ function DashboardScreen({ onNavigate }) {
           <DataTable
             columns={[
               { key: 'tool_code', header: 'Code', mono: true, nowrap: true },
-              { key: 'name', header: 'Tool Name', render: t => <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{t.name}</span> },
+              { key: 'name', header: 'Tool Name', render: t => <span style={{ fontWeight: 700, color: 'var(--info-text,#0b63ce)', textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}>{t.name}</span> },
               { key: 'tool_type', header: 'Type', render: t => <span style={{ textTransform: 'capitalize', color: 'var(--text-muted)' }}>{t.tool_type}</span> },
               { key: 'dept', header: 'Dept Access', render: t => t.department_access || <span style={{ color: 'var(--text-subtle)' }}>All</span> },
               { key: 'avail', header: 'Avail / Total', align: 'right', nowrap: true, render: t => <span><b style={{ color: t.available > 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>{t.available}</b><span style={{ color: 'var(--text-subtle)' }}> / {t.total}</span></span> },
@@ -305,7 +326,7 @@ function DashboardScreen({ onNavigate }) {
           <DataTable
             columns={[
               { key: 'tool_code', header: 'Code', mono: true, nowrap: true },
-              { key: 'name', header: 'Tool Name', render: t => <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{t.name}</span> },
+              { key: 'name', header: 'Tool Name', render: t => <span style={{ fontWeight: 700, color: 'var(--info-text,#0b63ce)', textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}>{t.name}</span> },
               { key: 'tool_type', header: 'Type', render: t => <span style={{ textTransform: 'capitalize', color: 'var(--text-muted)' }}>{t.tool_type}</span> },
               { key: 'dept', header: 'Dept Access', render: t => t.department_access || <span style={{ color: 'var(--text-subtle)' }}>All</span> },
               { key: 'available', header: 'Available', align: 'right', render: t => <span style={{ fontWeight: 700, color: 'var(--success-text)', fontSize: 15 }}>{t.available}</span> },
@@ -332,7 +353,7 @@ function DashboardScreen({ onNavigate }) {
           <DataTable
             columns={[
               { key: 'tool_code', header: 'Code', mono: true, nowrap: true },
-              { key: 'tool_name', header: 'Tool', render: i => <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{i.tool_name}</span> },
+              { key: 'tool_name', header: 'Tool', render: i => <span style={{ fontWeight: 700, color: 'var(--info-text,#0b63ce)', textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}>{i.tool_name}</span> },
               { key: 'issued_to', header: 'Issued To', render: i => <span style={{ fontWeight: 500 }}>{i.issued_to}</span> },
               { key: 'dept', header: 'Dept', render: i => <span style={{ color: 'var(--text-muted)' }}>{i.dept}</span> },
               { key: 'issued_on', header: 'Issued On', nowrap: true, render: i => <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{i.issued_on}</span> },
@@ -406,10 +427,9 @@ function DashboardScreen({ onNavigate }) {
                   {!seesOperationalIssuances && (
                     <button
                       onClick={() => returnOwnTool(i)}
-                      disabled={returningId === i.id}
-                      style={{ padding: '5px 11px', border: 'none', borderRadius: 'var(--radius-sm)', background: 'var(--brand-black)', color: '#fff', fontSize: 12, fontWeight: 600, cursor: returningId === i.id ? 'wait' : 'pointer', fontFamily: 'var(--font-sans)' }}
+                      style={{ padding: '5px 11px', border: 'none', borderRadius: 'var(--radius-sm)', background: 'var(--brand-black)', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
                     >
-                      {returningId === i.id ? 'Returning...' : 'Return Tool'}
+                      Return Tool
                     </button>
                   )}
                 </div>
@@ -478,4 +498,4 @@ function QueueRow({ label, value, tone, cta, onClick }) {
   );
 }
 
-Object.assign(window, { DashboardScreen });
+Object.assign(window, { DashboardScreen, ToolDetailModal });

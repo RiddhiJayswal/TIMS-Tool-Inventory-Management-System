@@ -131,14 +131,13 @@ function ReturnHistoryModal({ item, onClose }) {
         <div style={{ border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead><tr style={{ background: 'var(--surface-sunken)', borderBottom: '1px solid var(--border-default)' }}>
-              {['Date', 'Returned By', 'Condition', 'Notes'].map((h, i) => <th key={i} style={{ padding: '9px 12px', textAlign: 'left', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{h}</th>)}
+              {['Date', 'Returned By', 'Condition'].map((h, i) => <th key={i} style={{ padding: '9px 12px', textAlign: 'left', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{h}</th>)}
             </tr></thead>
             <tbody>{logs.map((l, i) => (
               <tr key={i} onMouseEnter={e => e.currentTarget.style.background='var(--surface-sunken)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
                 <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', color: 'var(--text-default)', fontWeight: 500 }}>{l.returned_on}</td>
                 <td style={{ padding: '10px 12px', color: 'var(--text-default)' }}>{l.returned_by}</td>
                 <td style={{ padding: '10px 12px' }}><span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 'var(--radius-pill)', background: 'var(--success-bg)', color: 'var(--success-text)' }}>{l.condition}</span></td>
-                <td style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: 12.5 }}>{l.notes}</td>
               </tr>
             ))}</tbody>
           </table>
@@ -273,6 +272,7 @@ function RecordDamageModal({ item, onClose, onConfirm }) {
   const { Modal, Button, RadioGroup, Input, Textarea } = NS_RET;
   const [kind, setKind] = React.useState('mishandling');
   const [marketRate, setMarketRate] = React.useState(item.current_value);
+  const [notes, setNotes] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState('');
   const inr = window.inr;
@@ -408,7 +408,7 @@ function ReturnsScreen() {
       </div>
 
       {viewMode !== 'records' && <>
-      {/* Active Issuances table */}}
+      {/* Active Issuances table */}
       <Card title={<span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-strong)' }}>Active Issuances</span>} padded={false}>
         <DataTable
           columns={[

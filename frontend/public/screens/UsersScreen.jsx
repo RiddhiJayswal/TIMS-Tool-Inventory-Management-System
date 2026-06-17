@@ -278,7 +278,7 @@ function UsersScreen() {
   ];
 
   return (
-    <div>
+    <div className="tims-users">
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 22 }}>
         <div>
@@ -311,7 +311,7 @@ function UsersScreen() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center' }}>
+      <div className="tims-users-filters" style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: 1, maxWidth: 320 }}>
           <Icon name="search" size={15} color="var(--text-subtle)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
           <input value={search} onChange={e => setSearch(e.target.value)}
@@ -329,7 +329,7 @@ function UsersScreen() {
       </div>
 
       {/* Table */}
-      <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+      <div className="tims-users-table" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
           <thead>
             <tr style={{ background: 'var(--surface-sunken)', borderBottom: '1px solid var(--border-default)' }}>
@@ -346,7 +346,7 @@ function UsersScreen() {
                 <tr key={emp.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--border-subtle)' : 'none', transition: 'background 0.1s' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-sunken)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={{ padding: '11px 14px' }}>
+                  <td data-label="Employee" style={{ padding: '11px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--brand-black)', color: 'var(--brand-yellow)', display: 'grid', placeItems: 'center', fontSize: 11.5, fontWeight: 700, flexShrink: 0, letterSpacing: '0.04em' }}>{initials}</div>
                       <div>
@@ -355,15 +355,15 @@ function UsersScreen() {
                       </div>
                     </div>
                   </td>
-                  <td style={{ padding: '11px 14px', color: 'var(--text-muted)', fontSize: 12.5, fontVariantNumeric: 'tabular-nums' }}>{emp.emp_id}</td>
-                  <td style={{ padding: '11px 14px', color: 'var(--text-default)' }}>{emp.department}</td>
-                  <td style={{ padding: '11px 14px' }}>
+                  <td data-label="EMP ID" style={{ padding: '11px 14px', color: 'var(--text-muted)', fontSize: 12.5, fontVariantNumeric: 'tabular-nums' }}>{emp.emp_id}</td>
+                  <td data-label="Department" style={{ padding: '11px 14px', color: 'var(--text-default)' }}>{emp.department}</td>
+                  <td data-label="Role" style={{ padding: '11px 14px' }}>
                     <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 'var(--radius-pill)', background: tone.bg, color: tone.fg }}>{ROLE_LABELS_U[emp.role]}</span>
                   </td>
-                  <td style={{ padding: '11px 14px' }}>
+                  <td data-label="Status" style={{ padding: '11px 14px' }}>
                     <StatusCell emp={emp} onToggle={updateStatus} />
                   </td>
-                  <td style={{ padding: '11px 14px', textAlign: 'right' }}>
+                  <td data-label="Action" style={{ padding: '11px 14px', textAlign: 'right' }}>
                     <button onClick={() => setEditingEmp(emp)}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-default)', background: 'var(--surface-card)', color: 'var(--text-muted)', cursor: 'pointer', padding: '5px 11px', borderRadius: 'var(--radius-md)', fontSize: 12.5, fontFamily: 'var(--font-sans)', fontWeight: 500, transition: 'all 0.15s', whiteSpace: 'nowrap' }}
                       onMouseEnter={e => { e.currentTarget.style.background = 'var(--brand-black)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'var(--brand-black)'; }}

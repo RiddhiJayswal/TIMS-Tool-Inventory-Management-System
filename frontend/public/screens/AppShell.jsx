@@ -43,7 +43,7 @@ function Sidebar({ route, onNavigate, collapsed, onToggle, user }) {
     cursor: 'pointer', flexShrink: 0, padding: 0,
   };
   return (
-    <aside style={{
+    <aside className={`tims-sidebar ${collapsed ? 'is-collapsed' : 'is-expanded'}`} style={{
       width: collapsed ? 64 : 224, flexShrink: 0, background: 'var(--brand-black)',
       display: 'flex', flexDirection: 'column', height: '100%', borderTop: 'var(--brand-accent-line)',
       transition: 'width 0.2s cubic-bezier(0.4,0,0.2,1)', overflow: 'hidden',
@@ -179,13 +179,13 @@ function Navbar({ user, notifs = [], onLogout }) {
   };
 
   return (
-    <header style={{
+    <header className="tims-navbar" style={{
       height: 'var(--navbar-height)', flexShrink: 0, background: 'var(--surface-card)',
       borderBottom: '1px solid var(--border-default)', display: 'flex', alignItems: 'center',
       justifyContent: 'space-between', padding: '0 22px',
     }}>
-      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>Tool Inventory Management System</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div className="tims-navbar-title" style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>Tool Inventory Management System</div>
+      <div className="tims-navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <div ref={notifRef} style={{ position: 'relative' }}>
           <button onClick={() => setOpen(!open)} style={{
             position: 'relative', display: 'grid', placeItems: 'center', width: 34, height: 34,
@@ -198,7 +198,7 @@ function Navbar({ user, notifs = [], onLogout }) {
             )}
           </button>
           {open && (
-            <div style={{ position: 'absolute', right: 0, top: 40, width: 380, maxHeight: 440, background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', zIndex: 40, overflowY: 'auto', overflowX: 'hidden' }}>
+            <div className="tims-notif-menu" style={{ position: 'absolute', right: 0, top: 40, width: 380, maxHeight: 440, background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', zIndex: 40, overflowY: 'auto', overflowX: 'hidden' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 14px', borderBottom: '1px solid var(--border-subtle)' }}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-strong)' }}>Notifications</span>
                 {unreadCount > 0 ? (
@@ -228,14 +228,14 @@ function Navbar({ user, notifs = [], onLogout }) {
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="tims-user-chip" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ textAlign: 'right', lineHeight: 1.25 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-strong)' }}>{user.full_name}</div>
             <div style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>{user.department}</div>
           </div>
           <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 'var(--radius-pill)', background: tone.bg, color: tone.fg }}>{ROLE_LABELS[user.role]}</span>
         </div>
-        <button onClick={onLogout} title="Logout" style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', padding: '7px 8px', borderRadius: 'var(--radius-md)' }}
+        <button className="tims-logout-btn" onClick={onLogout} title="Logout" style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', padding: '7px 8px', borderRadius: 'var(--radius-md)' }}
           onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--danger-solid)'; e.currentTarget.style.background = 'var(--danger-bg)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}>
           <Icon name="logout" size={16} /> Logout
@@ -256,12 +256,21 @@ function AppShell({ user, route, onNavigate, notifs, onLogout, children }) {
     return () => { const el = document.getElementById('tims-main-scroll'); if (el) el.remove(); };
   }, []);
 
+  React.useEffect(() => {
+    const syncSidebar = () => {
+      if (window.innerWidth <= 820) setCollapsed(true);
+    };
+    syncSidebar();
+    window.addEventListener('resize', syncSidebar);
+    return () => window.removeEventListener('resize', syncSidebar);
+  }, []);
+
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden', background: 'var(--surface-page)' }}>
+    <div className="tims-shell" style={{ display: 'flex', height: '100%', overflow: 'hidden', background: 'var(--surface-page)' }}>
       <Sidebar route={route} onNavigate={onNavigate} collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} user={user} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         <Navbar user={user} notifs={notifs} onLogout={onLogout} />
-        <main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '24px 26px', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.12) transparent' }}>{children}</main>
+        <main className="tims-main" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '24px 26px', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.12) transparent' }}>{children}</main>
       </div>
     </div>
   );

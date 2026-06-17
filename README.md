@@ -1,329 +1,203 @@
+<<<<<<< HEAD
 # Tool Inventory Management System(TIMS)
 ## UltraTech Cement · Maintenance Department
+=======
+# TIMS - Tool Inventory Management System
+>>>>>>> cd5087e (Fix TIMS responsive UI and add full workflow testing improvements)
 
----
+TIMS is a role-based maintenance tool inventory system for plant teams. It tracks tool stock, requisitions, approvals, issue/return activity, calibration, storage bins, damage assessment, users, reports, notifications, and audit/activity exports.
 
-## What is TIMS?
+## Current Stack
 
-TIMS replaces a manual Excel-based process with a structured, real-time web application for issuing, tracking, returning, and maintaining plant maintenance tools.
+| Area | Technology |
+| --- | --- |
+| Backend | FastAPI, SQLAlchemy, Alembic, APScheduler |
+| Database | PostgreSQL in Docker |
+| Auth | JWT bearer tokens, bcrypt password hashes |
+| Frontend | React 18 loaded by Vite/static runtime, TIMS design-system bundle |
+| Runtime | Docker Compose services for `backend`, `frontend`, and `db` |
+| Reports | JSON and CSV exports, activity backup CSV, daily activity log |
 
-Key problems it solves:
-- No visibility into which tools are available or who has them
-- No structured approval workflow — tools taken without authorization
-- Calibration due dates missed
-- No damage penalty or depreciation tracking
-- No audit trail of tool movement
+## Quick Start
 
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Backend | FastAPI (Python 3.11) |
-| Database | SQLite (dev) / PostgreSQL (production) |
-| ORM | SQLAlchemy 2.0 |
-| Frontend | Vanilla React 18 via CDN + TIMS Design System |
-| Auth | JWT (HS256) + bcrypt |
-| Dev Server | Vite (static file serving + API proxy) |
-| Background Jobs | APScheduler (daily calibration + overdue checks) |
-
----
-
-## How to Start the Project
-
-### Prerequisites
-
-- Python 3.11+
-- Node.js 18+ and npm
-
----
-
-### Step 1 — Install backend dependencies
-
-Open a terminal and run:
-
-```bash
-cd "C:\Users\Lenovo\Desktop\Maintenance Tool Recording System\backend"
-pip install -r requirements.txt
+```powershell
+docker compose up -d --force-recreate backend frontend
 ```
 
----
+Open:
 
-### Step 2 — Set up the database (first time only)
-
-The project uses SQLite for local development — no database server needed.
-
-```bash
-cd "C:\Users\Lenovo\Desktop\Maintenance Tool Recording System\backend"
-python -c "from dotenv import load_dotenv; load_dotenv(); from app.database import engine, Base; import app.models.master, app.models.transaction; Base.metadata.create_all(bind=engine); print('Done')"
-python seed.py
+```text
+http://localhost:3000
 ```
 
-Expected output from `seed.py`:
-```
-=== Seeding Users ===
-  added user ADM001
-  added user STF001
-  added user HD001
-  added user USR001
-=== Seeding Storage Bins ===
-  ...
-=== Seed complete ===
+Backend API docs:
+
+```text
+http://localhost:8000/docs
 ```
 
-> This step is only needed once. The database file (`backend/tims.db`) persists between restarts.
+Check containers:
 
----
-
-### Step 3 — Install frontend dependencies
-
-```bash
-cd "C:\Users\Lenovo\Desktop\Maintenance Tool Recording System\frontend"
-npm install
+```powershell
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 ```
 
----
+## Default Seed Logins
 
-### Step 4 — Start both servers (two separate terminals)
-
-**Terminal 1 — Backend API:**
-
-```bash
-cd "C:\Users\Lenovo\Desktop\Maintenance Tool Recording System\backend"
-uvicorn app.main:app --port 8000 --reload
-```
-
-**Terminal 2 — Frontend Dev Server:**
-
-```bash
-cd "C:\Users\Lenovo\Desktop\Maintenance Tool Recording System\frontend"
-npm run dev
-```
-
----
-
-### Step 5 — Open the app
-
-Open your browser and go to:
-
-```
-http://localhost:5173
-```
-
-> **Important:** Do NOT use VS Code Live Server to open the app. Always use `http://localhost:5173` from the Vite dev server — it correctly serves all assets and proxies API calls to the backend.
-
----
-
-## Starting Again (after the first-time setup)
-
-Just repeat Step 4 (two terminals) and open `http://localhost:5173`. No seeding needed — data from last time is preserved in `tims.db`.
-
----
-
-## Stopping the Project
-
-Press `Ctrl + C` in each terminal.
-
----
-
-## API Documentation
-
-While the backend is running:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-
----
-
-## Default Login Credentials
+For the current Docker seed data, the demo users use:
 
 | Role | Employee ID | Password | Department |
-|---|---|---|---|
-| Maintenance Admin | `ADM001` | `Admin@123` | Maintenance |
-| Maintenance Staff | `STF001` | `Staff@123` | Maintenance |
-| Department Head (E&I) | `HD001` | `Head@123` | E&I |
-| Requester (E&I) | `USR001` | `User@123` | E&I |
+| --- | --- | --- | --- |
+| Maintenance Admin | `ADM001` | `password123` | Maintenance |
+| Maintenance Staff | `STF001` | `password123` | Maintenance |
+| Dept Head | `HD001` | `password123` | E&I |
+| Requester | `USR001` | `password123` | E&I |
 
-> Change these passwords before deploying to production.
+Some test fixtures use strong passwords such as `Admin@123`, `Staff@123`, `Head@123`, and `User@123`; the running Docker seed currently uses `password123`.
 
----
+## Roles And Permissions
 
-## User Roles and Rights
+| Action | Admin | Staff | Dept Head | Requester |
+| --- | --- | --- | --- | --- |
+| Login / logout | Yes | Yes | Yes | Yes |
+| Forgot username/password | Yes | Yes | Yes | Yes |
+| Request access | Public form | Public form | Public form | Public form |
+| Approve access requests | Yes | No | No | No |
+| View tools | Yes | Yes | Yes | Yes |
+| Add/edit/write off tools | Yes | No | No | No |
+| Request tools | Yes | Yes | Yes | Yes |
+| Approve tool requests | Yes | No | Own department | No |
+| Issue tools | Yes | Yes | No | No |
+| Process returns | Yes | Yes | Own issue/request flow only | Own issue/request flow only |
+| Manage users | Yes | No | No | No |
+| Manage storage bins | Yes | No | No | No |
+| Calibration management | Yes | Limited by API | No | No |
+| Reports and downloads | Yes | Yes | No | No |
 
-There are 4 roles. Each user has exactly one role.
+Restricted routes are hidden in the UI and protected by backend role guards. Forced frontend route access shows an Access Denied fallback.
 
-| Role | Who is this? | What they can do |
-|---|---|---|
-| `requester` | Normal department employee | Browse tools, raise tool requisitions, track own requests, view own issuances |
-| `dept_head` | Department manager / head | Everything a requester can do + approve or reject requisitions from **their own department only** |
-| `maintenance_staff` | Tool room / issuing person | Issue tools against approved requests, process returns, view reports |
-| `maintenance_admin` | Full system administrator | Full access — add/edit tools, calibration, damage write-offs, reports, user management |
+## Main Features
 
-**Rules enforced at the API (not just the UI):**
-- A requester **cannot approve their own** requisition (HTTP 403)
-- A dept_head can **only approve their own department's** requests (HTTP 403)
-- Tools with **overdue calibration are blocked** from issuance (HTTP 400)
-- Stock **cannot go below 0** (HTTP 400 + database constraint)
-- Only admin can **create/deactivate user accounts**
+- Authentication with inactive-user blocking.
+- Forgot username by registered email or employee ID.
+- Forgot password/reset token flow. If SMTP is not configured, the reset token is shown safely for local/demo testing.
+- Public access request form with admin approval/rejection.
+- Tool catalogue with department access, stock, value, calibration, and storage-bin details.
+- Tool details modal showing available units and issued units, including who has the issued tool.
+- Tool requisition workflow with date-period availability checks.
+- Dept-head/admin approval workflow.
+- Staff/admin issue workflow.
+- Return workflow with quantity and condition checks.
+- Damage/missing assessment and stock handling.
+- Calibration tracking and due/overdue blocking.
+- Storage bin management.
+- Notifications.
+- Reports, CSV export, activity backup, and daily log download.
+- Mobile responsive layout with left-side collapsible menu and mobile card views for data-heavy pages.
 
----
+## Important Business Rules
 
-## What Each Role Sees in the Sidebar
-
-| Page | Requester | Dept Head | Maintenance Staff | Maintenance Admin |
-|---|---|---|---|---|
-| Dashboard | ✅ | ✅ | ✅ | ✅ |
-| Tools | ✅ | ✅ | ✅ | ✅ |
-| My Requests | ✅ | ✅ | ✅ | ✅ |
-| Approvals | ❌ | ✅ | ❌ | ✅ |
-| Issue Tool | ❌ | ❌ | ✅ | ✅ |
-| Returns | ❌ | ❌ | ✅ | ✅ |
-| Reports | ❌ | ❌ | ✅ | ✅ |
-| Calibration | ❌ | ❌ | ❌ | ✅ |
-| Storage Bins | ❌ | ❌ | ❌ | ✅ |
-| User Management | ❌ | ❌ | ❌ | ✅ |
-
----
-
-## Key Workflows
-
-### 1. Request a Tool (as Requester)
-1. Log in as `USR001`
-2. Go to **Tools** → find the tool → click **Request**
-3. Fill in quantity, purpose, from/to dates → Submit
-4. Track status under **My Requests**
-
-### 2. Approve / Reject a Request (as Dept Head)
-1. Log in as `HD001`
-2. Go to **Approvals** → Pending tab
-3. Click **Approve** or **Reject** (with reason)
-4. Stock does NOT change yet — only changes when issued
-
-### 3. Issue a Tool (as Maintenance Staff)
-1. Log in as `STF001`
-2. Go to **Issue Tool** → Approved queue
-3. Click **Issue** → confirm the acknowledgement checkbox → **Confirm Issue**
-4. Stock reduces immediately
-
-### 4. Return a Tool (as Maintenance Staff)
-1. Go to **Returns** → find the issuance
-2. Click **Process Return** → enter quantity, condition (good / damaged / missing)
-3. Stock restores on good/partial return
-4. Damaged/missing → admin must complete damage assessment
-
-### 5. Record Calibration (as Admin)
-1. Log in as `ADM001`
-2. Go to **Calibration** → overdue tools shown in red
-3. Click **Record** → enter date, service partner
-4. Next calibration due date auto-calculates
-
-### 6. Add a New Employee (as Admin)
-1. Log in as `ADM001`
-2. Go to **User Management** → click **Add Employee**
-3. Fill in Employee ID, name, email, role, department, password
-4. Employee can now log in with those credentials
-
-### 7. View Reports (as Staff or Admin)
-1. Go to **Reports**
-2. Choose a tab: Stock Status / Issuance History / Overdue / Calibration / Damage & Penalty
-3. Click **Export CSV** to download
-
----
-
-## Environment Variables
-
-The `backend/.env` file (already created for local dev):
-
-```env
-DATABASE_URL=sqlite:///./tims.db
-SECRET_KEY=tims-dev-secret-key-ultratech-2026-change-in-production
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=480
-```
-
-For production with PostgreSQL, change `DATABASE_URL` to:
-```env
-DATABASE_URL=postgresql://user:password@localhost:5432/tims_db
-```
-
-> Never commit `.env` to git. It is already in `.gitignore`.
-
----
+| Rule | Enforcement |
+| --- | --- |
+| Requester cannot approve requests | Backend requisition role checks |
+| Dept head approves own department only | Backend requisition department checks |
+| Staff cannot approve access requests | Users/access APIs are admin-only |
+| Requester cannot download reports/logs | Reports APIs require maintenance role |
+| Calibration-due tools are blocked | Requisition/issue validation |
+| Stock cannot go negative | Stock service and router validation |
+| Issued stock is reduced only at issue time | Issuance workflow |
+| Good returns restore stock | Return workflow |
+| Damaged/missing stock waits for admin assessment | Return + damage workflow |
+| Overlapping issued dates block new requisition period | Requisition availability endpoint |
 
 ## Project Structure
 
-```
+```text
 Maintenance Tool Recording System/
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI app entry point
-│   │   ├── config.py            # Settings from .env
-│   │   ├── database.py          # SQLAlchemy engine
-│   │   ├── models/
-│   │   │   ├── master.py        # Tool, StorageBin
-│   │   │   └── transaction.py   # User, Requisition, IssuanceLog, Notification
-│   │   ├── routers/
-│   │   │   ├── auth.py          # Login, /me, notifications
-│   │   │   ├── users.py         # User management (admin only)
-│   │   │   ├── tools.py         # Tool catalogue CRUD
-│   │   │   ├── storage_bins.py
-│   │   │   ├── requisitions.py  # Raise, approve, reject
-│   │   │   ├── issuance.py      # Issue tools
-│   │   │   ├── returns.py       # Process returns
-│   │   │   ├── calibration.py   # Calibration tracking
-│   │   │   ├── reports.py       # Report endpoints
-│   │   │   └── dashboard.py     # Role-filtered summary
-│   │   ├── services/
-│   │   │   ├── stock.py         # Stock logic
-│   │   │   ├── depreciation.py  # Monthly depreciation + penalty
-│   │   │   └── notifications.py
-│   │   └── auth/
-│   │       └── roles.py         # JWT, bcrypt, role guards
-│   ├── seed.py                  # Seed users, bins, tools
-│   ├── tims.db                  # SQLite database (auto-created, not committed)
-│   ├── .env                     # Local environment vars (not committed)
-│   └── requirements.txt
-├── frontend/
-│   ├── index.html               # App entry point — loads React + design system
-│   ├── public/
-│   │   ├── _ds_bundle.js        # TIMS design system bundle
-│   │   ├── styles.css           # Design system styles
-│   │   ├── tokens/              # CSS design tokens
-│   │   ├── assets/
-│   │   │   └── ultratech-logo.png
-│   │   └── screens/             # All UI screen files (JSX, CDN-compiled)
-│   │       ├── Icons.jsx
-│   │       ├── Data.jsx         # API client — all backend calls
-│   │       ├── AppShell.jsx     # Sidebar + Navbar layout
-│   │       ├── LoginScreen.jsx
-│   │       ├── DashboardScreen.jsx
-│   │       ├── ToolsScreen.jsx
-│   │       ├── RequisitionsScreen.jsx
-│   │       ├── ApprovalsScreen.jsx
-│   │       ├── IssuanceScreen.jsx
-│   │       ├── ReturnsScreen.jsx
-│   │       ├── CalibrationScreen.jsx
-│   │       ├── StorageBinsScreen.jsx
-│   │       ├── ReportsScreen.jsx
-│   │       └── UsersScreen.jsx
-│   ├── vite.config.js           # Static server + /api proxy to backend:8000
-│   └── package.json
-├── docs/
-└── README.md
+  backend/
+    app/
+      auth/roles.py
+      models/
+      routers/
+      services/
+      main.py
+    tests/
+    seed.py
+  frontend/
+    index.html
+    public/
+      screens/
+      styles.css
+      assets/
+    take_screenshots.mjs
+  screenshots/
+  TIMS_FULL_TEST_CHECKLIST.md
+  README.md
 ```
 
----
+## Useful Commands
 
-## Business Rules Summary
+Backend compile:
 
-| Rule | Where enforced |
-|---|---|
-| Stock never goes below 0 | DB constraint + HTTP 400 in service |
-| Calibration-due tools blocked from issuance | API check in `issuance.py` |
-| Requester cannot approve own request | Check in `requisitions.py` |
-| Dept head approves own department only | Check in `requisitions.py` |
-| Stock reduces at issuance (not approval) | `reduce_stock()` only in `POST /api/issuance` |
-| Partial returns only for consumables | `validate_consumable_return()` in `stock.py` |
-| Depreciation snapshotted at issuance time | Before `db.commit()` in issuance router |
-| All stock operations transactional | `try/except/db.rollback()` in all stock routes |
-| Only admin can create/deactivate users | `RequireAdmin` dependency on `/api/users` |
+```powershell
+cd backend
+python -m compileall app alembic
+```
+
+Frontend syntax/build:
+
+```powershell
+cd frontend
+Get-ChildItem public/screens -Filter *.jsx | ForEach-Object { Get-Content -Raw $_.FullName | & node_modules/.bin/esbuild.cmd --loader=jsx --format=iife --log-level=error | Out-Null; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }
+npm.cmd run build
+```
+
+Integration tests:
+
+```powershell
+cd backend
+python -m pytest tests/test_integration.py -v --tb=short
+```
+
+Note: the local pytest suite expects a PostgreSQL database named `tims_test`. If it does not exist, pytest setup fails before tests run.
+
+Seed/reset demo data:
+
+```powershell
+docker compose exec backend python seed.py
+```
+
+Capture screenshots:
+
+```powershell
+cd frontend
+node take_screenshots.mjs
+```
+
+## Screenshots
+
+Fresh screenshots are stored in:
+
+```text
+screenshots/
+```
+
+The screenshot set includes desktop and mobile views after the latest responsive fixes.
+
+## Recent Responsive Fixes
+
+- Mobile menu remains a left-side collapsible rail, not a top menu.
+- Mobile Users page becomes labeled cards instead of a cut desktop table.
+- Mobile Reports page uses vertical actions, vertical report tabs, and card-style report rows.
+- Mobile tab controls stack vertically across feature pages.
+- Generic mobile tables wrap instead of forcing long horizontal scrollbars.
+- Desktop layout is preserved.
+
+## Activity And Audit Exports
+
+Maintenance staff and admins can download:
+
+- Activity backup CSV: `/api/reports/activity-logs?format=csv`
+- Daily activity log: `/api/reports/activity-logs/daily`
+
+These downloads are also exposed as buttons in the Reports screen.

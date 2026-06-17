@@ -139,6 +139,38 @@ class TestAuth:
         res = client.get("/api/tools", headers=auth(token))
         assert res.status_code == 200
 
+    def test_forgot_username_success_and_not_found(self, client):
+        res = client.post("/api/auth/forgot-username", json={"identifier": "user@tims.test"})
+        assert res.status_code == 200
+        assert res.json()["employee_id"] == "USR001"
+
+        missing = client.post("/api/auth/forgot-username", json={"identifier": "missing@tims.test"})
+        assert missing.status_code == 404
+
+    def test_forgot_and_reset_password_demo_token(self, client):
+        reset = client.post("/api/auth/forgot-password", json={"employee_id": "USR001", "email": "user@tims.test"})
+        assert reset.status_code == 200
+        token = reset.json().get("reset_token")
+        assert token, "Test config has no SMTP, so API should return a demo reset token"
+
+        changed = client.post("/api/auth/reset-password", json={"token": token, "new_password": "NewUser@123"})
+        assert changed.status_code == 200
+
+        login = client.post("/api/auth/login", data={"username": "USR001", "password": "NewUser@123"})
+        assert login.status_code == 200
+
+        restore = client.post("/api/auth/forgot-password", json={"employee_id": "USR001", "email": "user@tims.test"})
+        restore_token = restore.json().get("reset_token")
+        assert restore_token
+        restored = client.post("/api/auth/reset-password", json={"token": restore_token, "new_password": "User@123"})
+        assert restored.status_code == 200
+
+    def test_requester_cannot_open_admin_apis(self, client):
+        token = get_token(client, "USR001", "User@123")
+        assert client.get("/api/users", headers=auth(token)).status_code == 403
+        assert client.post("/api/tools", json={}, headers=auth(token)).status_code in (403, 422)
+        assert client.get("/api/reports/stock", headers=auth(token)).status_code == 403
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TEST GROUP 2 — Full happy path flows

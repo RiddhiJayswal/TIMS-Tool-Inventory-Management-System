@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>TIMS — Tool Inventory Management System</title>
 <link rel="stylesheet" href="/styles.css" />
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="/vendor/react.development.js"></script>
+<script src="/vendor/react-dom.development.js"></script>
+<script src="/vendor/babel.min.js"></script>
 <script src="/_ds_bundle.js"></script>
 <style>
   html, body { height: 100%; margin: 0; }
@@ -72,6 +72,38 @@ function Spinner({ message }) {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
         <div style={{ width: 36, height: 36, border: '3px solid var(--border-default, #e3e5e8)', borderTopColor: 'var(--brand-yellow, #f5c518)', borderRadius: '50%', animation: '_tims_spin 0.8s linear infinite' }} />
         <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted, #6b7280)', fontFamily: 'var(--font-sans, sans-serif)' }}>{message || 'Loading…'}</p>
+      </div>
+    </div>
+  );
+}
+
+const ROUTE_ROLES = {
+  dashboard: ['requester','dept_head','maintenance_staff','maintenance_admin'],
+  tools: ['requester','dept_head','maintenance_staff','maintenance_admin'],
+  requisitions: ['requester','dept_head','maintenance_staff','maintenance_admin'],
+  approvals: ['dept_head','maintenance_admin'],
+  issuance: ['maintenance_staff','maintenance_admin'],
+  returns: ['maintenance_staff','maintenance_admin'],
+  calibration: ['maintenance_admin'],
+  bins: ['maintenance_admin'],
+  reports: ['maintenance_staff','maintenance_admin'],
+  users: ['maintenance_admin'],
+};
+
+function canOpenRoute(route, role) {
+  return (ROUTE_ROLES[route] || []).includes(role);
+}
+
+function AccessDenied({ route, onNavigate }) {
+  return (
+    <div style={{ minHeight: '55vh', display: 'grid', placeItems: 'center' }}>
+      <div style={{ maxWidth: 460, textAlign: 'center', background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', padding: 28, boxShadow: 'var(--shadow-resting)' }}>
+        <div style={{ width: 52, height: 52, borderRadius: '50%', margin: '0 auto 14px', background: 'var(--danger-bg)', display: 'grid', placeItems: 'center' }}>
+          <Icon name="alert_triangle" size={24} color="var(--danger-solid)" />
+        </div>
+        <h2 style={{ margin: '0 0 8px', fontSize: 21, color: 'var(--text-strong)' }}>Access denied</h2>
+        <p style={{ margin: '0 0 18px', fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>You do not have permission to view this page or perform this workflow.</p>
+        <button onClick={() => onNavigate('dashboard')} style={{ border: 'none', background: 'var(--brand-black)', color: '#fff', borderRadius: 'var(--radius-md)', padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}>Go to Dashboard</button>
       </div>
     </div>
   );
@@ -144,9 +176,11 @@ function App() {
 
   const user   = window.MOCK.USER   || { full_name: '', department: '', role: 'requester' };
   const notifs = window.MOCK.NOTIFS || [];
+  const role = user.role || 'requester';
 
   let screen = null;
-  if      (route === 'dashboard')    screen = <window.DashboardScreen onNavigate={setRoute} />;
+  if (!canOpenRoute(route, role))    screen = <AccessDenied route={route} onNavigate={setRoute} />;
+  else if (route === 'dashboard')    screen = <window.DashboardScreen onNavigate={setRoute} />;
   else if (route === 'tools')        screen = <window.ToolsScreen />;
   else if (route === 'requisitions') screen = <window.RequisitionsScreen />;
   else if (route === 'approvals')    screen = <window.ApprovalsScreen />;

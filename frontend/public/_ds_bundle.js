@@ -906,6 +906,7 @@ function DataTable({
     info: 'var(--info-bg)'
   };
   return /*#__PURE__*/React.createElement("div", {
+    className: "tims-data-table",
     style: {
       overflow: 'auto',
       maxHeight: maxHeight || 'none',
@@ -971,6 +972,7 @@ function DataTable({
       }
     }, columns.map(c => /*#__PURE__*/React.createElement("td", {
       key: c.key,
+      "data-label": c.header || '',
       style: {
         padding: '11px 16px',
         textAlign: c.align || 'left',

@@ -112,12 +112,26 @@ function NewRequisitionModal({ onClose }) {
   const [toDate, setToDate] = React.useState('');
   const [purpose, setPurpose] = React.useState('');
   const [error, setError] = React.useState('');
+  const [availability, setAvailability] = React.useState(null);
+  const [checkingAvailability, setCheckingAvailability] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
 
   const valueFrom = (e) => e && e.target ? e.target.value : e;
   const opts = (window.MOCK.TOOLS || []).filter(t => `${t.name} ${t.tool_code}`.toLowerCase().includes(query.toLowerCase()));
   const disabled = (t) => t.status !== 'active' || t.available === 0;
-  const submitDisabled = saving || !tool || !Number(qty) || Number(qty) < 1 || Number(qty) > Number(tool.available || 0) || !fromDate || !toDate || !purpose.trim();
+  React.useEffect(() => {
+    let cancelled = false;
+    setAvailability(null);
+    if (!tool || !fromDate || !toDate || !Number(qty) || Number(qty) < 1) return;
+    setCheckingAvailability(true);
+    window.API.checkRequisitionAvailability(tool.id, Number(qty), fromDate, toDate)
+      .then(result => { if (!cancelled) setAvailability(result); })
+      .catch(e => { if (!cancelled) setAvailability({ request_available: false, message: e.message || 'Could not check availability for this time period.' }); })
+      .finally(() => { if (!cancelled) setCheckingAvailability(false); });
+    return () => { cancelled = true; };
+  }, [tool?.id, qty, fromDate, toDate]);
+  const periodBlocked = availability && availability.request_available === false;
+  const submitDisabled = saving || checkingAvailability || periodBlocked || !tool || !Number(qty) || Number(qty) < 1 || Number(qty) > Number(tool.available || 0) || !fromDate || !toDate || !purpose.trim();
   const submit = async () => {
     if (submitDisabled) return;
     setSaving(true);
@@ -177,9 +191,71 @@ function NewRequisitionModal({ onClose }) {
             <Input label="Required To" required type="date" value={toDate} onChange={e => setToDate(valueFrom(e))} />
           </div>
           <Textarea label="Purpose of job" required rows={3} value={purpose} onChange={e => setPurpose(valueFrom(e))} placeholder="Describe the maintenance task this tool is for…" />
+          {checkingAvailability && <div style={{ padding:'9px 11px',borderRadius:'var(--radius-md)',background:'var(--surface-sunken)',color:'var(--text-muted)',fontSize:12.5,fontWeight:600 }}>Checking availability for this time period...</div>}
+          {periodBlocked && <div style={{ padding:'9px 11px',borderRadius:'var(--radius-md)',background:'var(--danger-bg)',color:'var(--danger-text)',fontSize:12.5,fontWeight:600 }}>{availability.message || 'Tool is not available for the selected time period. Please choose a different time period.'}</div>}
+          {availability && availability.request_available && !checkingAvailability && <div style={{ padding:'9px 11px',borderRadius:'var(--radius-md)',background:'var(--success-bg)',color:'var(--success-text)',fontSize:12.5,fontWeight:600 }}>Available for the selected time period.</div>}
           {error && <div style={{ padding:'9px 11px',borderRadius:'var(--radius-md)',background:'var(--danger-bg)',color:'var(--danger-text)',fontSize:12.5,fontWeight:600 }}>{error}</div>}
         </div>
       )}
+    </Modal>
+  );
+}
+
+function ReturnRequestModal({ req, issuance, onClose, onReturned }) {
+  const { Modal, Button, Input, Select, Textarea } = NS_REQ;
+  const [condition, setCondition] = React.useState('good');
+  const [qty, setQty] = React.useState(issuance.quantity_issued || issuance.qty || req.qty || 1);
+  const [notes, setNotes] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const warn = condition === 'damaged' || condition === 'missing';
+
+  const submit = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const returnedQty = condition === 'missing' ? 0 : Number(qty || 0);
+      const issuedQty = Number(issuance.quantity_issued || issuance.qty || req.qty || 1);
+      if (returnedQty < 0 || returnedQty > issuedQty) throw new Error('Returned quantity must be between 0 and issued quantity');
+      if (warn && !notes.trim()) throw new Error('Notes are required for damaged or missing returns');
+      await window.API.processReturn(issuance.id, {
+        quantity_returned: returnedQty,
+        return_condition: condition,
+        notes: notes.trim() || null,
+      });
+      await Promise.all([window.API.loadDashboard(), window.API.loadRequisitions(), window.API.loadIssuances(), window.API.loadReports().catch(() => [])]);
+      onReturned();
+      onClose();
+    } catch (e) {
+      setError(e.message || 'Tool return failed');
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} title="Return Tool" width={480}
+      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button variant={warn ? 'danger' : 'primary'} loading={saving} onClick={submit}>Confirm Return</Button></>}>
+      <div style={{ padding:'11px 14px', background:'var(--surface-sunken)', borderRadius:'var(--radius-md)', marginBottom:16 }}>
+        <div style={{ fontSize:13.5, fontWeight:600, color:'var(--text-strong)' }}>{req.tool_name}</div>
+        <div style={{ fontSize:11.5, color:'var(--text-muted)', marginTop:2, fontFamily:'monospace' }}>{req.requisition_number}</div>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+        <Input label="Quantity returned" required type="number" value={qty} min="0" max={issuance.quantity_issued || issuance.qty || req.qty || 1} onChange={e => setQty(e.target.value)} />
+        <Select label="Condition" required value={condition} onChange={e => setCondition(e.target.value)}>
+          <option value="good">Good</option>
+          <option value="partial">Partial</option>
+          <option value="damaged">Damaged</option>
+          <option value="missing">Missing</option>
+        </Select>
+      </div>
+      <div style={{ marginTop:14 }}><Textarea label="Notes" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any observations on the returned tool..." /></div>
+      {warn && (
+        <div style={{ display:'flex', gap:9, marginTop:14, padding:'11px 13px', background:'var(--danger-bg)', border:'1px solid var(--danger-border)', borderRadius:'var(--radius-md)' }}>
+          <Icon name="alert_triangle" size={16} color="var(--danger-solid)" style={{ flexShrink:0, marginTop:1 }} />
+          <span style={{ fontSize:12.5, color:'var(--danger-text)', lineHeight:1.45 }}>Damaged or missing returns are sent to maintenance for assessment before stock is made available.</span>
+        </div>
+      )}
+      {error && <div style={{ marginTop:12, color:'var(--danger-text)', fontSize:12.5 }}>{error}</div>}
     </Modal>
   );
 }
@@ -191,6 +267,7 @@ function RequisitionsScreen() {
   const [search, setSearch] = React.useState('');
   const [showNew, setShowNew] = React.useState(false);
   const [view, setView] = React.useState(null);
+  const [returningReq, setReturningReq] = React.useState(null);
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [busyId, setBusyId] = React.useState(null);
   const [message, setMessage] = React.useState(null);
@@ -233,19 +310,7 @@ function RequisitionsScreen() {
       setMessage({ tone: 'danger', text: 'No active issue record found for this request.' });
       return;
     }
-    try {
-      await window.API.processReturn(issuance.id, {
-        quantity_returned: Number(issuance.quantity_issued || issuance.qty || req.qty || 1),
-        return_condition: 'good',
-        notes: 'Returned by issued user',
-      });
-      await Promise.all([window.API.loadDashboard(), window.API.loadRequisitions(), window.API.loadIssuances(), window.API.loadReports()]);
-      setTab('returned');
-      setMessage({ tone: 'success', text: 'Tool returned successfully.' });
-      setRefreshKey(k => k + 1);
-    } catch (e) {
-      setMessage({ tone: 'danger', text: e.message || 'Tool return failed' });
-    }
+    setReturningReq({ req, issuance });
   };
   const cancelRequest = async (req) => {
     if (req.status !== 'pending' || busyId) return;
@@ -281,7 +346,7 @@ function RequisitionsScreen() {
       </div>
 
       {/* Polished tab bar */}
-      <div style={{ display:'flex',gap:2,background:'var(--surface-sunken)',borderRadius:'var(--radius-md)',padding:3,overflowX:'auto' }}>
+      <div className="tims-mobile-stack-tabs" style={{ display:'flex',gap:2,background:'var(--surface-sunken)',borderRadius:'var(--radius-md)',padding:3,overflowX:'auto' }}>
         {[
           { val:'all',      label:'All',      n: null },
           { val:'pending',  label:'Pending',  n: count('pending') },
@@ -339,6 +404,11 @@ function RequisitionsScreen() {
         }
       }} />}
       {view && <ViewRequisitionModal req={view} onClose={() => setView(null)} />}
+      {returningReq && <ReturnRequestModal req={returningReq.req} issuance={returningReq.issuance} onClose={() => setReturningReq(null)} onReturned={() => {
+        setTab('returned');
+        setMessage({ tone: 'success', text: 'Tool returned successfully.' });
+        setRefreshKey(k => k + 1);
+      }} />}
     </div>
   );
 }

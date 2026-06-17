@@ -157,6 +157,7 @@ function ToolsScreen() {
   const { PageHeader, Button, Card, DataTable, StatusBadge, Input, EmptyState } = NS_TOOLS;
   const [showForm, setShowForm] = React.useState(false);
   const [editTool, setEditTool] = React.useState(null);
+  const [selectedTool, setSelectedTool] = React.useState(null);
   const [search, setSearch] = React.useState('');
   const [fType, setFType] = React.useState('');
   const [fStatus, setFStatus] = React.useState('');
@@ -186,7 +187,7 @@ function ToolsScreen() {
         <DataTable
           columns={[
             { key: 'tool_code', header: 'Tool Code', mono: true, nowrap: true },
-            { key: 'name', header: 'Name', render: (t) => <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{t.name}</span> },
+            { key: 'name', header: 'Name', render: (t) => <span style={{ fontWeight: 700, color: 'var(--info-text,#0b63ce)', textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}>{t.name}</span> },
             { key: 'tool_type', header: 'Type', render: (t) => <span style={{ textTransform: 'capitalize', color: 'var(--text-muted)' }}>{t.tool_type}</span> },
             { key: 'dept', header: 'Dept Access', render: (t) => t.department_access || <span style={{ color: 'var(--text-subtle)' }}>All</span> },
             { key: 'avail', header: 'Available / Total', align: 'right', nowrap: true, render: (t) => <span><b style={{ color: t.available > 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>{t.available}</b><span style={{ color: 'var(--text-subtle)' }}> / {t.total}</span></span> },
@@ -199,7 +200,7 @@ function ToolsScreen() {
             ) },
           ]}
           rows={rows}
-          onRowClick={() => {}}
+          onRowClick={(t) => setSelectedTool(t)}
           getRowTone={(t) => t.status === 'damaged' ? 'danger' : null}
           empty={<EmptyState icon={<Icon name="wrench" size={30} />} title="No tools found" message="No tools match your search." />}
         />
@@ -207,6 +208,7 @@ function ToolsScreen() {
 
       {showForm && <ToolForm onClose={() => setShowForm(false)} />}
       {editTool && <ToolForm tool={editTool} onClose={() => setEditTool(null)} />}
+      {selectedTool && window.ToolDetailModal && <window.ToolDetailModal tool={selectedTool} onClose={() => setSelectedTool(null)} />}
     </div>
   );
 }

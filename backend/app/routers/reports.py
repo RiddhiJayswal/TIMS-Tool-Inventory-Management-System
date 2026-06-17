@@ -12,12 +12,78 @@ from sqlalchemy.orm import Session
 from app.auth.roles import RequireMaintenance, get_current_user
 from app.database import get_db
 from app.models.master import StorageBin, Tool
-from app.models.transaction import IssuanceLog, Requisition, User
+from app.models.transaction import AuditLog, IssuanceLog, Requisition, User
 from app.services.calibration_status import sync_calibration_statuses
 from app.services.depreciation import calculate_current_value
 from app.services.stock import get_tool_stock_snapshot
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+
+
+def _activity_rows(db: Session, limit: int | None = None, log_date: date | None = None) -> list[dict]:
+    query = db.query(AuditLog).order_by(AuditLog.timestamp.desc())
+    if log_date:
+        query = query.filter(func.date(AuditLog.timestamp) == log_date)
+    if limit:
+        query = query.limit(limit)
+    rows = []
+    for entry in query.all():
+        user = db.query(User).filter(User.id == entry.user_id).first() if entry.user_id else None
+        details = entry.details or {}
+        rows.append({
+            "activity_id": str(entry.id),
+            "timestamp": entry.timestamp,
+            "user_name": user.full_name if user else "",
+            "user_role": user.role if user else "",
+            "user_id": user.employee_id if user else "",
+            "action_type": entry.action,
+            "module": entry.entity,
+            "entity_id": str(entry.entity_id),
+            "entity_name": details.get("tool_name") or details.get("requisition_number") or details.get("name") or "",
+            "quantity": details.get("quantity_requested") or details.get("quantity_issued") or details.get("quantity_returned") or "",
+            "department": details.get("department") or details.get("requester_dept") or "",
+            "status": "recorded",
+            "details": details,
+        })
+    return rows
+
+
+@router.get("/activity-logs")
+def report_activity_logs(
+    limit: int = 100,
+    format: Optional[str] = None,
+    current_user=Depends(RequireMaintenance),
+    db: Session = Depends(get_db),
+):
+    data = _activity_rows(db, limit=limit)
+    if format == "csv":
+        return to_csv_response(data, "activity_backup")
+    return data
+
+
+@router.get("/activity-logs/daily")
+def report_daily_activity_log(
+    log_date: Optional[date] = None,
+    current_user=Depends(RequireMaintenance),
+    db: Session = Depends(get_db),
+):
+    target = log_date or date.today()
+    rows = list(reversed(_activity_rows(db, log_date=target)))
+    output = io.StringIO()
+    if not rows:
+        output.write("No activity logs found\n")
+    for row in rows:
+        output.write(
+            f"{row['timestamp']} | {row['user_id']} | {row['user_role']} | "
+            f"{row['action_type']} | {row['module']} | {row['entity_name']} | {row['details']}\n"
+        )
+    output.seek(0)
+    filename = f"TIMS-activity-{target.isoformat()}.log"
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode("utf-8")),
+        media_type="text/plain",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 def to_csv_response(data: list, report_name: str) -> StreamingResponse:
@@ -44,7 +110,7 @@ def to_csv_response(data: list, report_name: str) -> StreamingResponse:
 def report_stock(
     include_written_off: bool = False,
     format: Optional[str] = None,
-    current_user=Depends(get_current_user),
+    current_user=Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
     sync_calibration_statuses(db)

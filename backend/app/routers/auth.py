@@ -42,7 +42,11 @@ class SignupRequest(BaseModel):
 
 class ForgotPasswordRequest(BaseModel):
     employee_id: str = Field(min_length=3, max_length=50)
-    email: EmailStr
+    email: EmailStr | None = None
+
+
+class ForgotUsernameRequest(BaseModel):
+    identifier: str = Field(min_length=3, max_length=200)
 
 
 class ResetPasswordRequest(BaseModel):
@@ -192,20 +196,47 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
 @router.post("/forgot-password")
 def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
     employee_id = payload.employee_id.strip().upper()
-    email = payload.email.strip().lower()
-    user = (
-        db.query(User)
-        .filter(User.employee_id == employee_id, User.email == email, User.is_active == True)
-        .first()
-    )
+    email = payload.email.strip().lower() if payload.email else None
+    query = db.query(User).filter(User.employee_id == employee_id, User.is_active == True)
+    if email:
+        query = query.filter(User.email == email)
+    user = query.first()
 
+    sent = False
+    reset_token = None
     if user:
         reset_token = _create_reset_token(user)
-        send_password_reset_email(user.email, user.full_name, reset_token, RESET_TOKEN_MINUTES)
+        sent = send_password_reset_email(user.email, user.full_name, reset_token, RESET_TOKEN_MINUTES)
 
-    return {
+    response = {
         "message": "If the employee ID and email match an active account, reset instructions have been sent to the registered email.",
         "expires_in_minutes": RESET_TOKEN_MINUTES,
+    }
+    if user and not sent and not settings.SMTP_HOST:
+        response["reset_token"] = reset_token
+        response["message"] = "SMTP is not configured. Use the reset token shown here to set a new password."
+    return response
+
+
+@router.post("/forgot-username")
+def forgot_username(payload: ForgotUsernameRequest, db: Session = Depends(get_db)):
+    identifier = payload.identifier.strip()
+    lookup = identifier.lower()
+    user = (
+        db.query(User)
+        .filter(
+            User.is_active == True,
+            ((User.email == lookup) | (User.employee_id == identifier.upper())),
+        )
+        .first()
+    )
+    if not user:
+        raise HTTPException(status_code=404, detail="No active account matched the provided details")
+    return {
+        "message": "Username found",
+        "employee_id": user.employee_id,
+        "full_name": user.full_name,
+        "email": user.email,
     }
 
 

@@ -194,7 +194,7 @@ function buildReturnHistory(closedIssuances, toolById = {}) {
         returned_on: fmtDate(i.actual_return_date),
         returnedOn: fmtDate(i.actual_return_date),
         condition: i.return_condition || 'good',
-        notes: i.notes || 'No remarks',
+        notes: '',
       };
     });
 }
@@ -228,6 +228,21 @@ const API = {
     localStorage.removeItem('tims_token');
     localStorage.removeItem('tims_user');
   },
+
+  forgotUsername: (identifier) =>
+    apiFetch('/auth/forgot-username', { method: 'POST', body: JSON.stringify({ identifier }) }),
+
+  forgotPassword: (employeeId, email = '') =>
+    apiFetch('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ employee_id: employeeId, email: email || null }),
+    }),
+
+  resetPassword: (token, newPassword) =>
+    apiFetch('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, new_password: newPassword }),
+    }),
 
   loadDashboard: async () => {
     const canReadOperationalQueues = ['maintenance_admin', 'maintenance_staff', 'dept_head'].includes(currentRole());
@@ -521,6 +536,8 @@ const API = {
       method: 'POST',
       body: JSON.stringify({ tool_id: toolId, quantity_requested: quantity, purpose_of_job: purpose, from_date: fromDate, to_date: toDate }),
     }),
+  checkRequisitionAvailability: (toolId, quantity, fromDate, toDate) =>
+    apiFetch(`/requisitions/availability/check?tool_id=${encodeURIComponent(toolId)}&quantity=${encodeURIComponent(quantity)}&from_date=${encodeURIComponent(fromDate)}&to_date=${encodeURIComponent(toDate)}`),
   issueRequisition: (reqId, notes = '') =>
     apiFetch('/issuance', { method: 'POST', body: JSON.stringify({ requisition_id: reqId, notes }) }),
   processReturn: (issuanceId, payload) =>

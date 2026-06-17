@@ -11,7 +11,17 @@ function LoginScreen({ onLogin }) {
   const [ready, setReady] = React.useState(false);
   const [sent, setSent] = React.useState(false);
   const [resetInput, setResetInput] = React.useState('');
+  const [forgotTab, setForgotTab] = React.useState('username');
+  const [lookupInput, setLookupInput] = React.useState('');
+  const [resetEmployeeId, setResetEmployeeId] = React.useState('');
+  const [resetEmail, setResetEmail] = React.useState('');
+  const [resetToken, setResetToken] = React.useState('');
+  const [newPassword, setNewPassword] = React.useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = React.useState('');
+  const [recoveredUsername, setRecoveredUsername] = React.useState(null);
+  const [resetMsg, setResetMsg] = React.useState('');
   const [resetErr, setResetErr] = React.useState('');
+  const [recoveryLoading, setRecoveryLoading] = React.useState(false);
   const [reqSent, setReqSent] = React.useState(false);
   const [reqLoading, setReqLoading] = React.useState(false);
   const [reqError, setReqError] = React.useState('');
@@ -20,10 +30,9 @@ function LoginScreen({ onLogin }) {
     employee_id: '',
     email: '',
     department: '',
-    requested_role: '',
+    requested_role: 'requester',
     password: '',
     confirm_password: '',
-    reason: '',
   });
 
   // Keep body dark so there's no light flash before panels paint
@@ -117,7 +126,7 @@ function LoginScreen({ onLogin }) {
 
   const submitAccessRequest = async () => {
     setReqError('');
-    if (!accessForm.full_name.trim() || !accessForm.employee_id.trim() || !accessForm.email.trim() || !accessForm.department || !accessForm.requested_role || !accessForm.password) {
+    if (!accessForm.full_name.trim() || !accessForm.employee_id.trim() || !accessForm.email.trim() || !accessForm.department || !accessForm.password) {
       setReqError('Please complete all required fields.');
       return;
     }
@@ -142,15 +151,98 @@ function LoginScreen({ onLogin }) {
         email: accessForm.email.trim(),
         password: accessForm.password,
         department: accessForm.department,
-        requested_role: accessForm.requested_role,
-        reason: accessForm.reason.trim() || null,
+        requested_role: 'requester',
+        reason: null,
       });
       setReqSent(true);
-      setAccessForm({ full_name: '', employee_id: '', email: '', department: '', requested_role: '', password: '', confirm_password: '', reason: '' });
+      setAccessForm({ full_name: '', employee_id: '', email: '', department: '', requested_role: 'requester', password: '', confirm_password: '' });
     } catch (err) {
       setReqError(err.message || 'Could not submit access request.');
     } finally {
       setReqLoading(false);
+    }
+  };
+
+  const ensureApi = async () => {
+    if (!window.API) {
+      await new Promise((resolve, reject) => {
+        const el = document.createElement('script');
+        el.src = `/screens/Data.jsx?t=${Date.now()}`;
+        el.onload = resolve;
+        el.onerror = () => reject(new Error('Authentication service failed to load. Please refresh the page.'));
+        document.head.appendChild(el);
+      });
+    }
+  };
+
+  const recoverUsername = async () => {
+    setResetErr('');
+    setResetMsg('');
+    setRecoveredUsername(null);
+    if (!lookupInput.trim()) {
+      setResetErr('Enter your registered email or employee ID.');
+      return;
+    }
+    setRecoveryLoading(true);
+    try {
+      await ensureApi();
+      const res = await window.API.forgotUsername(lookupInput.trim());
+      setRecoveredUsername(res);
+      setResetMsg(`Your username is ${res.employee_id}.`);
+    } catch (err) {
+      setResetErr(err.message || 'No matching active account was found.');
+    } finally {
+      setRecoveryLoading(false);
+    }
+  };
+
+  const sendPasswordReset = async () => {
+    setResetErr('');
+    setResetMsg('');
+    if (!resetEmployeeId.trim()) {
+      setResetErr('Enter your employee ID.');
+      return;
+    }
+    setRecoveryLoading(true);
+    try {
+      await ensureApi();
+      const res = await window.API.forgotPassword(resetEmployeeId.trim(), resetEmail.trim());
+      if (res.reset_token) setResetToken(res.reset_token);
+      setSent(true);
+      setResetMsg(res.message || 'Reset instructions sent.');
+    } catch (err) {
+      setResetErr(err.message || 'Could not start password reset.');
+    } finally {
+      setRecoveryLoading(false);
+    }
+  };
+
+  const completePasswordReset = async () => {
+    setResetErr('');
+    setResetMsg('');
+    if (!resetToken.trim() || !newPassword || !confirmNewPassword) {
+      setResetErr('Enter reset token, new password, and confirmation.');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setResetErr('New password and confirmation must match.');
+      return;
+    }
+    setRecoveryLoading(true);
+    try {
+      await ensureApi();
+      const res = await window.API.resetPassword(resetToken.trim(), newPassword);
+      setResetMsg(res.message || 'Password reset successfully. Sign in with the new password.');
+      setSent(false);
+      setResetToken('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setPw('');
+      setMode('signin');
+    } catch (err) {
+      setResetErr(err.message || 'Could not reset password.');
+    } finally {
+      setRecoveryLoading(false);
     }
   };
 
@@ -171,10 +263,10 @@ function LoginScreen({ onLogin }) {
   ];
 
   return (
-    <div style={{ height:'100%', display:'flex', borderTop:'var(--brand-accent-line)', overflow:'hidden' }}>
+    <div className="tims-login" style={{ height:'100%', display:'flex', borderTop:'var(--brand-accent-line)', overflow:'hidden' }}>
 
       {/* ── Left brand panel ─────────────────────────────────── */}
-      <div style={{ width:'42%', minWidth:340, background:'var(--brand-black)', display:'flex', flexDirection:'column', padding:'52px 52px 36px', position:'relative', overflow:'hidden' }}>
+      <div className="tims-login-brand" style={{ width:'42%', minWidth:340, background:'var(--brand-black)', display:'flex', flexDirection:'column', padding:'52px 52px 36px', position:'relative', overflow:'hidden' }}>
         {/* Decorative blobs — always visible as background */}
         <div style={{ position:'absolute', top:-100, right:-100, width:360, height:360, borderRadius:'50%', background:'rgba(245,197,24,0.07)', animation:'lgnPulse 4.5s ease-in-out infinite' }} />
         <div style={{ position:'absolute', bottom:-80, left:-80, width:260, height:260, borderRadius:'50%', background:'rgba(245,197,24,0.05)', animation:'lgnPulse 5.5s ease-in-out 1s infinite' }} />
@@ -213,7 +305,7 @@ function LoginScreen({ onLogin }) {
       </div>
 
       {/* ── Right form panel ─────────────────────────────────── */}
-      <div style={{ flex:1, background:'#f5f6f8', display:'flex', flexDirection:'column', justifyContent:'center', alignItems:'center', padding:'40px 60px', overflowY:'auto' }}>
+      <div className="tims-login-panel" style={{ flex:1, background:'#f5f6f8', display:'flex', flexDirection:'column', justifyContent:'center', alignItems:'center', padding:'28px 60px', overflowY:'hidden' }}>
         {ready && <div style={{ width:'100%', maxWidth:420 }}>
 
           {/* Sign In / Sign Up toggle */}
@@ -284,17 +376,9 @@ function LoginScreen({ onLogin }) {
                       <Input label="Employee ID" required placeholder="EMP-1011" value={accessForm.employee_id} onChange={setAccess('employee_id')} />
                     </div>
                     <Input label="Work Email" type="email" required placeholder="name@ultratech.com" value={accessForm.email} onChange={setAccess('email')} />
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                      {renderNativeSelect('Department', accessForm.department, setAccess('department'), ['Maintenance','Mechanical','E&I','Civil','Process'])}
-                      {renderNativeSelect('Role', accessForm.requested_role, setAccess('requested_role'), [
-                        { label: 'Requester', value: 'requester' },
-                        { label: 'Dept Head', value: 'dept_head' },
-                        { label: 'Maintenance Staff', value: 'maintenance_staff' },
-                      ])}
-                    </div>
+                    {renderNativeSelect('Department', accessForm.department, setAccess('department'), ['Maintenance','Mechanical','E&I','Civil','Process'])}
                     <Input label="Password" type="password" required placeholder="Create a password" value={accessForm.password} onChange={setAccess('password')} />
                     <Input label="Confirm Password" type="password" required placeholder="Re-enter password" value={accessForm.confirm_password} onChange={setAccess('confirm_password')} />
-                    <Input label="Reason / Notes" placeholder="Why do you need access?" value={accessForm.reason} onChange={setAccess('reason')} />
                     {reqError && (
                       <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 12px', background:'var(--danger-bg)', border:'1px solid var(--danger-border,var(--danger-bg))', borderRadius:'var(--radius-md)' }}>
                         <Icon name="alert_triangle" size={14} color="var(--danger-solid)" style={{ flexShrink:0 }} />
@@ -305,6 +389,17 @@ function LoginScreen({ onLogin }) {
                   </div>
                 </>
               )}
+              {recoveredUsername && <div style={{ marginTop:12, padding:'10px 12px', background:'var(--success-bg)', border:'1px solid var(--success-border)', borderRadius:'var(--radius-md)', color:'var(--success-text)', fontSize:12.5, lineHeight:1.45 }}>Username: <b>{recoveredUsername.employee_id}</b><br />Account: {recoveredUsername.full_name}</div>}
+              {(sent || resetToken) && (
+                <div style={{ display:'flex', flexDirection:'column', gap:12, marginTop:14 }}>
+                  <Input label="Reset Token" required value={resetToken} onChange={e => { setResetToken(e.target.value); setResetErr(''); }} placeholder="Paste token from email or message" />
+                  <Input label="New Password" type="password" required value={newPassword} onChange={e => { setNewPassword(e.target.value); setResetErr(''); }} placeholder="Use upper, lower, number, special char" />
+                  <Input label="Confirm New Password" type="password" required value={confirmNewPassword} onChange={e => { setConfirmNewPassword(e.target.value); setResetErr(''); }} placeholder="Re-enter new password" />
+                  <Btn disabled={recoveryLoading} onClick={completePasswordReset}>{recoveryLoading ? 'Resetting...' : 'Reset Password'}</Btn>
+                </div>
+              )}
+              {resetMsg && <div style={{ marginTop:12, padding:'10px 12px', background:'var(--success-bg)', border:'1px solid var(--success-border)', borderRadius:'var(--radius-md)', color:'var(--success-text)', fontSize:12.5, lineHeight:1.45 }}>{resetMsg}</div>}
+              {resetErr && <div style={{ marginTop:12, display:'flex', alignItems:'center', gap:8, padding:'10px 12px', background:'var(--danger-bg)', border:'1px solid var(--danger-border,var(--danger-bg))', borderRadius:'var(--radius-md)' }}><Icon name="alert_triangle" size={14} color="var(--danger-solid)" style={{ flexShrink:0 }} /><span style={{ fontSize:12.5, color:'var(--danger-text)', lineHeight:1.4 }}>{resetErr}</span></div>}
             </div>
           )}
 
@@ -324,7 +419,30 @@ function LoginScreen({ onLogin }) {
               {!sent ? (
                 <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
                   <Input label="Employee ID or Email" required value={resetInput} onChange={e => { setResetInput(e.target.value); setResetErr(''); }} error={resetErr} placeholder="USR001 or name@ultratech.com" data-autofocus />
-                  <Btn onClick={() => { if (!resetInput.trim()) { setResetErr('Please enter your Employee ID or email'); return; } setSent(true); }}>Send Reset Instructions</Btn>
+                  <Btn disabled={recoveryLoading} onClick={async () => {
+                    if (!resetInput.trim()) { setResetErr('Please enter your Employee ID or email'); return; }
+                    const value = resetInput.trim();
+                    setRecoveryLoading(true);
+                    setResetErr('');
+                    setResetMsg('');
+                    try {
+                      await ensureApi();
+                      if (value.includes('@')) {
+                        const found = await window.API.forgotUsername(value);
+                        setRecoveredUsername(found);
+                        setResetMsg(`Your username is ${found.employee_id}.`);
+                      } else {
+                        const res = await window.API.forgotPassword(value, '');
+                        if (res.reset_token) setResetToken(res.reset_token);
+                        setSent(true);
+                        setResetMsg(res.message || 'Reset instructions sent.');
+                      }
+                    } catch (err) {
+                      setResetErr(err.message || 'Could not recover credentials.');
+                    } finally {
+                      setRecoveryLoading(false);
+                    }
+                  }}>{recoveryLoading ? 'Checking...' : 'Recover Credentials'}</Btn>
                 </div>
               ) : (
                 <div style={{ padding:'20px 22px', background:'var(--success-bg)', border:'1px solid var(--success-border)', borderRadius:'var(--radius-md)', display:'flex', gap:12, alignItems:'flex-start' }}>

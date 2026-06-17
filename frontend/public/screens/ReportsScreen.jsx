@@ -101,8 +101,8 @@ function ReportTable({ columns, rows, sortableKeys = [] }) {
   }
 
   return (
-    <div>
-      <div style={{ overflowX: 'auto' }}>
+    <div className="tims-report-table">
+      <div className="tims-report-scroll" style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
           <thead>
             <tr style={{ background: 'var(--surface-sunken)', borderBottom: '1px solid var(--border-default)' }}>
@@ -126,7 +126,7 @@ function ReportTable({ columns, rows, sortableKeys = [] }) {
                   onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.97)'}
                   onMouseLeave={e => e.currentTarget.style.filter = 'none'}>
                   {columns.map(col => (
-                    <td key={col.key} style={{ padding: '11px 14px', textAlign: col.align === 'right' ? 'right' : 'left', verticalAlign: 'middle' }}>
+                    <td key={col.key} data-label={col.header} style={{ padding: '11px 14px', textAlign: col.align === 'right' ? 'right' : 'left', verticalAlign: 'middle' }}>
                       {col.render ? col.render(row, inr) : row[col.key]}
                     </td>
                   ))}
@@ -139,7 +139,7 @@ function ReportTable({ columns, rows, sortableKeys = [] }) {
 
       {/* Pagination */}
       {total > 5 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderTop: '1px solid var(--border-subtle)' }}>
+        <div className="tims-report-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderTop: '1px solid var(--border-subtle)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Rows per page</span>
             <select value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}
@@ -312,11 +312,27 @@ function ReportsScreen() {
     URL.revokeObjectURL(url);
   };
 
+  const downloadBackendFile = async (url, fallbackName) => {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('tims_token') || ''}` } });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const nameMatch = disposition.match(/filename="?([^"]+)"?/);
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = nameMatch ? nameMatch[1] : fallbackName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div className="tims-reports" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <PageHeader title="Reports" subtitle="Operational and financial exports for the maintenance department"
         actions={
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="tims-report-actions" style={{ display: 'flex', gap: 8 }}>
             <button onClick={handlePrint} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 13px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', background: 'var(--surface-card)', color: 'var(--text-muted)', fontSize: 13, fontFamily: 'var(--font-sans)', cursor: 'pointer', fontWeight: 500 }}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-sunken)'; e.currentTarget.style.color = 'var(--text-default)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-card)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
@@ -327,11 +343,17 @@ function ReportsScreen() {
               onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
               <Icon name="download" size={14} color="#fff" /> Export CSV
             </button>
+            <button onClick={() => downloadBackendFile('/api/reports/activity-logs?format=csv', `tims_activity_backup_${new Date().toISOString().slice(0,10)}.csv`)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 13px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', background: 'var(--surface-card)', color: 'var(--text-muted)', fontSize: 13, fontFamily: 'var(--font-sans)', cursor: 'pointer', fontWeight: 500 }}>
+              <Icon name="download" size={14} /> Activity Backup
+            </button>
+            <button onClick={() => downloadBackendFile('/api/reports/activity-logs/daily', `TIMS-activity-${new Date().toISOString().slice(0,10)}.log`)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 13px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', background: 'var(--surface-card)', color: 'var(--text-muted)', fontSize: 13, fontFamily: 'var(--font-sans)', cursor: 'pointer', fontWeight: 500 }}>
+              <Icon name="download" size={14} /> Daily Log
+            </button>
           </div>
         } />
 
       {/* Tab bar — premium style */}
-      <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', padding: 4, display: 'flex', gap: 2, overflowX: 'auto' }}>
+      <div className="tims-report-tabs" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', padding: 4, display: 'flex', gap: 2, overflowX: 'auto' }}>
         {REPORT_TABS.map(t => (
           <button key={t.value} onClick={() => { setTab(t.value); setSearch(''); }}
             style={{ padding: '8px 14px', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: tab === t.value ? 600 : 400, whiteSpace: 'nowrap', color: tab === t.value ? 'var(--text-strong)' : 'var(--text-muted)', background: tab === t.value ? 'var(--surface-sunken)' : 'transparent', boxShadow: tab === t.value ? 'var(--shadow-resting)' : 'none', transition: 'all 0.15s' }}
@@ -343,11 +365,11 @@ function ReportsScreen() {
       </div>
 
       {/* Tab description + search + last-updated */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+      <div className="tims-report-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 480 }}>{tabInfo?.desc}</div>
+          <div className="tims-report-description" style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 480 }}>{tabInfo?.desc}</div>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div className="tims-report-searchbar" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
             <Icon name="search" size={14} color="var(--text-subtle)" style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
             <input value={search} onChange={e => setSearch(e.target.value)}
@@ -359,7 +381,7 @@ function ReportsScreen() {
       </div>
 
       {/* Table card */}
-      <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+      <div className="tims-report-card" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
         <ReportTable columns={config.columns} rows={config.rows} sortableKeys={config.sortable} />
       </div>
     </div>

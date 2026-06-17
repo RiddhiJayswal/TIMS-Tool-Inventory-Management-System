@@ -6,3 +6,643 @@
 @import "./tokens/typography.css";
 @import "./tokens/spacing.css";
 @import "./tokens/base.css";
+
+* { box-sizing: border-box; }
+
+button, input, select, textarea { max-width: 100%; }
+
+@media (max-width: 820px) {
+  #app { height: 100dvh; }
+
+  .tims-login {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    min-height: 100dvh !important;
+  }
+
+  .tims-login-brand {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 150px !important;
+    padding: 22px 20px !important;
+  }
+
+  .tims-login-brand .lgn-left:nth-of-type(n+2),
+  .tims-login-brand > div:last-child {
+    display: none !important;
+  }
+
+  .tims-login-panel {
+    justify-content: flex-start !important;
+    padding: 22px 16px 28px !important;
+    overflow-y: visible !important;
+  }
+
+  .tims-login-panel > div {
+    max-width: 100% !important;
+  }
+
+  .tims-login-panel [style*="grid-template-columns:1fr 1fr"],
+  .tims-login-panel [style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .tims-sidebar {
+    height: 100% !important;
+    max-height: none !important;
+    border-top: var(--brand-accent-line) !important;
+    overflow: hidden !important;
+  }
+
+  .tims-sidebar.is-collapsed {
+    width: 46px !important;
+  }
+
+  .tims-sidebar.is-expanded {
+    width: min(216px, 72vw) !important;
+  }
+
+  .tims-navbar {
+    height: auto !important;
+    min-height: var(--navbar-height) !important;
+    padding: 10px 12px !important;
+    gap: 10px !important;
+    align-items: flex-start !important;
+  }
+
+  .tims-navbar-title {
+    display: none !important;
+  }
+
+  .tims-navbar-actions {
+    width: 100% !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+    min-width: 0 !important;
+  }
+
+  .tims-user-chip > div:first-child {
+    display: none !important;
+  }
+
+  .tims-user-chip {
+    min-width: 0 !important;
+    max-width: 96px !important;
+    flex-shrink: 1 !important;
+  }
+
+  .tims-user-chip > span {
+    max-width: 96px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .tims-logout-btn {
+    flex-shrink: 0 !important;
+  }
+
+  .tims-logout-btn {
+    font-size: 0 !important;
+    gap: 0 !important;
+    padding: 7px !important;
+  }
+
+  .tims-notif-menu {
+    position: fixed !important;
+    top: 58px !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-height: calc(100dvh - 76px) !important;
+  }
+
+  .tims-main {
+    padding: 14px !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+  }
+
+  .tims-main > * {
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .tims-main h1 {
+    font-size: 24px !important;
+    line-height: 1.15 !important;
+  }
+
+  .tims-main p,
+  .tims-main span,
+  .tims-main div {
+    min-width: 0;
+  }
+
+  .tims-main [style*="justify-content: space-between"][style*="align-items: flex-start"] {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .tims-main [style*="justify-content: space-between"][style*="align-items: flex-start"] > div {
+    width: 100% !important;
+  }
+
+  .tims-main [style*="justify-content: space-between"][style*="align-items: flex-start"] > div:last-child {
+    justify-content: stretch !important;
+    flex-wrap: wrap !important;
+  }
+
+  .tims-main [style*="justify-content: space-between"][style*="align-items: flex-start"] > div:last-child button {
+    flex: 1 1 auto !important;
+  }
+
+  .tims-report-actions {
+    width: 100% !important;
+    flex-direction: column !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+  }
+
+  .tims-report-tabs {
+    scrollbar-width: none !important;
+  }
+
+  .tims-report-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .tims-report-actions button {
+    width: 100% !important;
+    flex: 1 1 auto !important;
+    justify-content: center !important;
+    min-height: 38px !important;
+  }
+
+  .tims-reports > div:first-child {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .tims-reports > div:first-child > div {
+    width: 100% !important;
+  }
+
+  .tims-reports > div:first-child > div:last-child {
+    flex-shrink: 1 !important;
+  }
+
+  .tims-report-toolbar,
+  .tims-report-searchbar {
+    align-items: stretch !important;
+    width: 100% !important;
+  }
+
+  .tims-report-toolbar > div,
+  .tims-report-searchbar > div {
+    width: 100% !important;
+  }
+
+  .tims-report-searchbar {
+    flex-direction: column !important;
+  }
+
+  .tims-report-searchbar input {
+    width: 100% !important;
+  }
+
+  table {
+    min-width: 560px;
+  }
+
+  [style*="grid-template-columns:'repeat"],
+  [style*="gridTemplateColumns:'repeat"],
+  [style*="gridTemplateColumns: 'repeat"],
+  [style*="grid-template-columns: repeat"],
+  [style*="gridTemplateColumns: repeat"],
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="grid-template-columns:1fr 1fr"],
+  [style*="gridTemplateColumns: '1fr 1fr'"],
+  [style*="gridTemplateColumns:'1fr 1fr'"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  #app {
+    overflow: hidden !important;
+  }
+
+  .tims-main {
+    padding: 10px !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  .tims-main::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+  }
+
+  .tims-sidebar nav {
+    padding: 8px 3px !important;
+  }
+
+  .tims-sidebar button {
+    min-height: 36px !important;
+  }
+
+  .tims-sidebar.is-collapsed {
+    width: 34px !important;
+  }
+
+  .tims-sidebar.is-collapsed button {
+    width: 28px !important;
+    min-width: 28px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    justify-content: center !important;
+  }
+
+  .tims-sidebar.is-collapsed svg {
+    width: 15px !important;
+    height: 15px !important;
+  }
+
+  .tims-navbar {
+    padding: 8px 8px !important;
+  }
+
+  .tims-navbar-actions {
+    gap: 5px !important;
+  }
+
+  .tims-user-chip {
+    max-width: 74px !important;
+  }
+
+  .tims-user-chip > span {
+    max-width: 74px !important;
+    padding: 3px 6px !important;
+  }
+
+  table {
+    min-width: 500px;
+  }
+
+  .tims-main [style*="display: flex"] {
+    min-width: 0 !important;
+  }
+
+  .tims-main [style*="gap"] {
+    max-width: 100% !important;
+  }
+
+  .tims-main input,
+  .tims-main select,
+  .tims-main textarea,
+  .tims-main button {
+    max-width: 100% !important;
+  }
+
+  .tims-main button {
+    white-space: normal !important;
+  }
+
+  .tims-main [style*="flex-wrap: wrap"],
+  .tims-main [style*="flexWrap: 'wrap'"],
+  .tims-main [style*="flexWrap:'wrap'"] {
+    gap: 8px !important;
+  }
+
+  .tims-main * {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  .tims-main *::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+  }
+
+  .tims-main [role="tablist"],
+  .tims-mobile-stack-tabs,
+  .tims-report-tabs {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    overflow: visible !important;
+    gap: 4px !important;
+  }
+
+  .tims-main [role="tablist"] button,
+  .tims-mobile-stack-tabs button,
+  .tims-report-tabs button {
+    width: 100% !important;
+    justify-content: space-between !important;
+    white-space: normal !important;
+    text-align: left !important;
+  }
+
+  .tims-main table {
+    min-width: 0 !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  .tims-main table th,
+  .tims-main table td {
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  .tims-main table th {
+    font-size: 9.5px !important;
+    letter-spacing: 0.02em !important;
+  }
+
+  .tims-main table td {
+    font-size: 12px !important;
+  }
+
+  .tims-data-table {
+    overflow: visible !important;
+    max-height: none !important;
+    border-radius: var(--radius-md) !important;
+  }
+
+  .tims-data-table table,
+  .tims-data-table thead,
+  .tims-data-table tbody,
+  .tims-data-table tr,
+  .tims-data-table td {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .tims-data-table table {
+    min-width: 0 !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    background: transparent !important;
+  }
+
+  .tims-data-table thead {
+    display: none !important;
+  }
+
+  .tims-data-table tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    padding: 8px !important;
+  }
+
+  .tims-data-table tr {
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    background: var(--surface-card) !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+  }
+
+  .tims-data-table td {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    padding: 9px 10px !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+    text-align: right !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    font-size: 12.5px !important;
+  }
+
+  .tims-data-table td:last-child {
+    border-bottom: none !important;
+  }
+
+  .tims-data-table td::before {
+    content: attr(data-label);
+    flex: 0 0 38%;
+    max-width: 38%;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-subtle);
+    overflow-wrap: anywhere;
+  }
+
+  .tims-data-table td > * {
+    max-width: 58% !important;
+    min-width: 0 !important;
+  }
+
+  .tims-data-table td a,
+  .tims-data-table td span,
+  .tims-data-table td div {
+    overflow-wrap: anywhere !important;
+    white-space: normal !important;
+  }
+
+  .tims-data-table td button {
+    min-height: 34px !important;
+  }
+
+  .tims-users-filters {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .tims-users-filters > div,
+  .tims-users-filters select {
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .tims-users-table {
+    overflow: visible !important;
+    border-radius: var(--radius-md) !important;
+    background: transparent !important;
+    border: none !important;
+  }
+
+  .tims-users-table table,
+  .tims-users-table thead,
+  .tims-users-table tbody,
+  .tims-users-table tr,
+  .tims-users-table td {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .tims-users-table table {
+    min-width: 0 !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    font-size: 13px !important;
+  }
+
+  .tims-users-table thead {
+    display: none !important;
+  }
+
+  .tims-users-table tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .tims-users-table tr {
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    background: var(--surface-card) !important;
+    overflow: hidden !important;
+  }
+
+  .tims-users-table td {
+    padding: 8px 10px !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+  }
+
+  .tims-users-table td:first-child {
+    border-bottom: 1px solid var(--border-default) !important;
+  }
+
+  .tims-users-table td:not(:first-child) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    text-align: right !important;
+  }
+
+  .tims-users-table td:not(:first-child)::before {
+    content: attr(data-label);
+    flex: 0 0 42%;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-subtle);
+  }
+
+  .tims-users-table td:last-child {
+    border-bottom: none !important;
+  }
+
+  .tims-users-table td:first-child > div {
+    min-width: 0 !important;
+  }
+
+  .tims-users-table td:first-child > div > div:last-child {
+    min-width: 0 !important;
+  }
+
+  .tims-users-table td:first-child [style*="font-weight: 600"] {
+    overflow-wrap: anywhere !important;
+  }
+
+  .tims-users-table td:first-child [style*="font-size: 11.5"] {
+    overflow-wrap: anywhere !important;
+  }
+
+  .tims-report-card {
+    border-radius: var(--radius-md) !important;
+  }
+
+  .tims-report-description {
+    max-width: 100% !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  .tims-report-scroll {
+    overflow-x: visible !important;
+  }
+
+  .tims-report-table table,
+  .tims-report-table thead,
+  .tims-report-table tbody,
+  .tims-report-table tr,
+  .tims-report-table td {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .tims-report-table table {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+  }
+
+  .tims-report-table thead {
+    display: none !important;
+  }
+
+  .tims-report-table tbody {
+    padding: 8px !important;
+  }
+
+  .tims-report-table tr {
+    margin-bottom: 8px !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    background: var(--surface-card) !important;
+    overflow: hidden !important;
+  }
+
+  .tims-report-table td {
+    display: flex !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    padding: 9px 10px !important;
+    text-align: right !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+    min-height: 36px !important;
+  }
+
+  .tims-report-table td:last-child {
+    border-bottom: none !important;
+  }
+
+  .tims-report-table td::before {
+    content: attr(data-label);
+    flex: 0 0 42%;
+    text-align: left;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-subtle);
+  }
+
+  .tims-report-pagination {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    justify-content: center !important;
+  }
+
+  [style*="width: 640"],
+  [style*="width:640"],
+  [style*="width: 520"],
+  [style*="width:520"],
+  [style*="width: 480"],
+  [style*="width:480"] {
+    width: calc(100vw - 20px) !important;
+    max-height: calc(100dvh - 20px) !important;
+  }
+}

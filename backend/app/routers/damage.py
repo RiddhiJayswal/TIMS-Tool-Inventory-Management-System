@@ -11,7 +11,7 @@ from app.models.transaction import IssuanceLog, Requisition, User
 from app.schemas.damage import DamageAssessment, WriteOffPayload
 from app.services.audit import log_action
 from app.services.depreciation import calculate_penalty
-from app.services.stock import consume_stock
+from app.services.stock import consume_stock, restore_stock
 
 router = APIRouter(prefix="/damage", tags=["damage"])
 
@@ -121,12 +121,20 @@ def record_damage(
     if payload.notes:
         log.notes = payload.notes
 
-    # Damage assessment closes the inventory impact for all unusable units.
-    # consume_stock clamps availability for older damaged returns that were restored.
+    # Damage assessment closes the inventory impact.
+    # Wear and tear releases returned units back to available stock; true damaged/missing
+    # assessments permanently remove the affected units from total stock.
     tool = db.query(Tool).filter(Tool.id == log.tool_id).first()
     if tool:
-        affected_quantity = log.quantity_issued
-        consume_stock(db, str(tool.id), affected_quantity)
+        affected_quantity = (
+            log.quantity_issued
+            if log.return_condition == "missing"
+            else (log.quantity_returned or log.quantity_issued)
+        )
+        if payload.damage_type == "wear_and_tear":
+            restore_stock(db, str(tool.id), affected_quantity)
+        else:
+            consume_stock(db, str(tool.id), affected_quantity)
 
     # Requisition for borrower name and department
     req = db.query(Requisition).filter(Requisition.id == log.requisition_id).first()

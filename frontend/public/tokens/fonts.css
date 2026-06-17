@@ -1,5 +1,1 @@
-/* MTRS webfonts — Inter (UI) + JetBrains Mono (codes/numerics).
-   Inter is the application default (already wired in the product).
-   JetBrains Mono is used for tool codes, requisition numbers and tabular figures. */
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* TIMS uses local system font stacks so the UI renders without external font requests. */

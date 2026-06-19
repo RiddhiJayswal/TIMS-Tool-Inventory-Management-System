@@ -82,9 +82,9 @@ function Sidebar({ route, onNavigate, collapsed, onToggle, user }) {
         )}
       </div>
       <nav style={{ flex: 1, overflowY: 'auto', padding: collapsed ? '14px 8px' : '14px 12px' }}>
-        {getNavGroups((user || {}).role || 'requester').map((g) => (
+        {getNavGroups((user || {}).role || 'requester').map((g, i) => (
           <div key={g.label} style={{ marginBottom: collapsed ? 4 : 16 }}>
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '0 0 10px' }} />
+            {i > 0 && <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '0 0 10px' }} />}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {g.items.map((it) => {
                 const active = route === it.key;

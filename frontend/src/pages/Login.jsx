@@ -131,7 +131,7 @@ export default function Login() {
           <div className="flex flex-col items-center text-center border-b border-slate-100 pb-5">
             <div>
               <h1 className="text-xl font-bold text-slate-900">TIMS</h1>
-              <p className="text-sm text-slate-500">Tool Inventory Management System</p>
+              <p className="text-sm text-slate-500">Tools Inventory Management System</p>
             </div>
           </div>
 

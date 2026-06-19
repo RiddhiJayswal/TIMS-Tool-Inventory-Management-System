@@ -1,5 +1,5 @@
 # requirements.md — Functional & Non-Functional Requirements
-# Tool Inventory Management System (TIMS)
+# Tools Inventory Management System (TIMS)
 # UltraTech Cement — Single Plant
 
 ---

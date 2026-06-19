@@ -69,7 +69,7 @@ export default function Navbar() {
       <div className="flex items-center gap-5 min-w-0">
         <BrandLogo variant="navbar" compact />
         <div className="text-slate-700 text-sm font-semibold truncate">
-          Tool Inventory Management System
+          Tools Inventory Management System
         </div>
       </div>
 

@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
 
 
-app = FastAPI(title="TIMS — Tool Inventory Management System", lifespan=lifespan)
+app = FastAPI(title="TIMS — Tools Inventory Management System", lifespan=lifespan)
 
 # Use the configured frontend URL as the allowed CORS origin.
 # allow_origins=["*"] with allow_credentials=True is invalid per the CORS spec

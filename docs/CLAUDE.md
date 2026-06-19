@@ -1,4 +1,4 @@
-# CLAUDE.md — UltraTech Tool Inventory Management System (TIMS)
+# CLAUDE.md — UltraTech Tools Inventory Management System (TIMS)
 
 ## Project Overview
 

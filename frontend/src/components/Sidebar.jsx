@@ -44,7 +44,7 @@ export default function Sidebar() {
           <div className="min-w-0">
             <div className="text-white font-bold text-sm leading-tight tracking-wide">TIMS</div>
             <div className="text-[11px] mt-0.5 leading-snug text-slate-400">
-              Tool Inventory Management System
+              Tools Inventory Management System
             </div>
           </div>
         </div>

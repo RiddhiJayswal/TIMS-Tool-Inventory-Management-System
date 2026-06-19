@@ -77,7 +77,7 @@ function Logo({
         marginTop: 4,
         fontWeight: 500
       }
-    }, "Tool Inventory Management System")));
+    }, "Tools Inventory Management System")));
   }
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -120,7 +120,7 @@ function Logo({
       fontWeight: 500,
       lineHeight: 1.35
     }
-  }, "Tool Inventory Management System")));
+  }, "Tools Inventory Management System")));
 }
 
 /** Small endorsement line: "An Aditya Birla Group company". */
@@ -2335,7 +2335,7 @@ function Navbar({
       fontWeight: 500,
       color: 'var(--text-muted)'
     }
-  }, "Tool Inventory Management System"), /*#__PURE__*/React.createElement("div", {
+  }, "Tools Inventory Management System"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',

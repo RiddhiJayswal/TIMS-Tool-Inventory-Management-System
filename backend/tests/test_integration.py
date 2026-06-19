@@ -1,5 +1,5 @@
 """
-Integration test suite for TIMS — Tool Inventory Management System.
+Integration test suite for TIMS — Tools Inventory Management System.
 Requires a running PostgreSQL test database at DATABASE_URL.
 
 Run: cd backend && python -m pytest tests/test_integration.py -v --tb=short

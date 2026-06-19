@@ -1,5 +1,5 @@
 # spec.md — Technical Specification
-# Tool Inventory Management System (TIMS)
+# Tools Inventory Management System (TIMS)
 # UltraTech Cement — Single Plant Deployment
 
 ---
@@ -22,7 +22,7 @@ The Maintenance Department at UltraTech Cement currently manages thousands of pl
 
 ## 2. Proposed System — To-Be
 
-A web-based, role-aware Tool Inventory Management System with a PostgreSQL database, real-time stock tracking, approval workflows, calibration reminders, and damage/penalty handling.
+A web-based, role-aware Tools Inventory Management System with a PostgreSQL database, real-time stock tracking, approval workflows, calibration reminders, and damage/penalty handling.
 
 The system is internet-accessible, hosted on company infrastructure, with the database fully owned and controlled by UltraTech.
 

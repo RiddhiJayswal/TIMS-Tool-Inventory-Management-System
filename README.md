@@ -1,8 +1,8 @@
 <<<<<<< HEAD
-# Tool Inventory Management System(TIMS)
+# Tools Inventory Management System(TIMS)
 ## UltraTech Cement · Maintenance Department
 =======
-# TIMS - Tool Inventory Management System
+# TIMS - Tools Inventory Management System
 >>>>>>> cd5087e (Fix TIMS responsive UI and add full workflow testing improvements)
 
 TIMS is a role-based maintenance tool inventory system for plant teams. It tracks tool stock, requisitions, approvals, issue/return activity, calibration, storage bins, damage assessment, users, reports, notifications, and audit/activity exports.

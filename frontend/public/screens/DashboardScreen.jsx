@@ -221,7 +221,7 @@ function DashboardScreen({ onNavigate }) {
   const seesOperationalIssuances = isMaintenanceUser || userRole === 'dept_head';
   const activeIssuanceRows = seesOperationalIssuances ? (window.MOCK.ACTIVE_ISSUANCES || []) : (window.MOCK.MY_ISSUANCES || []);
   const scopeLabels = isMaintenanceUser
-    ? { tools: 'Tool Types', available: 'Available', issued: 'Currently Issued' }
+    ? { tools: 'Tool Types', available: 'Available Tools', issued: 'Currently Issued' }
     : isDeptHead
       ? { tools: 'Department Tools', available: 'Dept Available', issued: 'Dept Issued' }
       : { tools: 'Requestable Tools', available: 'Available to Request', issued: 'My Issued Tools' };

@@ -183,7 +183,7 @@ function Navbar({ user, notifs = [], onLogout }) {
       borderBottom: '1px solid var(--border-default)', display: 'flex', alignItems: 'center',
       justifyContent: 'space-between', padding: '0 22px',
     }}>
-      <div className="tims-navbar-title" style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>Tool Inventory Management System</div>
+      <div className="tims-navbar-title" style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>Tools Inventory Management System</div>
       <div className="tims-navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <div ref={notifRef} style={{ position: 'relative' }}>
           <button onClick={() => setOpen(!open)} style={{

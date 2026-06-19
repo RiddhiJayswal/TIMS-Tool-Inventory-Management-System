@@ -43,7 +43,7 @@ function Sidebar({ route, onNavigate, collapsed, onToggle, user }) {
     issuance:     (window.MOCK?.APPROVED_QUEUE || []).length || _summary.approved_queue_count || 0,
     returns:      _summary.overdue_count || 0,
     calibration:  _summary.calibration_due_count || 0,
-    users:        (window.MOCK?.ACCESS_REQUESTS || []).filter(r => r.status === 'pending').length,
+    users:        (window.MOCK?.ACCESS_REQUESTS || []).filter(r => r.status === 'pending').length || _summary.pending_access_count || 0,
   };
   const toggleBtn = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -217,9 +217,13 @@ function Navbar({ user, notifs = [], onLogout, onNavigate }) {
         <div style={{ width: 7, height: 7, borderRadius: '50%', marginTop: 5, flexShrink: 0, background: isRead ? 'transparent' : 'var(--brand-yellow)' }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.45, color: isRead ? 'var(--text-subtle)' : 'var(--text-default)', whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{n.message || 'Notification update'}</p>
-          <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             {n.date}
-            {dest && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 600, color: 'var(--text-subtle)', letterSpacing: '0.04em' }}>→ {dest === 'requisitions' ? 'My Requests' : dest === 'issuance' ? 'Issue Tool' : dest.charAt(0).toUpperCase() + dest.slice(1)}</span>}
+            {dest && (
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--brand-yellow)', background: 'rgba(250,196,0,0.12)', padding: '1px 6px', borderRadius: 4, letterSpacing: '0.02em' }}>
+                → {dest === 'requisitions' ? 'My Requests' : dest === 'issuance' ? 'Issue Tool' : dest.charAt(0).toUpperCase() + dest.slice(1)}
+              </span>
+            )}
           </div>
         </div>
         {!isRead && (

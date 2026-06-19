@@ -246,13 +246,15 @@ const API = {
 
   loadDashboard: async () => {
     const canReadOperationalQueues = ['maintenance_admin', 'maintenance_staff', 'dept_head'].includes(currentRole());
-    const [summary, bins, tools, stockReport, openIssuances, closedIssuances] = await Promise.all([
+    const isAdmin = currentRole() === 'maintenance_admin';
+    const [summary, bins, tools, stockReport, openIssuances, closedIssuances, accessReqs] = await Promise.all([
       apiFetch('/dashboard/summary'),
       apiFetch('/storage-bins').catch(() => []),
       apiFetch('/tools').catch(() => []),
       isMaintenanceRole() ? apiFetch('/reports/stock').catch(() => []) : Promise.resolve([]),
       canReadOperationalQueues ? apiFetch('/issuance?status=open').catch(() => []) : apiFetch('/dashboard/my-issuances').catch(() => []),
       canReadOperationalQueues ? apiFetch('/issuance?status=closed').catch(() => []) : Promise.resolve([]),
+      isAdmin ? apiFetch('/users/access-requests').catch(() => []) : Promise.resolve([]),
     ]);
 
     const binMap = {};
@@ -289,7 +291,29 @@ const API = {
       cancelled_requests_count: qty(summary.cancelled_requests_count),
       active_users_count: qty(summary.active_users_count),
       damaged_or_lost_count: qty(summary.damaged_or_lost_count),
+      pending_access_count: accessReqs.filter(r => r.status === 'pending').length,
     };
+
+    if (isAdmin && accessReqs.length > 0) {
+      window.MOCK.ACCESS_REQUESTS = accessReqs.map(r => ({
+        id: r.id,
+        requestId: r.requestId || r.request_id,
+        full_name: r.full_name || r.name || '-',
+        emp_id: r.employee_id || r.employeeId || '',
+        email: r.email || r.username || '',
+        department: r.department || '-',
+        role: r.requested_role || r.requestedRole || r.role || 'requester',
+        requestedRole: r.requested_role || r.requestedRole || r.role || 'requester',
+        reason: r.reason || r.notes || '',
+        status: r.status || 'pending',
+        submitted: fmtDate(r.created_at || r.createdAt),
+        created_at: r.created_at || r.createdAt,
+        approved_by: r.approved_by || r.approvedBy || '',
+        approved_at: r.approved_at || r.approvedAt || '',
+        rejection_reason: r.rejection_reason || '',
+        designation: r.reason || r.notes || 'Access request',
+      }));
+    }
 
     window.MOCK.MY_ISSUANCES = (summary.my_active_issuances || []).map(i => {
       const mapped = normalizeIssuance(i, toolById);

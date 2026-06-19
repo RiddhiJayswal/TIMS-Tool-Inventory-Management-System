@@ -149,8 +149,27 @@ function BinDetailModal({ bin, onClose, onEdit }) {
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  const toolsInBin = (window.MOCK.TOOLS || []).filter(t => t.bin === bin.bin_code);
+  const [version,   setVersion]   = React.useState(0);
+  const [removing,  setRemoving]  = React.useState(null);
+
+  const toolsInBin = React.useMemo(
+    () => (window.MOCK.TOOLS || []).filter(t => t.bin === bin.bin_code),
+    [bin.bin_code, version]
+  );
   const occupied   = toolsInBin.length;
+
+  const unassignTool = async (t) => {
+    setRemoving(t.id);
+    try {
+      await window.API.updateTool(t.id, { storage_bin_id: null });
+      await window.API.loadDashboard();
+      setVersion(v => v + 1);
+    } catch (e) {
+      alert(e.message || 'Could not unassign tool');
+    } finally {
+      setRemoving(null);
+    }
+  };
   const capacity   = bin.capacity || null;
   const info       = binStatusInfo(occupied, capacity);
   const fillPct    = capacity ? Math.min(1, occupied / capacity) * 100 : 0;
@@ -231,15 +250,24 @@ function BinDetailModal({ bin, onClose, onEdit }) {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {toolsInBin.map(t => (
-                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--surface-sunken)', borderRadius: 'var(--radius-md)' }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text-strong)' }}>{t.name}</div>
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', background: 'var(--surface-sunken)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text-strong)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
                       <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontFamily: 'monospace', marginTop: 2 }}>{t.tool_code}</div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: t.available > 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>{t.available} avail</div>
                       <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 1 }}>{t.total} total</div>
                     </div>
+                    <button
+                      onClick={() => unassignTool(t)}
+                      disabled={removing === t.id}
+                      title="Unassign from this bin"
+                      style={{ flexShrink: 0, height: 28, padding: '0 10px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', background: 'transparent', color: removing === t.id ? 'var(--text-subtle)' : 'var(--danger-text)', fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 600, cursor: removing === t.id ? 'wait' : 'pointer', whiteSpace: 'nowrap' }}
+                      onMouseEnter={e => { if (removing !== t.id) { e.currentTarget.style.background = 'var(--danger-bg)'; e.currentTarget.style.borderColor = 'var(--danger-text)'; }}}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'var(--border-default)'; }}>
+                      {removing === t.id ? 'Removing…' : 'Unassign'}
+                    </button>
                   </div>
                 ))}
               </div>

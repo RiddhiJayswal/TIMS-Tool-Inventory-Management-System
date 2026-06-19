@@ -111,7 +111,7 @@ def _create_reset_token(user: User) -> str:
 
 @router.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.employee_id == form_data.username).first()
+    user = db.query(User).filter(User.employee_id == form_data.username.strip().upper()).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

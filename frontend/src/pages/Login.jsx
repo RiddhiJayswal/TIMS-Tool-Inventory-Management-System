@@ -63,11 +63,10 @@ export default function Login() {
     setLoading(true)
     try {
       await authAPI.signup(signup)
-      setEmployeeId(signup.employee_id.trim().toUpperCase())
       setPassword('')
       setSignup(emptySignup)
       setMode('signin')
-      setMessage('Account created. Sign in with your new employee ID and password.')
+      setMessage('Access request submitted. An admin must approve it before you can sign in.')
     } catch (err) {
       const detail = err.response?.data?.detail
       setError(Array.isArray(detail) ? detail.map(item => item.msg).join(', ') : detail || 'Could not create account.')

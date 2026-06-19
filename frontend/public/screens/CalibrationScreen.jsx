@@ -301,7 +301,7 @@ function CalibrationDetailModal({ item, onClose, onRecord, onHistory }) {
 
 /* ── Main screen ───────────────────────────────────────────────────── */
 function CalibrationScreen() {
-  const { PageHeader, Card, Tabs, DataTable, Button, EmptyState } = NS_CAL;
+  const { PageHeader, Card, Tabs, DataTable, Button, EmptyState, Input } = NS_CAL;
   const [search, setSearch] = React.useState('');
   const [partnerFilter, setPartnerFilter] = React.useState('all');
   const [tab, setTab] = React.useState('all');
@@ -357,11 +357,8 @@ function CalibrationScreen() {
 
       {/* Search + filters */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
-          <Icon name="search" size={14} color="var(--text-subtle)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search tool code, name, partner or frequency..."
-            style={{ width: '100%', paddingLeft: 32, paddingRight: 12, height: 36, border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-sans)', fontSize: 13.5, color: 'var(--text-default)', background: 'var(--surface-card)', outline: 'none', boxSizing: 'border-box' }} />
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <Input icon={<Icon name="search" size={14} />} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tool code, name, partner or frequency..." />
         </div>
         <select value={partnerFilter} onChange={e => setPartnerFilter(e.target.value)}
           style={{ height: 36, padding: '0 12px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-sans)', fontSize: 13.5, color: 'var(--text-default)', background: 'var(--surface-card)', cursor: 'pointer', outline: 'none' }}>

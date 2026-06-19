@@ -420,7 +420,13 @@ function ReturnsScreen() {
   const [recordsTab, setRecordsTab] = React.useState('returns');
   const [search, setSearch] = React.useState('');
   const [filter, setFilter] = React.useState('all');
+  const [successMsg, setSuccessMsg] = React.useState('');
   const inr = window.inr;
+
+  const showSuccess = (msg) => {
+    setSuccessMsg(msg);
+    setTimeout(() => setSuccessMsg(''), 4000);
+  };
   const [selectedRecord, setSelectedRecord] = React.useState(null);
 
   const downloadRecords = () => {
@@ -480,6 +486,13 @@ function ReturnsScreen() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <PageHeader title="Returns" subtitle="Process tool returns and assess damage" />
 
+      {successMsg && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 'var(--radius-md)', color: 'var(--success-text)', fontSize: 13.5, fontWeight: 500 }}>
+          <Icon name="check_circle" size={16} color="var(--success-solid)" />
+          {successMsg}
+        </div>
+      )}
+
       {/* Summary chips */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         {chips.map(ch => (
@@ -492,10 +505,8 @@ function ReturnsScreen() {
 
       {/* Search + filter bar */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: 1, maxWidth: 300 }}>
-          <Icon name="search" size={14} color="var(--text-subtle)" style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tool or borrower…"
-            style={{ width: '100%', paddingLeft: 30, paddingRight: 10, height: 36, border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-sans)', fontSize: 13.5, color: 'var(--text-default)', background: 'var(--surface-card)', outline: 'none', boxSizing: 'border-box' }} />
+        <div style={{ flex: 1, maxWidth: 300 }}>
+          <Input icon={<Icon name="search" size={14} />} placeholder="Search tool or borrower…" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <div style={{ display: 'flex', gap: 4, background: 'var(--surface-sunken)', borderRadius: 'var(--radius-md)', padding: 3 }}>
           {filterBtns.map(f => (
@@ -539,8 +550,8 @@ function ReturnsScreen() {
         />
       </Card>
 
-      {/* Pending Damage — critical section */}
-      <div style={{ border: '1.5px solid var(--danger-border, var(--danger-bg))', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: '0 0 0 3px rgba(239,68,68,0.06)' }}>
+      {/* Pending Damage — only shown when there are items to resolve */}
+      {damageList.length > 0 && <div style={{ border: '1.5px solid var(--danger-border, var(--danger-bg))', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: '0 0 0 3px rgba(239,68,68,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', background: 'var(--danger-bg)', borderBottom: '1px solid var(--danger-border, var(--danger-bg))' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Icon name="alert_triangle" size={17} color="var(--danger-text)" />
@@ -571,7 +582,7 @@ function ReturnsScreen() {
             empty={<EmptyState tone="success" compact icon={<Icon name="check_circle" size={24} />} title="No pending assessments" message="All damaged/missing returns have been assessed." />}
           />
         </div>
-      </div>
+      </div>}
       </>}
 
       {viewMode === 'records' && (
@@ -590,10 +601,10 @@ function ReturnsScreen() {
         } padded={false}>
           {recordsTab === 'returns' && (
             returnHistory.length === 0
-              ? <div style={{ padding: '36px 20px', textAlign: 'center', color: 'var(--text-subtle)', fontSize: 13 }}>No returns processed yet — they will appear here once confirmed.</div>
+              ? <div style={{ padding: '12px 0' }}><EmptyState compact icon={<Icon name="arrow_left_circle" size={26} />} title="No processed returns" message="Confirmed returns will appear here." /></div>
               : <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead><tr style={{ background: 'var(--surface-sunken)', borderBottom: '1px solid var(--border-default)' }}>
-                    {['Tool', 'Returned By', 'Dept', 'Due', 'Returned On', 'Condition'].map(h => <th key={h} style={{ padding: '9px 20px', textAlign: 'left', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{h}</th>)}
+                    {['Tool', 'Returned By', 'Dept', 'Due', 'Returned On', 'Condition', ''].map(h => <th key={h} style={{ padding: '9px 20px', textAlign: 'left', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{h}</th>)}
                   </tr></thead>
                   <tbody>{returnHistory.map((r, i) => (
                     <tr key={i} onClick={() => setSelectedRecord({ record: r, type: 'return' })} style={{ borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background='var(--surface-sunken)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
@@ -603,16 +614,17 @@ function ReturnsScreen() {
                       <td style={{ padding: '11px 20px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{r.due}</td>
                       <td style={{ padding: '11px 20px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{r.returnedOn}</td>
                       <td style={{ padding: '11px 20px' }}><span style={{ padding: '2px 9px', borderRadius: 'var(--radius-pill)', fontSize: 11.5, fontWeight: 600, background: r.condition==='good'?'var(--success-bg)':r.condition==='partial'?'var(--warning-bg)':'var(--danger-bg)', color: r.condition==='good'?'var(--success-text)':r.condition==='partial'?'var(--warning-text)':'var(--danger-text)', textTransform: 'capitalize' }}>{r.condition}</span></td>
+                      <td style={{ padding: '11px 16px', textAlign: 'right', color: 'var(--text-subtle)' }}><Icon name="arrow_right" size={14} /></td>
                     </tr>
                   ))}</tbody>
                 </table>
           )}
           {recordsTab === 'damage' && (
             damageHistory.length === 0
-              ? <div style={{ padding: '36px 20px', textAlign: 'center', color: 'var(--text-subtle)', fontSize: 13 }}>No damage assessments recorded yet — they will appear here once confirmed.</div>
+              ? <div style={{ padding: '12px 0' }}><EmptyState compact icon={<Icon name="check_circle" size={26} />} tone="success" title="No damage assessments" message="Recorded damage assessments will appear here." /></div>
               : <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead><tr style={{ background: 'var(--surface-sunken)', borderBottom: '1px solid var(--border-default)' }}>
-                    {['Tool', 'Returned By', 'Dept', 'Condition', 'Damage Type', 'Penalty', 'Assessed'].map(h => <th key={h} style={{ padding: '9px 20px', textAlign: 'left', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{h}</th>)}
+                    {['Tool', 'Returned By', 'Dept', 'Condition', 'Damage Type', 'Penalty', 'Assessed', ''].map(h => <th key={h} style={{ padding: '9px 20px', textAlign: 'left', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{h}</th>)}
                   </tr></thead>
                   <tbody>{damageHistory.map((r, i) => (
                     <tr key={i} onClick={() => setSelectedRecord({ record: r, type: 'damage' })} style={{ borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background='var(--surface-sunken)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
@@ -623,14 +635,15 @@ function ReturnsScreen() {
                       <td style={{ padding: '11px 20px', color: 'var(--text-muted)' }}>{{ theft: 'Theft / Missing', mishandling: 'Mishandling', wear_and_tear: 'Wear & Tear' }[r.kind] || '—'}</td>
                       <td style={{ padding: '11px 20px', fontFamily: 'monospace', fontWeight: 600, color: r.penalty > 0 ? 'var(--danger-text)' : 'var(--success-text)' }}>{inr(r.penalty || 0)}</td>
                       <td style={{ padding: '11px 20px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{r.assessedOn}</td>
+                      <td style={{ padding: '11px 16px', textAlign: 'right', color: 'var(--text-subtle)' }}><Icon name="arrow_right" size={14} /></td>
                     </tr>
                   ))}</tbody>
                 </table>
           )}
         </Card>
       )}
-      {ret && <ProcessReturnModal item={ret} onClose={() => setRet(null)} onConfirm={(id, extra) => { const found = activeList.find(i => i.id === id); setActiveList(window.MOCK.ACTIVE_ISSUANCES || []); setDamageList(window.MOCK.PENDING_DAMAGE || []); if (found) setReturnHistory(h => [...h, { ...found, condition: extra?.condition || 'good', returnedOn: new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) }]); }} />}
-      {dmg && <RecordDamageModal item={dmg} onClose={() => setDmg(null)} onConfirm={(id, extra) => { const found = damageList.find(i => i.id === id); setActiveList(window.MOCK.ACTIVE_ISSUANCES || []); setDamageList(window.MOCK.PENDING_DAMAGE || []); if (found) setDamageHistory(h => [...h, { ...found, kind: extra?.kind, penalty: extra?.penalty || 0, assessedOn: new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) }]); }} />}
+      {ret && <ProcessReturnModal item={ret} onClose={() => setRet(null)} onConfirm={(id, extra) => { const found = activeList.find(i => i.id === id); setActiveList(window.MOCK.ACTIVE_ISSUANCES || []); setDamageList(window.MOCK.PENDING_DAMAGE || []); if (found) { setReturnHistory(h => [...h, { ...found, condition: extra?.condition || 'good', returnedOn: new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) }]); showSuccess(`Return for ${found.tool_name} confirmed successfully.`); } }} />}
+      {dmg && <RecordDamageModal item={dmg} onClose={() => setDmg(null)} onConfirm={(id, extra) => { const found = damageList.find(i => i.id === id); setActiveList(window.MOCK.ACTIVE_ISSUANCES || []); setDamageList(window.MOCK.PENDING_DAMAGE || []); if (found) { setDamageHistory(h => [...h, { ...found, kind: extra?.kind, penalty: extra?.penalty || 0, assessedOn: new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) }]); showSuccess(`Damage assessment for ${found.tool_name} recorded.`); } }} />}
       {viewDmg && <ViewDamageModal    item={viewDmg} onClose={() => setViewDmg(null)} />}
       {retHist && <ReturnHistoryModal item={retHist} onClose={() => setRetHist(null)} />}
       {selectedIssuance && <window.IssuanceDetailModal issuance={selectedIssuance} onClose={() => setSelectedIssuance(null)} />}

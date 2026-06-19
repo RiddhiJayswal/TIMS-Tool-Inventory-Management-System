@@ -5,7 +5,8 @@
       "Bash(disown)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Divyesh Jayswal\\\\Desktop\\\\New folder\\\\TIMS-Tool-Inventory-Management-System\" -Force)",
       "Bash(Select-Object Name, PSIsContainer)",
-      "Bash(Format-Table -AutoSize)"
+      "Bash(Format-Table -AutoSize)",
+      "Bash(python3 -c ' *)"
     ]
   }
 }

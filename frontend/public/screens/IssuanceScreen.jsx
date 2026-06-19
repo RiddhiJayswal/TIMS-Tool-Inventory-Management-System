@@ -109,7 +109,7 @@ function ViewRequestModal({ item, onClose }) {
 
 /* ── Main screen ───────────────────────────────────────────────────── */
 function IssuanceScreen() {
-  const { PageHeader, Card, Tabs, DataTable, Button, EmptyState } = NS_ISS;
+  const { PageHeader, Card, Tabs, DataTable, Button, EmptyState, Input } = NS_ISS;
   const [tab, setTab] = React.useState('all');
   const [qSearch, setQSearch] = React.useState('');
   const [aSearch, setASearch] = React.useState('');
@@ -117,6 +117,12 @@ function IssuanceScreen() {
   const [viewReq, setViewReq] = React.useState(null);
   const [issuedIds, setIssuedIds] = React.useState([]);
   const [selectedIssuance, setSelectedIssuance] = React.useState(null);
+  const [successMsg, setSuccessMsg] = React.useState('');
+
+  const showSuccess = (msg) => {
+    setSuccessMsg(msg);
+    setTimeout(() => setSuccessMsg(''), 4000);
+  };
 
   /* Build approved queue from live MOCK data — evaluated at render time */
   const APPROVED_EXT = (window.MOCK?.APPROVED_QUEUE || []).map(r => ({
@@ -147,17 +153,17 @@ function IssuanceScreen() {
     { label: 'Overdue',          value: c('overdue'),          fg: 'var(--danger-text)',  bg: 'var(--danger-bg)' },
   ];
 
-  const SearchBox = ({ value, onChange, placeholder }) => (
-    <div style={{ position: 'relative' }}>
-      <Icon name="search" size={14} color="var(--text-subtle)" style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-      <input value={value} onChange={onChange} placeholder={placeholder}
-        style={{ paddingLeft: 30, paddingRight: 10, height: 34, width: 220, border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--text-default)', background: 'var(--surface-card)', outline: 'none' }} />
-    </div>
-  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader title="Issue Tool" subtitle="Issue approved requests and track active issuances" />
+
+      {successMsg && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 'var(--radius-md)', color: 'var(--success-text)', fontSize: 13.5, fontWeight: 500 }}>
+          <Icon name="check_circle" size={16} color="var(--success-solid)" />
+          {successMsg}
+        </div>
+      )}
 
       {/* Count chips */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -176,7 +182,7 @@ function IssuanceScreen() {
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text-strong)' }}>Approved — Ready to Issue</h2>
             <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 'var(--radius-pill)', background: 'var(--info-bg)', color: 'var(--info-text)' }}>{APPROVED_EXT.length}</span>
           </div>
-          <SearchBox value={qSearch} onChange={e => setQSearch(e.target.value)} placeholder="Search tool, requester, req #…" />
+          <div style={{ width: 240 }}><Input icon={<Icon name="search" size={14} />} value={qSearch} onChange={e => setQSearch(e.target.value)} placeholder="Search tool, requester, req #…" /></div>
         </div>
         <Card padded={false}>
           <DataTable
@@ -224,7 +230,7 @@ function IssuanceScreen() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
           <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text-strong)' }}>Active Issuances</h2>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <SearchBox value={aSearch} onChange={e => setASearch(e.target.value)} placeholder="Search tool or person…" />
+            <div style={{ width: 220 }}><Input icon={<Icon name="search" size={14} />} value={aSearch} onChange={e => setASearch(e.target.value)} placeholder="Search tool or person…" /></div>
             <Tabs value={tab} onChange={setTab} size="sm" tabs={[
               { value: 'all',       label: 'All' },
               { value: 'on_time',   label: 'On Time',  count: c('on_time') },
@@ -256,7 +262,7 @@ function IssuanceScreen() {
         </Card>
       </div>
 
-      {issue   && <IssueConfirmModal item={issue}   onClose={() => setIssue(null)}   onConfirm={(id) => setIssuedIds(p => [...p, id])} />}
+      {issue   && <IssueConfirmModal item={issue}   onClose={() => setIssue(null)}   onConfirm={(id) => { setIssuedIds(p => [...p, id]); showSuccess(`${issue.tool_name} issued to ${issue.requester} successfully.`); }} />}
       {viewReq && <ViewRequestModal  item={viewReq} onClose={() => setViewReq(null)} />}
       {selectedIssuance && <window.IssuanceDetailModal issuance={selectedIssuance} onClose={() => setSelectedIssuance(null)} />}
     </div>

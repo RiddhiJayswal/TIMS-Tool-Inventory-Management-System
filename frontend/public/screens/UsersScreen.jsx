@@ -9,7 +9,7 @@ const ROLE_TONES_U = {
 };
 
 
-/* â”€â”€ Shared form shell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* â"€â"€ Shared form shell â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */
 function EmployeeForm({ title, subtitle, initial = {}, onClose, onSubmit, submitLabel }) {
   const { SlideOver, Button, Input, Select } = NS_USERS;
   const [form, setForm] = React.useState({
@@ -85,7 +85,7 @@ function EmployeeForm({ title, subtitle, initial = {}, onClose, onSubmit, submit
   );
 }
 
-/* â”€â”€ Status dropdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* â"€â"€ Status dropdown â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */
 function StatusCell({ emp, onToggle }) {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const isActive = emp.status === 'active';
@@ -129,7 +129,7 @@ function StatusCell({ emp, onToggle }) {
   );
 }
 
-/* â”€â”€ Access request card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* â"€â"€ Access request card â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */
 function AccessRequestCard({ req, onDecide }) {
   const FIELDS = [
     { key: 'full_name',   label: 'Full Name' },
@@ -217,7 +217,7 @@ function AccessRequestCard({ req, onDecide }) {
   );
 }
 
-/* â”€â”€ Remove confirmation panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* â"€â"€ Remove confirmation panel â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */
 function RemoveConfirmPanel({ emp, onClose, onConfirm }) {
   const FIELDS = [
     { key: 'full_name',  label: 'Full Name' },
@@ -243,7 +243,7 @@ function RemoveConfirmPanel({ emp, onClose, onConfirm }) {
       <div style={{ background: 'var(--surface-card)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 490, margin: '0 16px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
         <div style={{ padding: '20px 22px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'var(--danger-bg)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-            <Icon name=”alert_triangle” size={20} color=”var(--danger-solid)” />
+            <Icon name="alert_triangle" size={20} color="var(--danger-solid)" />
           </div>
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-strong)' }}>Remove Employee</div>
@@ -257,7 +257,7 @@ function RemoveConfirmPanel({ emp, onClose, onConfirm }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 18 }}>
             {FIELDS.map(f => (
               <label key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: checked[f.key] ? 'var(--success-bg)' : 'var(--surface-sunken)', border: `1px solid ${checked[f.key] ? 'var(--success-border,var(--success-bg))' : 'var(--border-default)'}`, borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.15s' }}>
-                <input type=”checkbox” checked={!!checked[f.key]} onChange={() => toggle(f.key)} style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--success-solid)', flexShrink: 0 }} />
+                <input type="checkbox" checked={!!checked[f.key]} onChange={() => toggle(f.key)} style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--success-solid)', flexShrink: 0 }} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 10.5, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>{f.label}</div>
                   <div style={{ fontSize: 13, color: 'var(--text-strong)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.render ? f.render(emp[f.key]) : emp[f.key]}</div>
@@ -281,7 +281,7 @@ function RemoveConfirmPanel({ emp, onClose, onConfirm }) {
   );
 }
 
-/* â”€â”€ Main screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* â"€â"€ Main screen â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */
 function UsersScreen() {
   const { Button } = NS_USERS;
   const [search, setSearch] = React.useState('');
@@ -372,7 +372,7 @@ function UsersScreen() {
         </div>
       )}
 
-      {/* Stats â€” 3 cols Ã— 2 rows */}
+      {/* Stats â€" 3 cols Ã— 2 rows */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 22 }}>
         {stats.map(s => (
           <div key={s.label} style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -466,7 +466,7 @@ function UsersScreen() {
         </table>
       </div>
 
-      {/* â”€â”€ Access Requests section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â"€â"€ Access Requests section â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
       <div style={{ marginTop: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--text-strong)' }}>Access Requests</h2>

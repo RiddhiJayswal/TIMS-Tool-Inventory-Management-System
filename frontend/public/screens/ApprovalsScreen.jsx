@@ -108,7 +108,7 @@ function ViewDetailsModal({ req, onClose, effectiveStatus }) {
 
 /* ── Main screen ─────────────────────────────────────────────────── */
 function ApprovalsScreen() {
-  const { PageHeader, Card, Tabs, DataTable, Button, ConfirmDialog, Modal, Textarea, EmptyState } = NS_APP;
+  const { PageHeader, Card, Tabs, DataTable, Button, ConfirmDialog, Modal, Textarea, EmptyState, Input } = NS_APP;
   const [tab, setTab] = React.useState('pending');
   const [approving, setApproving] = React.useState(null);
   const [rejecting, setRejecting] = React.useState(null);
@@ -146,9 +146,11 @@ function ApprovalsScreen() {
       await Promise.all([window.API.loadRequisitions(), window.API.loadDashboard(), window.API.loadIssuances()]);
       setApproving(null);
       setMessage({ tone: 'success', text: 'Request approved successfully.' });
+      setTimeout(() => setMessage(null), 4000);
     } catch (e) {
       console.error('Approval failed:', e);
       setMessage({ tone: 'danger', text: e.message || 'Approval failed' });
+      setTimeout(() => setMessage(null), 5000);
     } finally {
       setBusy(false);
     }
@@ -162,6 +164,7 @@ function ApprovalsScreen() {
       setRejecting(null);
       setReason('');
       setMessage({ tone: 'success', text: 'Request rejected successfully.' });
+      setTimeout(() => setMessage(null), 4000);
     } catch (e) {
       setReasonErr(e.message || 'Rejection failed');
     } finally {
@@ -190,7 +193,8 @@ function ApprovalsScreen() {
       <PageHeader title="Approvals" subtitle="Review and action tool requisitions from your department" />
 
       {message && (
-        <div style={{ padding:'9px 12px', borderRadius:'var(--radius-md)', background:message.tone === 'danger' ? 'var(--danger-bg)' : 'var(--success-bg)', color:message.tone === 'danger' ? 'var(--danger-text)' : 'var(--success-text)', fontSize:12.5, fontWeight:600 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 16px', borderRadius:'var(--radius-md)', background:message.tone === 'danger' ? 'var(--danger-bg)' : 'var(--success-bg)', border:`1px solid ${message.tone === 'danger' ? 'var(--danger-border)' : 'var(--success-border)'}`, color:message.tone === 'danger' ? 'var(--danger-text)' : 'var(--success-text)', fontSize:13.5, fontWeight:500 }}>
+          <Icon name={message.tone === 'danger' ? 'alert_triangle' : 'check_circle'} size={16} color={message.tone === 'danger' ? 'var(--danger-solid)' : 'var(--success-solid)'} />
           {message.text}
         </div>
       )}
@@ -209,10 +213,8 @@ function ApprovalsScreen() {
           ))}
         </div>
         <div style={{ display:'flex',alignItems:'center',gap:10,flexWrap:'wrap' }}>
-          <div style={{ position:'relative' }}>
-            <Icon name="search" size={14} color="var(--text-subtle)" style={{ position:'absolute', left:9, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search request, employee, tool..."
-              style={{ height:34,width:250,padding:'0 10px 0 30px',border:'1px solid var(--border-default)',borderRadius:'var(--radius-md)',fontFamily:'var(--font-sans)',fontSize:13,color:'var(--text-default)',background:'var(--surface-card)',outline:'none',boxSizing:'border-box' }} />
+          <div style={{ width: 260 }}>
+            <Input icon={<Icon name="search" size={14} />} placeholder="Search request, employee, tool..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           {!isDeptHead && <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
             style={{ height:34,padding:'0 10px',border:'1px solid var(--border-default)',borderRadius:'var(--radius-md)',fontFamily:'var(--font-sans)',fontSize:13,color:'var(--text-default)',background:'var(--surface-card)',cursor:'pointer',outline:'none' }}>

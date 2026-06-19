@@ -277,7 +277,7 @@ function getReportConfig(tab, search) {
 
 /* ── Main screen ───────────────────────────────────────────────────── */
 function ReportsScreen() {
-  const { PageHeader, Button, EmptyState } = NS_REP;
+  const { PageHeader, Button, EmptyState, Input } = NS_REP;
   const [tab, setTab] = React.useState('stock');
   const [search, setSearch] = React.useState('');
 
@@ -370,11 +370,8 @@ function ReportsScreen() {
           <div className="tims-report-description" style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 480 }}>{tabInfo?.desc}</div>
         </div>
         <div className="tims-report-searchbar" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <div style={{ position: 'relative' }}>
-            <Icon name="search" size={14} color="var(--text-subtle)" style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-            <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder={SEARCH_HINTS[tab] || 'Filter this report…'}
-              style={{ paddingLeft: 30, paddingRight: 10, height: 34, width: 220, border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--text-default)', background: 'var(--surface-card)', outline: 'none' }} />
+          <div style={{ width: 220 }}>
+            <Input icon={<Icon name="search" size={14} />} value={search} onChange={e => setSearch(e.target.value)} placeholder={SEARCH_HINTS[tab] || 'Filter this report…'} />
           </div>
           <span style={{ fontSize: 11.5, color: 'var(--text-subtle)', whiteSpace: 'nowrap' }}>Updated {LAST_UPDATED}</span>
         </div>

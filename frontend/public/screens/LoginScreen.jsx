@@ -73,6 +73,18 @@ function LoginScreen({ onLogin }) {
   const submit = async (e) => {
     e.preventDefault();
     setLoginError('');
+    if (!empId.trim() && !pw) {
+      setLoginError('Please enter your Employee ID and password.');
+      return;
+    }
+    if (!empId.trim()) {
+      setLoginError('Please enter your Employee ID.');
+      return;
+    }
+    if (!pw) {
+      setLoginError('Please enter your password.');
+      return;
+    }
     setLoading(true);
     try {
       if (!window.API) {
@@ -91,7 +103,13 @@ function LoginScreen({ onLogin }) {
       await onLogin();
     } catch (err) {
       window.API?.logout?.();
-      setLoginError(err.message || 'Login failed. Check your credentials.');
+      let msg = 'Login failed. Check your credentials.';
+      if (typeof err.message === 'string' && err.message) {
+        msg = err.message;
+      } else if (Array.isArray(err.message)) {
+        msg = err.message.map(e => e.msg || String(e)).filter(Boolean).join('. ') || msg;
+      }
+      setLoginError(msg);
       setLoading(false);
     }
   };

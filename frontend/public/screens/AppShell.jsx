@@ -36,6 +36,7 @@ const ROLE_TONE = {
 
 function Sidebar({ route, onNavigate, collapsed, onToggle, user }) {
   const { Logo } = NS_SHELL;
+  const pendingAccessCount = (window.MOCK?.ACCESS_REQUESTS || []).filter(r => r.status === 'pending').length;
   const toggleBtn = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     width: 30, height: 30, border: 'none', background: 'transparent',
@@ -104,6 +105,28 @@ function Sidebar({ route, onNavigate, collapsed, onToggle, user }) {
                     )}
                     <Icon name={it.icon} size={17} color={active ? 'var(--brand-yellow)' : 'currentColor'} />
                     {!collapsed && it.label}
+                    {!collapsed && it.key === 'users' && pendingAccessCount > 0 && (
+                      <span style={{
+                        marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 9,
+                        background: 'var(--danger-solid)', color: '#fff',
+                        fontSize: 10, fontWeight: 700, lineHeight: 1,
+                        display: 'grid', placeItems: 'center', padding: '0 4px', flexShrink: 0,
+                      }}>
+                        {pendingAccessCount > 99 ? '99+' : pendingAccessCount}
+                      </span>
+                    )}
+                    {collapsed && it.key === 'users' && pendingAccessCount > 0 && (
+                      <span style={{
+                        position: 'absolute', top: 6, right: 6,
+                        minWidth: 15, height: 15, borderRadius: 8,
+                        background: 'var(--danger-solid)', color: '#fff',
+                        fontSize: 9, fontWeight: 700, lineHeight: 1,
+                        display: 'grid', placeItems: 'center', padding: '0 3px',
+                        border: '1.5px solid var(--brand-black)',
+                      }}>
+                        {pendingAccessCount > 9 ? '9+' : pendingAccessCount}
+                      </span>
+                    )}
                   </button>
                 );
               })}

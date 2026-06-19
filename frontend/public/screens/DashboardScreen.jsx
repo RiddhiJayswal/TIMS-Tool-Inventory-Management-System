@@ -232,6 +232,7 @@ function DashboardScreen({ onNavigate }) {
   const [fDept, setFDept] = React.useState('');
   const [fState, setFState] = React.useState('');
   const [selectedTool, setSelectedTool] = React.useState(null);
+  const [selectedIssuance, setSelectedIssuance] = React.useState(null);
   const [message, setMessage] = React.useState(null);
   const [, setRefreshTick] = React.useState(0);
 
@@ -396,21 +397,21 @@ function DashboardScreen({ onNavigate }) {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14 }}>
-        <div onClick={() => openPanel('total')} style={{ cursor: 'pointer' }}>
+        <div onClick={() => openPanel('total')} className="tims-clickable-card" style={{ cursor: 'pointer' }}>
           <MetricCard label={scopeLabels.tools} value={totalToolTypes.toLocaleString()} icon={<Icon name="wrench" size={19} />}
             subtext={`${totalUnits.toLocaleString()} total units`} />
         </div>
-        <div onClick={() => openPanel('available')} style={{ cursor: 'pointer' }}>
+        <div onClick={() => openPanel('available')} className="tims-clickable-card" style={{ cursor: 'pointer' }}>
           <MetricCard label={scopeLabels.available} value={s.available_tools.toLocaleString()} icon={<Icon name="check_circle" size={19} />} />
         </div>
-        <div onClick={() => openPanel('issued')} style={{ cursor: 'pointer' }}>
+        <div onClick={() => openPanel('issued')} className="tims-clickable-card" style={{ cursor: 'pointer' }}>
           <MetricCard label={scopeLabels.issued} value={s.tools_issued} icon={<Icon name="package" size={19} />} />
         </div>
-        <div onClick={() => onNavigate('returns')} style={{ cursor: 'pointer' }}>
-          <MetricCard label="Overdue Returns" value={s.overdue_count} tone="danger" icon={<Icon name="clock" size={19} />} />
+        <div onClick={() => onNavigate('returns')} className="tims-clickable-card" style={{ cursor: 'pointer' }}>
+          <MetricCard label="Overdue Returns" value={s.overdue_count} icon={<Icon name="clock" size={19} />} />
         </div>
-        <div onClick={() => onNavigate('calibration')} style={{ cursor: 'pointer' }}>
-          <MetricCard label="Calibration Due" value={s.calibration_due_count} tone="warning" icon={<Icon name="activity" size={19} />} />
+        <div onClick={() => onNavigate('calibration')} className="tims-clickable-card" style={{ cursor: 'pointer' }}>
+          <MetricCard label="Calibration Due" value={s.calibration_due_count} icon={<Icon name="activity" size={19} />} />
         </div>
       </div>
 
@@ -418,7 +419,10 @@ function DashboardScreen({ onNavigate }) {
         <SectionCard title={seesOperationalIssuances ? 'Active Issuances' : 'My Active Issuances'} count={activeIssuanceRows.length + ' open'}>
           <div>
             {activeIssuanceRows.map((i) => (
-              <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', borderBottom: '1px solid var(--border-subtle)', background: (i.overdue || i.state === 'overdue') ? 'var(--danger-bg)' : 'transparent' }}>
+              <div key={i.id} onClick={() => setSelectedIssuance(i)}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', borderBottom: '1px solid var(--border-subtle)', background: (i.overdue || i.state === 'overdue') ? 'var(--danger-bg)' : 'transparent', cursor: 'pointer', transition: 'filter 0.12s' }}
+                onMouseEnter={e => { if (!(i.overdue || i.state === 'overdue')) e.currentTarget.style.background = 'var(--surface-sunken)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = (i.overdue || i.state === 'overdue') ? 'var(--danger-bg)' : 'transparent'; }}>
                 <div>
                   <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-strong)' }}>{i.tool_name}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Qty: {i.quantity_issued} · Due: {i.due}</div>
@@ -427,7 +431,7 @@ function DashboardScreen({ onNavigate }) {
                   <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 'var(--radius-pill)', background: i.overdue ? '#fff' : 'var(--success-bg)', color: i.overdue ? 'var(--danger-text)' : 'var(--success-text)' }}>{i.days}</span>
                   {!seesOperationalIssuances && (
                     <button
-                      onClick={() => returnOwnTool(i)}
+                      onClick={e => { e.stopPropagation(); returnOwnTool(i); }}
                       style={{ padding: '5px 11px', border: 'none', borderRadius: 'var(--radius-sm)', background: 'var(--brand-black)', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
                     >
                       Return Tool
@@ -476,6 +480,7 @@ function DashboardScreen({ onNavigate }) {
         </CentrePanel>
       )}
       {selectedTool && <ToolDetailModal tool={selectedTool} onClose={() => setSelectedTool(null)} />}
+      {selectedIssuance && <window.IssuanceDetailModal issuance={selectedIssuance} onClose={() => setSelectedIssuance(null)} />}
     </div>
   );
 }
@@ -487,16 +492,142 @@ function QueueRow({ label, value, tone, cta, onClick }) {
     default: { border: 'var(--border-default)', bg: 'var(--surface-card)', fig: 'var(--text-strong)', btnBg: 'var(--surface-sunken)', btnFg: 'var(--text-default)' },
   }[tone];
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 18px', background: TONE.bg, border: `1px solid ${TONE.border}`, borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-resting)' }}>
+    <div onClick={onClick} className="tims-clickable-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 18px', background: TONE.bg, border: `1px solid ${TONE.border}`, borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-resting)', cursor: 'pointer' }}>
       <div>
         <div style={{ fontSize: 'var(--type-metric-size)', fontWeight: 700, color: TONE.fig, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>{value}</div>
         <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>{label}</div>
       </div>
-      <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 13px', border: 'none', borderRadius: 'var(--radius-md)', background: TONE.btnBg, color: TONE.btnFg, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 13px', borderRadius: 'var(--radius-md)', background: TONE.btnBg, color: TONE.btnFg, fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
         {cta} <Icon name="arrow_right" size={13} />
-      </button>
+      </span>
     </div>
   );
 }
 
-Object.assign(window, { DashboardScreen, ToolDetailModal });
+/* ── Issuance Detail Modal (shared — exported to window) ─────────── */
+function IssuanceDetailModal({ issuance, onClose }) {
+  React.useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const allReqs = [...(window.MOCK.REQUISITIONS || []), ...(window.MOCK.MY_REQUESTS || [])];
+  const req = allReqs.find(r => r.id === issuance.requisition_id);
+
+  const STATE = {
+    on_time:   { bg: 'var(--success-bg)', fg: 'var(--success-text)', label: 'On Time' },
+    due_today: { bg: 'var(--warning-bg)', fg: 'var(--warning-text)', label: 'Due Today' },
+    overdue:   { bg: 'var(--danger-bg)',  fg: 'var(--danger-text)',  label: 'Overdue'  },
+  };
+  const st = STATE[issuance.state] || STATE.on_time;
+
+  const F = ({ label, value, bold, span }) => (
+    <div style={span ? { gridColumn: '1 / -1' } : {}}>
+      <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>{label}</div>
+      {typeof value === 'object' && value !== null
+        ? value
+        : <div style={{ fontSize: 13.5, fontWeight: bold ? 700 : 400, color: bold ? 'var(--text-strong)' : 'var(--text-default)' }}>{value || '—'}</div>}
+    </div>
+  );
+
+  const steps = [
+    { label: 'Requested', done: true },
+    { label: 'Approved',  done: true },
+    { label: 'Issued',    done: true, current: true },
+    { label: 'Returned',  done: false },
+  ];
+  const qty = issuance.qty || issuance.quantity_issued || 1;
+  const isOverdue = issuance.overdue || issuance.state === 'overdue';
+  const isDueToday = issuance.state === 'due_today';
+
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(3px)', padding: 20 }}>
+      <div style={{ background: 'var(--surface-card)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 520, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-strong)' }}>Issuance Details</div>
+            {req?.requisition_number && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3, fontFamily: 'monospace' }}>{req.requisition_number}</div>}
+          </div>
+          <button onClick={onClose} style={{ display: 'grid', placeItems: 'center', width: 32, height: 32, border: '1px solid var(--border-default)', background: 'var(--surface-sunken)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-muted)', flexShrink: 0 }}>
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.1) transparent' }}>
+          {/* Fields */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px', paddingBottom: 20, marginBottom: 20, borderBottom: '1px solid var(--border-subtle)' }}>
+            {req?.requisition_number && <F label="Requisition No." value={req.requisition_number} />}
+            <F label="Issued On" value={issuance.issued_on || '—'} />
+            <F label="Tool" value={issuance.tool_name} bold />
+            <F label="Quantity" value={`${qty} unit${qty > 1 ? 's' : ''}`} />
+            <F label="Issued To" value={issuance.issued_to || '—'} />
+            <F label="Department" value={issuance.dept || '—'} />
+            <div style={{ gridColumn: '1 / -1' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>Period</div>
+              <div style={{ fontSize: 13.5, color: 'var(--text-default)' }}>{issuance.issued_on || '—'} → {issuance.due || '—'}</div>
+            </div>
+          </div>
+
+          {/* Purpose */}
+          {req?.purpose && (
+            <div style={{ paddingBottom: 20, marginBottom: 20, borderBottom: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Purpose</div>
+              <div style={{ fontSize: 13.5, color: 'var(--text-default)', lineHeight: 1.55 }}>{req.purpose}</div>
+            </div>
+          )}
+
+          {/* Status Timeline */}
+          <div style={{ paddingBottom: (isOverdue || isDueToday) ? 20 : 0, marginBottom: (isOverdue || isDueToday) ? 20 : 0, borderBottom: (isOverdue || isDueToday) ? '1px solid var(--border-subtle)' : 'none' }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>Status Timeline</div>
+            <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+              {steps.map((step, idx) => (
+                <React.Fragment key={step.label}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: '50%', display: 'grid', placeItems: 'center', flexShrink: 0,
+                      background: step.done ? 'var(--success-solid)' : 'var(--surface-sunken)',
+                      border: step.done ? 'none' : '2px solid var(--border-default)',
+                      boxShadow: step.current ? '0 0 0 4px rgba(34,197,94,0.18)' : 'none',
+                    }}>
+                      {step.done
+                        ? <Icon name="check_circle" size={16} color="#fff" />
+                        : <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--border-default)' }} />}
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: step.current ? 700 : 500, color: step.done ? 'var(--text-strong)' : 'var(--text-subtle)', marginTop: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>{step.label}</div>
+                  </div>
+                  {idx < steps.length - 1 && (
+                    <div style={{ flex: 1, height: 2, background: step.done ? 'var(--success-solid)' : 'var(--border-subtle)', margin: '15px 6px 0', minWidth: 16 }} />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
+          {/* Flags */}
+          {(isOverdue || isDueToday) && (
+            <div>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Flags</div>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 13px', borderRadius: 'var(--radius-pill)', background: st.bg, color: st.fg, fontSize: 12.5, fontWeight: 700 }}>
+                <Icon name="alert_triangle" size={13} color="currentColor" /> {st.label} · {issuance.days}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+          <button onClick={onClose}
+            style={{ height: 36, padding: '0 22px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', background: 'transparent', color: 'var(--text-default)', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { DashboardScreen, ToolDetailModal, IssuanceDetailModal });

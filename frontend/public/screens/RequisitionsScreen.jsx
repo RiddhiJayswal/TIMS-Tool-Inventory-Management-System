@@ -7,7 +7,7 @@ function parseDMYReq(s) {
   const p = s.split(' ');
   return p.length === 3 ? new Date(+p[2], mon[p[1]], +p[0]) : null;
 }
-const TODAY_REQ = new Date('2026-06-14');
+const TODAY_REQ = new Date();
 
 function getReqPriority(req) {
   const badges = [];
@@ -45,19 +45,19 @@ function ReqTimeline({ status }) {
   const curIdx = order.indexOf((rejected || cancelled) ? 'approved' : status);
   const st = (i) => i < curIdx ? 'done' : i === curIdx ? ((rejected || cancelled)?'rejected':'active') : 'future';
   return (
-    <div style={{ display:'flex',alignItems:'flex-start' }}>
+    <div style={{ display:'flex',alignItems:'flex-start', marginTop: 4 }}>
       {steps.map((s,i) => {
         const state = st(i);
         const bg = state==='done'?'var(--success-solid)':state==='active'?'var(--brand-black)':state==='rejected'?'var(--danger-solid)':'var(--border-default)';
         return (
           <React.Fragment key={s.key}>
-            <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4,minWidth:60 }}>
-              <div style={{ width:26,height:26,borderRadius:'50%',display:'grid',placeItems:'center',background:bg }}>
-                <Icon name={s.icon} size={12} color={state==='future'?'var(--text-subtle)':'#fff'} />
+            <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4,minWidth:64 }}>
+              <div style={{ width:28,height:28,borderRadius:'50%',display:'grid',placeItems:'center',background:bg }}>
+                <Icon name={s.icon} size={13} color={state==='future'?'var(--text-subtle)':'#fff'} />
               </div>
               <span style={{ fontSize:10,textAlign:'center',color:state==='future'?'var(--text-subtle)':'var(--text-muted)',fontWeight:state!=='future'?600:400,lineHeight:1.3 }}>{s.label}</span>
             </div>
-            {i < steps.length-1 && <div style={{ flex:1,height:2,marginTop:12,background:st(i+1)!=='future'?'var(--success-solid)':'var(--border-subtle)' }} />}
+            {i < steps.length-1 && <div style={{ flex:1,height:2,marginTop:13,background:st(i+1)!=='future'?'var(--success-solid)':'var(--border-subtle)' }} />}
           </React.Fragment>
         );
       })}
@@ -382,7 +382,7 @@ function RequisitionsScreen() {
             { key:'submitted', header:'Submitted', nowrap:true, render:(r) => <span style={{ color:'var(--text-muted)',fontSize:12.5 }}>{r.submitted}</span> },
             { key:'status', header:'Status', render:(r) => <StatusBadge status={r.status} size="sm" /> },
             { key:'actions', header:'', render:(r) => (
-              <div style={{ display:'flex',gap:6 }}>
+              <div style={{ display:'flex',gap:6 }} onClick={e => e.stopPropagation()}>
                 <Button size="sm" variant="secondary" onClick={() => setView(r)}>Details</Button>
                 {r.status === 'pending' && <Button size="sm" variant="secondary" disabled={busyId === r.id} onClick={() => cancelRequest(r)}>{busyId === r.id ? 'Cancelling...' : 'Cancel'}</Button>}
                 {r.status === 'issued' && findActiveIssue(r) && <Button size="sm" onClick={() => returnRequestTool(r)}>Return Tool</Button>}
@@ -390,6 +390,7 @@ function RequisitionsScreen() {
             )},
           ]}
           rows={rows}
+          onRowClick={r => setView(r)}
           empty={<EmptyState icon={<Icon name="clipboard" size={30}/>} title={`No ${tab === 'all' ? '' : tab} requests`} message={EMPTY[tab] || EMPTY.all}
             action={<Button size="sm" icon={<Icon name="plus" size={14}/>} onClick={() => setShowNew(true)}>New Requisition</Button>} />}
         />

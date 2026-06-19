@@ -194,6 +194,111 @@ function HistoryModal({ item, onClose }) {
   );
 }
 
+/* ── Calibration Detail Modal ──────────────────────────────────────── */
+function CalibrationDetailModal({ item, onClose, onRecord, onHistory }) {
+  React.useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const safeState = item.state === 'ok' || item.state === 'not_scheduled' ? 'on_time' : item.state;
+  const STATE = {
+    on_time:   { bg: 'var(--success-bg)', fg: 'var(--success-text)', icon: 'check_circle',   label: 'Up to Date' },
+    due_today: { bg: 'var(--warning-bg)', fg: 'var(--warning-text)', icon: 'clock',          label: 'Due Soon'   },
+    overdue:   { bg: 'var(--danger-bg)',  fg: 'var(--danger-text)',  icon: 'alert_triangle', label: 'Overdue'    },
+  };
+  const st = STATE[safeState] || STATE.on_time;
+  const absDays = Math.abs(Number(item.days || 0));
+  const logs = CAL_HISTORY[item.id] || [];
+
+  const F = ({ label, value, bold }) => (
+    <div>
+      <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>{label}</div>
+      <div style={{ fontSize: 13.5, fontWeight: bold ? 700 : 400, color: bold ? 'var(--text-strong)' : 'var(--text-default)' }}>{value || '—'}</div>
+    </div>
+  );
+
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(3px)', padding: 20 }}>
+      <div style={{ background: 'var(--surface-card)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 560, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexShrink: 0 }}>
+          <div>
+            <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-subtle)', marginBottom: 3 }}>{item.tool_code}</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-strong)' }}>{item.tool_name}</div>
+          </div>
+          <button onClick={onClose} style={{ display: 'grid', placeItems: 'center', width: 32, height: 32, border: '1px solid var(--border-default)', background: 'var(--surface-sunken)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-muted)', flexShrink: 0 }}>
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.1) transparent' }}>
+          {/* Status banner */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 'var(--radius-md)', background: st.bg, marginBottom: 20 }}>
+            <Icon name={st.icon} size={16} color={st.fg} />
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: st.fg }}>{st.label}</span>
+            <span style={{ fontSize: 12.5, color: st.fg, opacity: 0.8 }}>· {absDays}d {safeState === 'overdue' ? 'overdue' : 'remaining'}</span>
+            {item.blocked && (
+              <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 700, padding: '3px 10px', borderRadius: 'var(--radius-pill)', background: 'var(--danger-solid)', color: '#fff', flexShrink: 0 }}>Blocked from Issue</span>
+            )}
+          </div>
+
+          {/* Details */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px', paddingBottom: 20, marginBottom: 20, borderBottom: '1px solid var(--border-subtle)' }}>
+            <F label="Tool Code" value={item.tool_code} />
+            <F label="Department" value={item.dept} />
+            <F label="Last Calibrated" value={item.last} />
+            <F label="Next Due" value={item.next} bold />
+            <F label="Frequency" value={`Every ${item.freq} days`} />
+            <F label="Service Partner" value={item.service_partner} />
+          </div>
+
+          {/* History */}
+          <div>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Calibration History</div>
+            {logs.length === 0 ? (
+              <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-subtle)', fontSize: 13 }}>No records yet</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {logs.map(log => (
+                  <div key={log.id} style={{ display: 'flex', gap: 14, padding: '12px 14px', background: 'var(--surface-sunken)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--success-bg)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      <Icon name="check_circle" size={16} color="var(--success-solid,var(--success-text))" />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text-strong)' }}>{log.date}</div>
+                        <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-muted)', flexShrink: 0 }}>{log.cert_no}</span>
+                      </div>
+                      <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>{log.partner} · Recorded by {log.by}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.45 }}>{log.notes}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
+          <button onClick={() => { onClose(); onHistory(item); }}
+            style={{ height: 36, padding: '0 16px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', background: 'transparent', color: 'var(--text-default)', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+            Full History
+          </button>
+          <button onClick={() => { onClose(); onRecord(item); }}
+            style={{ height: 36, padding: '0 18px', border: 'none', borderRadius: 'var(--radius-md)', background: 'var(--brand-black)', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+            Record Calibration
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Main screen ───────────────────────────────────────────────────── */
 function CalibrationScreen() {
   const { PageHeader, Card, Tabs, DataTable, Button, EmptyState } = NS_CAL;
@@ -202,6 +307,7 @@ function CalibrationScreen() {
   const [tab, setTab] = React.useState('all');
   const [rec, setRec] = React.useState(null);
   const [hist, setHist] = React.useState(null);
+  const [selectedCal, setSelectedCal] = React.useState(null);
 
   /* Build from live MOCK data — evaluated at render time after data loads */
   const CAL_DATA = (window.MOCK?.CALIBRATION || []).map((c, i) => ({
@@ -298,7 +404,7 @@ function CalibrationScreen() {
             )},
             { key: 'state', header: 'Status', render: (r) => <CalDueCell state={r.state} days={r.days} blocked={r.blocked} /> },
             { key: 'actions', header: '', nowrap: true, render: (r) => (
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
                 <Button size="sm" variant={r.state === 'overdue' ? 'primary' : 'secondary'} onClick={() => setRec(r)}>Record</Button>
                 <Button size="sm" variant="secondary" onClick={() => setHist(r)}>History</Button>
                 <Button size="sm" variant="secondary"><Icon name="download" size={13} /></Button>
@@ -306,6 +412,7 @@ function CalibrationScreen() {
             )},
           ]}
           rows={filtered}
+          onRowClick={r => setSelectedCal(r)}
           getRowTone={(r) => r.state === 'overdue' ? 'danger' : null}
           empty={<EmptyState tone="success" compact icon={<Icon name="check_circle" size={24} />} title="Nothing found" message="No tools match your current filters." />}
         />
@@ -313,6 +420,7 @@ function CalibrationScreen() {
 
       {rec  && <RecordCalibrationModal item={rec}  onClose={() => setRec(null)}  />}
       {hist && <HistoryModal           item={hist} onClose={() => setHist(null)} />}
+      {selectedCal && <CalibrationDetailModal item={selectedCal} onClose={() => setSelectedCal(null)} onRecord={r => setRec(r)} onHistory={r => setHist(r)} />}
     </div>
   );
 }

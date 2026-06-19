@@ -116,6 +116,7 @@ function IssuanceScreen() {
   const [issue, setIssue] = React.useState(null);
   const [viewReq, setViewReq] = React.useState(null);
   const [issuedIds, setIssuedIds] = React.useState([]);
+  const [selectedIssuance, setSelectedIssuance] = React.useState(null);
 
   /* Build approved queue from live MOCK data — evaluated at render time */
   const APPROVED_EXT = (window.MOCK?.APPROVED_QUEUE || []).map(r => ({
@@ -248,6 +249,7 @@ function IssuanceScreen() {
               { key: 'days', header: 'Status', render: (r) => <DaysLeftBadge state={r.state} days={r.days_left} /> },
             ]}
             rows={filteredActive}
+            onRowClick={r => setSelectedIssuance(r)}
             getRowTone={(r) => r.state === 'overdue' ? 'danger' : null}
             empty={<EmptyState compact icon={<Icon name="package" size={26} />} title="No active issuances" message={tab === 'all' ? 'No tools are currently issued out.' : `No issuances in the "${tab.replace('_',' ')}" view.`} />}
           />
@@ -256,6 +258,7 @@ function IssuanceScreen() {
 
       {issue   && <IssueConfirmModal item={issue}   onClose={() => setIssue(null)}   onConfirm={(id) => setIssuedIds(p => [...p, id])} />}
       {viewReq && <ViewRequestModal  item={viewReq} onClose={() => setViewReq(null)} />}
+      {selectedIssuance && <window.IssuanceDetailModal issuance={selectedIssuance} onClose={() => setSelectedIssuance(null)} />}
     </div>
   );
 }

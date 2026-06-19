@@ -8,7 +8,7 @@ function parseDMY(s) {
   return p.length === 3 ? new Date(+p[2], mon[p[1]], +p[0]) : null;
 }
 
-const TODAY = new Date('2026-06-14');
+const TODAY = new Date();
 
 function getPriorityBadges(req) {
   const badges = [];
@@ -246,18 +246,16 @@ function ApprovalsScreen() {
               </div>
             )},
             { key:'actions', header:'', nowrap:true, render:(r) => (
-              <div style={{ display:'flex',gap:6 }}>
+              <div style={{ display:'flex',gap:6 }} onClick={e => e.stopPropagation()}>
                 <Button size="sm" variant="secondary" onClick={() => setViewing(r)}>Details</Button>
                 {tab === 'pending' && <>
-                  <button onClick={() => setApproving(r)} style={{ padding:'0 12px',height:32,border:'none',borderRadius:'var(--radius-md)',background:'var(--success-solid)',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'var(--font-sans)' }}
-                    onMouseEnter={e => e.currentTarget.style.opacity='0.88'} onMouseLeave={e => e.currentTarget.style.opacity='1'}>
+                  <Button size="sm" onClick={() => setApproving(r)}
+                    style={{ background: 'var(--success-solid)', borderColor: 'var(--success-solid)', color: '#fff' }}>
                     Approve
-                  </button>
-                  <button onClick={() => { setRejecting(r); setReason(''); setReasonErr(''); }} style={{ padding:'0 12px',height:32,border:'1px solid var(--danger-border,var(--danger-bg))',borderRadius:'var(--radius-md)',background:'var(--danger-bg)',color:'var(--danger-text)',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'var(--font-sans)' }}
-                    onMouseEnter={e => { e.currentTarget.style.background='var(--danger-solid)'; e.currentTarget.style.color='#fff'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background='var(--danger-bg)'; e.currentTarget.style.color='var(--danger-text)'; }}>
+                  </Button>
+                  <Button size="sm" variant="danger" onClick={() => { setRejecting(r); setReason(''); setReasonErr(''); }}>
                     Reject
-                  </button>
+                  </Button>
                 </>}
                 {tab !== 'pending' && (
                   <span style={{ fontSize:11.5,fontWeight:600,padding:'4px 10px',borderRadius:'var(--radius-pill)',background:tab==='approved'?'var(--success-bg)':'var(--danger-bg)',color:tab==='approved'?'var(--success-text)':'var(--danger-text)' }}>
@@ -268,6 +266,7 @@ function ApprovalsScreen() {
             )},
           ]}
           rows={base}
+          onRowClick={r => setViewing(r)}
           empty={<EmptyState icon={<Icon name={empty.icon} size={30}/>} title={empty.title} message={empty.msg} />}
         />
       </Card>

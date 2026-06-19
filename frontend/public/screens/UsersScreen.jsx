@@ -217,6 +217,70 @@ function AccessRequestCard({ req, onDecide }) {
   );
 }
 
+/* â”€â”€ Remove confirmation panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+function RemoveConfirmPanel({ emp, onClose, onConfirm }) {
+  const FIELDS = [
+    { key: 'full_name',  label: 'Full Name' },
+    { key: 'emp_id',     label: 'Employee ID' },
+    { key: 'department', label: 'Department' },
+    { key: 'role',       label: 'Role', render: v => ROLE_LABELS_U[v] || v },
+    { key: 'email',      label: 'Email' },
+  ];
+  const [checked, setChecked] = React.useState({});
+  const [removing, setRemoving] = React.useState(false);
+  const allChecked = FIELDS.every(f => checked[f.key]);
+  const toggle = k => setChecked(p => ({ ...p, [k]: !p[k] }));
+
+  const confirm = async () => {
+    if (!allChecked || removing) return;
+    setRemoving(true);
+    await onConfirm(emp.id);
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: 'var(--surface-card)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 490, margin: '0 16px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+        <div style={{ padding: '20px 22px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'var(--danger-bg)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            <Icon name=”alert_triangle” size={20} color=”var(--danger-solid)” />
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-strong)' }}>Remove Employee</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>This will deactivate <b>{emp.full_name}</b>'s account</div>
+          </div>
+        </div>
+        <div style={{ padding: '18px 22px' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+            Check each field to verify before removing:
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 18 }}>
+            {FIELDS.map(f => (
+              <label key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: checked[f.key] ? 'var(--success-bg)' : 'var(--surface-sunken)', border: `1px solid ${checked[f.key] ? 'var(--success-border,var(--success-bg))' : 'var(--border-default)'}`, borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.15s' }}>
+                <input type=”checkbox” checked={!!checked[f.key]} onChange={() => toggle(f.key)} style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--success-solid)', flexShrink: 0 }} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 10.5, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>{f.label}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-strong)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.render ? f.render(emp[f.key]) : emp[f.key]}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onClose}
+              style={{ flex: 1, height: 38, border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', background: 'transparent', color: 'var(--text-muted)', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+              Cancel
+            </button>
+            <button disabled={!allChecked || removing} onClick={confirm}
+              style={{ flex: 2, height: 38, border: 'none', borderRadius: 'var(--radius-md)', background: allChecked && !removing ? 'var(--danger-solid)' : 'var(--border-default)', color: allChecked && !removing ? '#fff' : 'var(--text-subtle)', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 700, cursor: allChecked && !removing ? 'pointer' : 'not-allowed', transition: 'all 0.15s' }}>
+              {removing ? 'Removing…' : allChecked ? 'Confirm Remove' : `Verify all ${FIELDS.length} fields to remove`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* â”€â”€ Main screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function UsersScreen() {
   const { Button } = NS_USERS;
@@ -224,6 +288,7 @@ function UsersScreen() {
   const [roleFilter, setRoleFilter] = React.useState('all');
   const [adding, setAdding] = React.useState(false);
   const [editingEmp, setEditingEmp] = React.useState(null);
+  const [removingEmp, setRemovingEmp] = React.useState(null);
   const [rows, setRows] = React.useState(window.MOCK.USERS || []);
   const [accessReqs, setAccessReqs] = React.useState(window.MOCK.ACCESS_REQUESTS || []);
   const [message, setMessage] = React.useState('');
@@ -259,6 +324,18 @@ function UsersScreen() {
       await window.API.loadUsers();
     } catch (e) {
       console.error('User status update failed:', e);
+    }
+  };
+
+  const removeEmployee = async (id) => {
+    try {
+      await window.API.updateUser(id, { is_active: false });
+      await refreshUsers();
+      setRemovingEmp(null);
+      setMessage('Employee account has been deactivated.');
+    } catch (e) {
+      setRemovingEmp(null);
+      setMessage(e.message || 'Could not remove employee.');
     }
   };
 
@@ -364,12 +441,20 @@ function UsersScreen() {
                     <StatusCell emp={emp} onToggle={updateStatus} />
                   </td>
                   <td data-label="Action" style={{ padding: '11px 14px', textAlign: 'right' }}>
-                    <button onClick={() => setEditingEmp(emp)}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-default)', background: 'var(--surface-card)', color: 'var(--text-muted)', cursor: 'pointer', padding: '5px 11px', borderRadius: 'var(--radius-md)', fontSize: 12.5, fontFamily: 'var(--font-sans)', fontWeight: 500, transition: 'all 0.15s', whiteSpace: 'nowrap' }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--brand-black)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'var(--brand-black)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-card)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border-default)'; }}>
-                      <Icon name="eye" size={13} /> Edit
-                    </button>
+                    <div style={{ display: 'inline-flex', gap: 6 }}>
+                      <button onClick={() => setEditingEmp(emp)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-default)', background: 'var(--surface-card)', color: 'var(--text-muted)', cursor: 'pointer', padding: '5px 11px', borderRadius: 'var(--radius-md)', fontSize: 12.5, fontFamily: 'var(--font-sans)', fontWeight: 500, transition: 'all 0.15s', whiteSpace: 'nowrap' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--brand-black)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'var(--brand-black)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-card)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border-default)'; }}>
+                        <Icon name="eye" size={13} /> Edit
+                      </button>
+                      <button onClick={() => setRemovingEmp(emp)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--danger-border,var(--danger-bg))', background: 'var(--danger-bg)', color: 'var(--danger-text)', cursor: 'pointer', padding: '5px 11px', borderRadius: 'var(--radius-md)', fontSize: 12.5, fontFamily: 'var(--font-sans)', fontWeight: 500, transition: 'all 0.15s', whiteSpace: 'nowrap' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--danger-solid)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'var(--danger-solid)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'var(--danger-bg)'; e.currentTarget.style.color = 'var(--danger-text)'; e.currentTarget.style.borderColor = 'var(--danger-border,var(--danger-bg))'; }}>
+                        <Icon name="x" size={13} /> Remove
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -440,6 +525,15 @@ function UsersScreen() {
             setRows(window.MOCK.USERS || []);
             setEditingEmp(null);
           }} />
+      )}
+
+      {/* Remove employee confirmation */}
+      {removingEmp && (
+        <RemoveConfirmPanel
+          emp={removingEmp}
+          onClose={() => setRemovingEmp(null)}
+          onConfirm={removeEmployee}
+        />
       )}
     </div>
   );

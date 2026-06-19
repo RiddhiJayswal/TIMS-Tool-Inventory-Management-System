@@ -209,6 +209,88 @@ function RecordsModal({ returnHistory, damageHistory, onClose }) {
   );
 }
 
+/* ── Return / Damage record detail modal ──────────────────────────── */
+function ReturnRecordDetailModal({ record, type, onClose }) {
+  React.useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const KIND = { theft: 'Theft / Missing', mishandling: 'Mishandling', wear_and_tear: 'Wear & Tear' };
+  const COND = {
+    good:    { bg: 'var(--success-bg)', fg: 'var(--success-text)' },
+    partial: { bg: 'var(--warning-bg)', fg: 'var(--warning-text)' },
+    damaged: { bg: 'var(--danger-bg)',  fg: 'var(--danger-text)'  },
+    missing: { bg: 'var(--danger-bg)',  fg: 'var(--danger-text)'  },
+  };
+  const cs = COND[record.condition] || COND.good;
+  const steps = ['Requested', 'Approved', 'Issued', 'Returned'];
+  const isDamage = type === 'damage';
+
+  const F = ({ label, value, bold }) => (
+    <div>
+      <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>{label}</div>
+      <div style={{ fontSize: 13.5, fontWeight: bold ? 700 : 400, color: bold ? 'var(--text-strong)' : 'var(--text-default)' }}>{value || '—'}</div>
+    </div>
+  );
+
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(3px)', padding: 20 }}>
+      <div style={{ background: 'var(--surface-card)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 500, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexShrink: 0 }}>
+          <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-strong)' }}>{isDamage ? 'Damage Record' : 'Return Record'}</div>
+          <button onClick={onClose} style={{ display: 'grid', placeItems: 'center', width: 32, height: 32, border: '1px solid var(--border-default)', background: 'var(--surface-sunken)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-muted)', flexShrink: 0 }}>
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.1) transparent' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px', paddingBottom: 20, marginBottom: 20, borderBottom: '1px solid var(--border-subtle)' }}>
+            <F label="Tool" value={record.tool_name} bold />
+            <F label="Tool Code" value={record.tool_code} />
+            <F label="Returned By" value={isDamage ? record.returned_by : record.issued_to} />
+            <F label="Department" value={record.dept} />
+            {!isDamage && <F label="Due Date" value={record.due} />}
+            {!isDamage && <F label="Returned On" value={record.returnedOn} />}
+            {isDamage && <F label="Returned On" value={record.returnedOn} />}
+            {isDamage && <F label="Assessed On" value={record.assessedOn} />}
+            {isDamage && <F label="Damage Type" value={KIND[record.kind] || record.kind} />}
+            {isDamage && <F label="Penalty" value={window.inr(record.penalty || 0)} bold />}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Condition</div>
+              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 14px', borderRadius: 'var(--radius-pill)', background: cs.bg, color: cs.fg, fontSize: 13, fontWeight: 700, textTransform: 'capitalize' }}>
+                {record.condition}
+              </span>
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>Status Timeline</div>
+            <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+              {steps.map((label, idx) => (
+                <React.Fragment key={label}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', display: 'grid', placeItems: 'center', flexShrink: 0, background: 'var(--success-solid)' }}>
+                      <Icon name="check_circle" size={16} color="#fff" />
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-strong)', marginTop: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>{label}</div>
+                  </div>
+                  {idx < steps.length - 1 && <div style={{ flex: 1, height: 2, background: 'var(--success-solid)', margin: '15px 6px 0', minWidth: 16 }} />}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+          <button onClick={onClose} style={{ height: 36, padding: '0 22px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', background: 'transparent', color: 'var(--text-default)', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Main screen ───────────────────────────────────────────────────── */
 function ProcessReturnModal({ item, onClose, onConfirm }) {
   const { Modal, Button, Input, Select, Textarea } = NS_RET;
@@ -329,6 +411,7 @@ function ReturnsScreen() {
   const [dmg, setDmg] = React.useState(null);
   const [viewDmg, setViewDmg] = React.useState(null);
   const [retHist, setRetHist] = React.useState(null);
+  const [selectedIssuance, setSelectedIssuance] = React.useState(null);
   const [activeList, setActiveList] = React.useState(window.MOCK.ACTIVE_ISSUANCES || []);
   const [damageList, setDamageList] = React.useState(window.MOCK.PENDING_DAMAGE || []);
   const [returnHistory, setReturnHistory] = React.useState(window.MOCK.RETURN_HISTORY || []);
@@ -338,6 +421,28 @@ function ReturnsScreen() {
   const [search, setSearch] = React.useState('');
   const [filter, setFilter] = React.useState('all');
   const inr = window.inr;
+  const [selectedRecord, setSelectedRecord] = React.useState(null);
+
+  const downloadRecords = () => {
+    const KIND = { theft: 'Theft / Missing', mishandling: 'Mishandling', wear_and_tear: 'Wear & Tear' };
+    let csv, filename;
+    if (recordsTab === 'returns') {
+      const headers = ['Tool', 'Tool Code', 'Returned By', 'Department', 'Due Date', 'Returned On', 'Condition'];
+      const rows2 = returnHistory.map(r => [r.tool_name, r.tool_code, r.issued_to, r.dept, r.due, r.returnedOn, r.condition]);
+      csv = [headers, ...rows2].map(row => row.map(v => `"${(v || '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+      filename = 'processed_returns.csv';
+    } else {
+      const headers = ['Tool', 'Tool Code', 'Returned By', 'Department', 'Condition', 'Damage Type', 'Penalty (Rs.)', 'Assessed On'];
+      const rows2 = damageHistory.map(r => [r.tool_name, r.tool_code, r.returned_by, r.dept, r.condition, KIND[r.kind] || r.kind || '—', r.penalty || 0, r.assessedOn]);
+      csv = [headers, ...rows2].map(row => row.map(v => `"${(v || '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+      filename = 'damage_assessments.csv';
+    }
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  };
 
   React.useEffect(() => {
     setActiveList(window.MOCK.ACTIVE_ISSUANCES || []);
@@ -420,7 +525,7 @@ function ReturnsScreen() {
             { key: 'status', header: 'Status', render: (r) => <IssuanceBadge state={r.state} /> },
             { key: 'days', header: 'Days', render: (r) => <DaysChip days_left={r.days_left} state={r.state} /> },
             { key: 'actions', header: '', render: (r) => (
-              <button onClick={() => setRet(r)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', background: 'var(--surface-card)', color: 'var(--text-default)', fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}
+              <button onClick={e => { e.stopPropagation(); setRet(r); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', background: 'var(--surface-card)', color: 'var(--text-default)', fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--brand-black)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'var(--brand-black)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-card)'; e.currentTarget.style.color = 'var(--text-default)'; e.currentTarget.style.borderColor = 'var(--border-default)'; }}>
                 <Icon name="arrow_left_circle" size={14} /> Process Return
@@ -428,6 +533,7 @@ function ReturnsScreen() {
             )},
           ]}
           rows={activeRows}
+          onRowClick={r => setSelectedIssuance(r)}
           getRowTone={(r) => r.state === 'overdue' ? 'danger' : null}
           empty={<EmptyState compact icon={<Icon name="arrow_left_circle" size={26} />} title="No active issuances" message="There are no tools currently issued out." />}
         />
@@ -452,7 +558,7 @@ function ReturnsScreen() {
               { key: 'condition', header: 'Condition', render: (r) => <StatusBadge status={r.condition} size="sm" /> },
               { key: 'current_value', header: 'Tool Value', align: 'right', render: (r) => <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{inr(r.current_value)}</span> },
               { key: 'actions', header: '', nowrap: true, render: (r) => (
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
                   <Button size="sm" variant="danger" onClick={() => setDmg(r)}>Record Damage</Button>
                   <Button size="sm" variant="secondary" onClick={() => setViewDmg(r)}>Details</Button>
                   <Button size="sm" variant="secondary" onClick={() => setRetHist(r)}>History</Button>
@@ -460,6 +566,7 @@ function ReturnsScreen() {
               )},
             ]}
             rows={damageList}
+            onRowClick={r => setViewDmg(r)}
             getRowTone={() => 'danger'}
             empty={<EmptyState tone="success" compact icon={<Icon name="check_circle" size={24} />} title="No pending assessments" message="All damaged/missing returns have been assessed." />}
           />
@@ -469,10 +576,16 @@ function ReturnsScreen() {
 
       {viewMode === 'records' && (
         <Card title={
-          <div style={{ display: 'flex', gap: 0 }}>
-            {[{ key: 'returns', label: `Processed Returns (${returnHistory.length})` }, { key: 'damage', label: `Damage Assessments (${damageHistory.length})` }].map(t => (
-              <button key={t.key} onClick={() => setRecordsTab(t.key)} style={{ padding: '4px 16px 6px', border: 'none', background: 'transparent', borderBottom: `2px solid ${recordsTab === t.key ? 'var(--brand-black)' : 'transparent'}`, color: recordsTab === t.key ? 'var(--text-strong)' : 'var(--text-muted)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer', fontFamily: 'var(--font-sans)', transition: 'color 0.15s', marginBottom: -1 }}>{t.label}</button>
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 0 }}>
+              {[{ key: 'returns', label: `Processed Returns (${returnHistory.length})` }, { key: 'damage', label: `Damage Assessments (${damageHistory.length})` }].map(t => (
+                <button key={t.key} onClick={() => setRecordsTab(t.key)} style={{ padding: '4px 16px 6px', border: 'none', background: 'transparent', borderBottom: `2px solid ${recordsTab === t.key ? 'var(--brand-black)' : 'transparent'}`, color: recordsTab === t.key ? 'var(--text-strong)' : 'var(--text-muted)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer', fontFamily: 'var(--font-sans)', transition: 'color 0.15s', marginBottom: -1 }}>{t.label}</button>
+              ))}
+            </div>
+            <button onClick={downloadRecords}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 14px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', background: 'var(--surface-sunken)', color: 'var(--text-default)', fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <Icon name="download" size={13} /> Download CSV
+            </button>
           </div>
         } padded={false}>
           {recordsTab === 'returns' && (
@@ -483,7 +596,7 @@ function ReturnsScreen() {
                     {['Tool', 'Returned By', 'Dept', 'Due', 'Returned On', 'Condition'].map(h => <th key={h} style={{ padding: '9px 20px', textAlign: 'left', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{h}</th>)}
                   </tr></thead>
                   <tbody>{returnHistory.map((r, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }} onMouseEnter={e => e.currentTarget.style.background='var(--surface-sunken)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                    <tr key={i} onClick={() => setSelectedRecord({ record: r, type: 'return' })} style={{ borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background='var(--surface-sunken)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
                       <td style={{ padding: '11px 20px' }}><div style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{r.tool_name}</div><div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-subtle)' }}>{r.tool_code}</div></td>
                       <td style={{ padding: '11px 20px' }}>{r.issued_to}</td>
                       <td style={{ padding: '11px 20px', color: 'var(--text-muted)' }}>{r.dept}</td>
@@ -502,7 +615,7 @@ function ReturnsScreen() {
                     {['Tool', 'Returned By', 'Dept', 'Condition', 'Damage Type', 'Penalty', 'Assessed'].map(h => <th key={h} style={{ padding: '9px 20px', textAlign: 'left', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{h}</th>)}
                   </tr></thead>
                   <tbody>{damageHistory.map((r, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }} onMouseEnter={e => e.currentTarget.style.background='var(--surface-sunken)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                    <tr key={i} onClick={() => setSelectedRecord({ record: r, type: 'damage' })} style={{ borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background='var(--surface-sunken)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
                       <td style={{ padding: '11px 20px' }}><div style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{r.tool_name}</div><div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-subtle)' }}>{r.tool_code}</div></td>
                       <td style={{ padding: '11px 20px' }}>{r.returned_by}</td>
                       <td style={{ padding: '11px 20px', color: 'var(--text-muted)' }}>{r.dept}</td>
@@ -520,6 +633,8 @@ function ReturnsScreen() {
       {dmg && <RecordDamageModal item={dmg} onClose={() => setDmg(null)} onConfirm={(id, extra) => { const found = damageList.find(i => i.id === id); setActiveList(window.MOCK.ACTIVE_ISSUANCES || []); setDamageList(window.MOCK.PENDING_DAMAGE || []); if (found) setDamageHistory(h => [...h, { ...found, kind: extra?.kind, penalty: extra?.penalty || 0, assessedOn: new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) }]); }} />}
       {viewDmg && <ViewDamageModal    item={viewDmg} onClose={() => setViewDmg(null)} />}
       {retHist && <ReturnHistoryModal item={retHist} onClose={() => setRetHist(null)} />}
+      {selectedIssuance && <window.IssuanceDetailModal issuance={selectedIssuance} onClose={() => setSelectedIssuance(null)} />}
+      {selectedRecord && <ReturnRecordDetailModal record={selectedRecord.record} type={selectedRecord.type} onClose={() => setSelectedRecord(null)} />}
     </div>
   );
 }

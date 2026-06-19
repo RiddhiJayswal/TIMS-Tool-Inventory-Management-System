@@ -100,9 +100,108 @@ function BinForm({ bin, onClose }) {
   );
 }
 
+/* ── Bin Detail Modal ──────────────────────────────────────────────── */
+function BinDetailModal({ bin, onClose, onEdit }) {
+  React.useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const toolsInBin = (window.MOCK.TOOLS || []).filter(t => t.bin === bin.bin_code);
+
+  const F = ({ label, value, bold }) => (
+    <div>
+      <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>{label}</div>
+      <div style={{ fontSize: 13.5, fontWeight: bold ? 700 : 400, color: bold ? 'var(--text-strong)' : 'var(--text-default)' }}>{value || '—'}</div>
+    </div>
+  );
+
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(3px)', padding: 20 }}>
+      <div style={{ background: 'var(--surface-card)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 520, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexShrink: 0 }}>
+          <div>
+            <div style={{ fontFamily: 'monospace', fontSize: 20, fontWeight: 700, color: 'var(--text-strong)' }}>{bin.bin_code}</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>{bin.shelf}{bin.section ? ` · ${bin.section}` : ''}</div>
+          </div>
+          <button onClick={onClose} style={{ display: 'grid', placeItems: 'center', width: 32, height: 32, border: '1px solid var(--border-default)', background: 'var(--surface-sunken)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-muted)', flexShrink: 0 }}>
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.1) transparent' }}>
+          {/* Location fields */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px', paddingBottom: 20, marginBottom: 20, borderBottom: '1px solid var(--border-subtle)' }}>
+            <F label="Bin Code" value={bin.bin_code} bold />
+            <F label="Shelf Label" value={bin.shelf} />
+            <F label="Section" value={bin.section} />
+            <F label="Department" value={bin.dept_category} />
+            <F label="Row" value={bin.row} />
+            <F label="Rack Number" value={bin.rack_number} />
+            <F label="Shelf Level" value={bin.shelf_level} />
+            <F label="Floor / Area" value={bin.floor_area} />
+            <F label="Capacity" value={bin.capacity ? `${bin.capacity} tools` : null} />
+          </div>
+
+          {/* Notes */}
+          {bin.description && (
+            <div style={{ paddingBottom: 20, marginBottom: 20, borderBottom: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Notes</div>
+              <div style={{ fontSize: 13.5, color: 'var(--text-default)', lineHeight: 1.55 }}>{bin.description}</div>
+            </div>
+          )}
+
+          {/* Tools stored here */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tools Stored Here</div>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 'var(--radius-pill)', background: 'var(--surface-sunken)', color: 'var(--text-muted)' }}>{toolsInBin.length}</span>
+            </div>
+            {toolsInBin.length === 0 ? (
+              <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-subtle)', fontSize: 13 }}>No tools assigned to this bin</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {toolsInBin.map(t => (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--surface-sunken)', borderRadius: 'var(--radius-md)' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text-strong)' }}>{t.name}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontFamily: 'monospace', marginTop: 2 }}>{t.tool_code}</div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: t.available > 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>{t.available} avail</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 1 }}>{t.total} total</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
+          <button onClick={onClose}
+            style={{ height: 36, padding: '0 20px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', background: 'transparent', color: 'var(--text-default)', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+            Close
+          </button>
+          <button onClick={() => { onClose(); onEdit(bin); }}
+            style={{ height: 36, padding: '0 20px', border: 'none', borderRadius: 'var(--radius-md)', background: 'var(--brand-black)', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+            Edit Bin
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StorageBinsScreen() {
   const { PageHeader, Card, DataTable, Button, Input, EmptyState } = NS_BIN;
   const [form, setForm] = React.useState(null);
+  const [selectedBin, setSelectedBin] = React.useState(null);
   const [search, setSearch] = React.useState('');
 
   const rows = (window.MOCK.BINS || []).filter(b =>
@@ -138,15 +237,17 @@ function StorageBinsScreen() {
             { key: 'dept_category', header: 'Dept', render: (b) => <span style={{ color: 'var(--text-muted)' }}>{b.dept_category}</span> },
             { key: 'capacity', header: 'Cap.', align: 'right', render: (b) => <span style={{ fontWeight: 600 }}>{b.capacity}</span> },
             { key: 'description', header: 'Notes', render: (b) => <span style={{ display: 'block', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: 12.5 }} title={b.description}>{b.description || '-'}</span> },
-            { key: 'actions', header: '', render: (b) => <Button size="sm" variant="secondary" onClick={() => setForm({ bin: b })}>Edit</Button> },
+            { key: 'actions', header: '', render: (b) => <Button size="sm" variant="secondary" onClick={e => { e.stopPropagation(); setForm({ bin: b }); }}>Edit</Button> },
           ]}
           rows={rows}
+          onRowClick={b => setSelectedBin(b)}
           empty={<EmptyState icon={<Icon name="archive" size={30} />} title="No storage bins" message="Add a bin to start mapping tools to shelves."
             action={<Button size="sm" icon={<Icon name="plus" size={14} />} onClick={() => setForm({ new: true })}>Add Bin</Button>} />}
         />
       </Card>
 
       {form && <BinForm bin={form.bin} onClose={() => setForm(null)} />}
+      {selectedBin && <BinDetailModal bin={selectedBin} onClose={() => setSelectedBin(null)} onEdit={b => setForm({ bin: b })} />}
     </div>
   );
 }

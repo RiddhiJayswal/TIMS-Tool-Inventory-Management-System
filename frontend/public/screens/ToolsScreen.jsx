@@ -187,7 +187,7 @@ function ToolsScreen() {
         <DataTable
           columns={[
             { key: 'tool_code', header: 'Tool Code', mono: true, nowrap: true },
-            { key: 'name', header: 'Name', render: (t) => <span style={{ fontWeight: 700, color: 'var(--info-text,#0b63ce)', textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}>{t.name}</span> },
+            { key: 'name', header: 'Name', render: (t) => <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{t.name}</span> },
             { key: 'tool_type', header: 'Type', render: (t) => <span style={{ textTransform: 'capitalize', color: 'var(--text-muted)' }}>{t.tool_type}</span> },
             { key: 'dept', header: 'Dept Access', render: (t) => t.department_access || <span style={{ color: 'var(--text-subtle)' }}>All</span> },
             { key: 'avail', header: 'Available / Total', align: 'right', nowrap: true, render: (t) => <span><b style={{ color: t.available > 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>{t.available}</b><span style={{ color: 'var(--text-subtle)' }}> / {t.total}</span></span> },

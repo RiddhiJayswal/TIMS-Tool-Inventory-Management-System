@@ -299,7 +299,7 @@ function DashboardScreen({ onNavigate }) {
           <DataTable
             columns={[
               { key: 'tool_code', header: 'Code', mono: true, nowrap: true },
-              { key: 'name', header: 'Tool Name', render: t => <span style={{ fontWeight: 700, color: 'var(--info-text,#0b63ce)', textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}>{t.name}</span> },
+              { key: 'name', header: 'Tool Name', render: t => <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{t.name}</span> },
               { key: 'tool_type', header: 'Type', render: t => <span style={{ textTransform: 'capitalize', color: 'var(--text-muted)' }}>{t.tool_type}</span> },
               { key: 'dept', header: 'Dept Access', render: t => t.department_access || <span style={{ color: 'var(--text-subtle)' }}>All</span> },
               { key: 'avail', header: 'Avail / Total', align: 'right', nowrap: true, render: t => <span><b style={{ color: t.available > 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>{t.available}</b><span style={{ color: 'var(--text-subtle)' }}> / {t.total}</span></span> },
@@ -326,7 +326,7 @@ function DashboardScreen({ onNavigate }) {
           <DataTable
             columns={[
               { key: 'tool_code', header: 'Code', mono: true, nowrap: true },
-              { key: 'name', header: 'Tool Name', render: t => <span style={{ fontWeight: 700, color: 'var(--info-text,#0b63ce)', textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}>{t.name}</span> },
+              { key: 'name', header: 'Tool Name', render: t => <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{t.name}</span> },
               { key: 'tool_type', header: 'Type', render: t => <span style={{ textTransform: 'capitalize', color: 'var(--text-muted)' }}>{t.tool_type}</span> },
               { key: 'dept', header: 'Dept Access', render: t => t.department_access || <span style={{ color: 'var(--text-subtle)' }}>All</span> },
               { key: 'available', header: 'Available', align: 'right', render: t => <span style={{ fontWeight: 700, color: 'var(--success-text)', fontSize: 15 }}>{t.available}</span> },
@@ -353,7 +353,7 @@ function DashboardScreen({ onNavigate }) {
           <DataTable
             columns={[
               { key: 'tool_code', header: 'Code', mono: true, nowrap: true },
-              { key: 'tool_name', header: 'Tool', render: i => <span style={{ fontWeight: 700, color: 'var(--info-text,#0b63ce)', textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}>{i.tool_name}</span> },
+              { key: 'tool_name', header: 'Tool', render: i => <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{i.tool_name}</span> },
               { key: 'issued_to', header: 'Issued To', render: i => <span style={{ fontWeight: 500 }}>{i.issued_to}</span> },
               { key: 'dept', header: 'Dept', render: i => <span style={{ color: 'var(--text-muted)' }}>{i.dept}</span> },
               { key: 'issued_on', header: 'Issued On', nowrap: true, render: i => <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{i.issued_on}</span> },
@@ -385,10 +385,6 @@ function DashboardScreen({ onNavigate }) {
     </Card>
   );
 
-  const viewLink = (panelKey, label, color) => (
-    <a onClick={() => openPanel(panelKey)} style={{ fontSize: 12, fontWeight: 600, color, cursor: 'pointer', textDecoration: 'underline' }}>{label}</a>
-  );
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <PageHeader title="Dashboard" subtitle={`Welcome back, ${(window.MOCK.USER || {}).full_name || '—'} · ${(window.MOCK.USER || {}).department || ''}`} />
@@ -400,17 +396,22 @@ function DashboardScreen({ onNavigate }) {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14 }}>
-        <MetricCard label={scopeLabels.tools} value={totalToolTypes.toLocaleString()} icon={<Icon name="wrench" size={19} />}
-          subtext={`${totalUnits.toLocaleString()} total units`}
-          action={viewLink('total', 'View all', 'var(--info-text)')} />
-        <MetricCard label={scopeLabels.available} value={s.available_tools.toLocaleString()} icon={<Icon name="check_circle" size={19} />}
-          action={viewLink('available', 'View list', 'var(--success-text)')} />
-        <MetricCard label={scopeLabels.issued} value={s.tools_issued} icon={<Icon name="package" size={19} />}
-          action={viewLink('issued', 'View issued', 'var(--text-muted)')} />
-        <MetricCard label="Overdue Returns" value={s.overdue_count} tone="danger" icon={<Icon name="clock" size={19} />}
-          action={<a onClick={() => onNavigate('returns')} style={{ fontSize: 12, fontWeight: 600, color: 'var(--danger-text)', cursor: 'pointer', textDecoration: 'underline' }}>View all</a>} />
-        <MetricCard label="Calibration Due" value={s.calibration_due_count} tone="warning" icon={<Icon name="activity" size={19} />}
-          action={<a onClick={() => onNavigate('calibration')} style={{ fontSize: 12, fontWeight: 600, color: 'var(--warning-text)', cursor: 'pointer', textDecoration: 'underline' }}>Manage</a>} />
+        <div onClick={() => openPanel('total')} style={{ cursor: 'pointer' }}>
+          <MetricCard label={scopeLabels.tools} value={totalToolTypes.toLocaleString()} icon={<Icon name="wrench" size={19} />}
+            subtext={`${totalUnits.toLocaleString()} total units`} />
+        </div>
+        <div onClick={() => openPanel('available')} style={{ cursor: 'pointer' }}>
+          <MetricCard label={scopeLabels.available} value={s.available_tools.toLocaleString()} icon={<Icon name="check_circle" size={19} />} />
+        </div>
+        <div onClick={() => openPanel('issued')} style={{ cursor: 'pointer' }}>
+          <MetricCard label={scopeLabels.issued} value={s.tools_issued} icon={<Icon name="package" size={19} />} />
+        </div>
+        <div onClick={() => onNavigate('returns')} style={{ cursor: 'pointer' }}>
+          <MetricCard label="Overdue Returns" value={s.overdue_count} tone="danger" icon={<Icon name="clock" size={19} />} />
+        </div>
+        <div onClick={() => onNavigate('calibration')} style={{ cursor: 'pointer' }}>
+          <MetricCard label="Calibration Due" value={s.calibration_due_count} tone="warning" icon={<Icon name="activity" size={19} />} />
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>

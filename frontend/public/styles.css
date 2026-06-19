@@ -7,6 +7,10 @@
 @import "./tokens/spacing.css";
 @import "./tokens/base.css";
 
+html {
+  zoom: 1.25;
+}
+
 * { box-sizing: border-box; }
 
 button, input, select, textarea { max-width: 100%; }

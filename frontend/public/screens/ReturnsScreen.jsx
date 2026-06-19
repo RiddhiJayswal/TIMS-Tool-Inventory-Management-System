@@ -225,7 +225,12 @@ function ReturnRecordDetailModal({ record, type, onClose }) {
     missing: { bg: 'var(--danger-bg)',  fg: 'var(--danger-text)'  },
   };
   const cs = COND[record.condition] || COND.good;
-  const steps = ['Requested', 'Approved', 'Issued', 'Returned'];
+  const steps = [
+    { label: 'Requested', icon: 'clipboard' },
+    { label: 'Approved',  icon: 'check_circle' },
+    { label: 'Issued',    icon: 'arrow_right_circle' },
+    { label: 'Returned',  icon: 'arrow_left_circle' },
+  ];
   const isDamage = type === 'damage';
 
   const F = ({ label, value, bold }) => (
@@ -267,13 +272,13 @@ function ReturnRecordDetailModal({ record, type, onClose }) {
           <div>
             <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>Status Timeline</div>
             <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-              {steps.map((label, idx) => (
-                <React.Fragment key={label}>
+              {steps.map((step, idx) => (
+                <React.Fragment key={step.label}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
                     <div style={{ width: 32, height: 32, borderRadius: '50%', display: 'grid', placeItems: 'center', flexShrink: 0, background: 'var(--success-solid)' }}>
-                      <Icon name="check_circle" size={16} color="#fff" />
+                      <Icon name={step.icon} size={16} color="#fff" />
                     </div>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-strong)', marginTop: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>{label}</div>
+                    <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-strong)', marginTop: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>{step.label}</div>
                   </div>
                   {idx < steps.length - 1 && <div style={{ flex: 1, height: 2, background: 'var(--success-solid)', margin: '15px 6px 0', minWidth: 16 }} />}
                 </React.Fragment>

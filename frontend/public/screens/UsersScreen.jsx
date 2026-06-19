@@ -328,6 +328,8 @@ function UsersScreen() {
   };
 
   const removeEmployee = async (id) => {
+    const target = rows.find(r => r.id === id);
+    if (target && target.role === 'maintenance_admin') return;
     try {
       await window.API.updateUser(id, { is_active: false });
       await refreshUsers();
@@ -419,6 +421,7 @@ function UsersScreen() {
             {filtered.map((emp, i) => {
               const tone = ROLE_TONES_U[emp.role] || ROLE_TONES_U.requester;
               const initials = emp.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+              const isProtected = emp.role === 'maintenance_admin';
               return (
                 <tr key={emp.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--border-subtle)' : 'none', transition: 'background 0.1s' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-sunken)'}
@@ -441,19 +444,25 @@ function UsersScreen() {
                     <StatusCell emp={emp} onToggle={updateStatus} />
                   </td>
                   <td data-label="Action" style={{ padding: '11px 14px', textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: 6 }}>
+                    <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
                       <button onClick={() => setEditingEmp(emp)}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-default)', background: 'var(--surface-card)', color: 'var(--text-muted)', cursor: 'pointer', padding: '5px 11px', borderRadius: 'var(--radius-md)', fontSize: 12.5, fontFamily: 'var(--font-sans)', fontWeight: 500, transition: 'all 0.15s', whiteSpace: 'nowrap' }}
                         onMouseEnter={e => { e.currentTarget.style.background = 'var(--brand-black)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'var(--brand-black)'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-card)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border-default)'; }}>
                         <Icon name="eye" size={13} /> Edit
                       </button>
-                      <button onClick={() => setRemovingEmp(emp)}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--danger-border,var(--danger-bg))', background: 'var(--danger-bg)', color: 'var(--danger-text)', cursor: 'pointer', padding: '5px 11px', borderRadius: 'var(--radius-md)', fontSize: 12.5, fontFamily: 'var(--font-sans)', fontWeight: 500, transition: 'all 0.15s', whiteSpace: 'nowrap' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--danger-solid)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'var(--danger-solid)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'var(--danger-bg)'; e.currentTarget.style.color = 'var(--danger-text)'; e.currentTarget.style.borderColor = 'var(--danger-border,var(--danger-bg))'; }}>
-                        <Icon name="x" size={13} /> Remove
-                      </button>
+                      {isProtected ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 'var(--radius-md)', fontSize: 12.5, fontWeight: 500, color: 'var(--text-subtle)', background: 'var(--surface-sunken)', border: '1px solid var(--border-subtle)', whiteSpace: 'nowrap', userSelect: 'none' }}>
+                          <Icon name="archive" size={13} color="var(--text-subtle)" /> Protected
+                        </span>
+                      ) : (
+                        <button onClick={() => setRemovingEmp(emp)}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--danger-border,var(--danger-bg))', background: 'var(--danger-bg)', color: 'var(--danger-text)', cursor: 'pointer', padding: '5px 11px', borderRadius: 'var(--radius-md)', fontSize: 12.5, fontFamily: 'var(--font-sans)', fontWeight: 500, transition: 'all 0.15s', whiteSpace: 'nowrap' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--danger-solid)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'var(--danger-solid)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'var(--danger-bg)'; e.currentTarget.style.color = 'var(--danger-text)'; e.currentTarget.style.borderColor = 'var(--danger-border,var(--danger-bg))'; }}>
+                          <Icon name="x" size={13} /> Remove
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

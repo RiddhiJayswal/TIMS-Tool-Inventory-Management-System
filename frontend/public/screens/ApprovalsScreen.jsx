@@ -251,10 +251,12 @@ function ApprovalsScreen() {
               <div style={{ display:'flex',gap:6 }} onClick={e => e.stopPropagation()}>
                 <Button size="sm" variant="secondary" onClick={() => setViewing(r)}>Details</Button>
                 {tab === 'pending' && <>
-                  <Button size="sm" onClick={() => setApproving(r)}
-                    style={{ background: 'var(--success-solid)', borderColor: 'var(--success-solid)', color: '#fff' }}>
-                    Approve
-                  </Button>
+                  <button
+                    onClick={() => setApproving(r)}
+                    onMouseEnter={e => e.currentTarget.style.background = '#15803d'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--success-solid)'}
+                    style={{ height: 30, padding: '0 10px', border: '1px solid var(--success-solid)', borderRadius: 'var(--radius-md)', background: 'var(--success-solid)', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >Approve</button>
                   <Button size="sm" variant="danger" onClick={() => { setRejecting(r); setReason(''); setReasonErr(''); }}>
                     Reject
                   </Button>

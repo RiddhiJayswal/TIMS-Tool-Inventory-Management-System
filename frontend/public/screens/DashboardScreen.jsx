@@ -402,16 +402,16 @@ function DashboardScreen({ onNavigate }) {
             subtext={`${totalUnits.toLocaleString()} total units`} />
         </div>
         <div onClick={() => openPanel('available')} className="tims-clickable-card" style={{ cursor: 'pointer' }}>
-          <MetricCard label={scopeLabels.available} value={s.available_tools.toLocaleString()} icon={<Icon name="check_circle" size={19} />} />
+          <MetricCard label={scopeLabels.available} value={s.available_tools.toLocaleString()} icon={<Icon name="check_circle" size={19} />} subtext={' '} />
         </div>
         <div onClick={() => openPanel('issued')} className="tims-clickable-card" style={{ cursor: 'pointer' }}>
-          <MetricCard label={scopeLabels.issued} value={s.tools_issued} icon={<Icon name="package" size={19} />} />
+          <MetricCard label={scopeLabels.issued} value={s.tools_issued} icon={<Icon name="package" size={19} />} subtext={' '} />
         </div>
         <div onClick={() => onNavigate('returns')} className="tims-clickable-card" style={{ cursor: 'pointer' }}>
-          <MetricCard label="Overdue Returns" value={s.overdue_count} icon={<Icon name="clock" size={19} />} />
+          <MetricCard label="Overdue Returns" value={s.overdue_count} icon={<Icon name="clock" size={19} />} subtext={' '} />
         </div>
         <div onClick={() => onNavigate('calibration')} className="tims-clickable-card" style={{ cursor: 'pointer' }}>
-          <MetricCard label="Calibration Due" value={s.calibration_due_count} icon={<Icon name="activity" size={19} />} />
+          <MetricCard label="Calibration Due" value={s.calibration_due_count} icon={<Icon name="activity" size={19} />} subtext={' '} />
         </div>
       </div>
 
@@ -532,10 +532,10 @@ function IssuanceDetailModal({ issuance, onClose }) {
   );
 
   const steps = [
-    { label: 'Requested', done: true },
-    { label: 'Approved',  done: true },
-    { label: 'Issued',    done: true, current: true },
-    { label: 'Returned',  done: false },
+    { label: 'Requested', icon: 'clipboard',         done: true },
+    { label: 'Approved',  icon: 'check_circle',       done: true },
+    { label: 'Issued',    icon: 'arrow_right_circle', done: true, current: true },
+    { label: 'Returned',  icon: 'arrow_left_circle',  done: false },
   ];
   const qty = issuance.qty || issuance.quantity_issued || 1;
   const isOverdue = issuance.overdue || issuance.state === 'overdue';
@@ -593,9 +593,7 @@ function IssuanceDetailModal({ issuance, onClose }) {
                       border: step.done ? 'none' : '2px solid var(--border-default)',
                       boxShadow: step.current ? '0 0 0 4px rgba(34,197,94,0.18)' : 'none',
                     }}>
-                      {step.done
-                        ? <Icon name="check_circle" size={16} color="#fff" />
-                        : <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--border-default)' }} />}
+                      <Icon name={step.icon} size={16} color={step.done ? '#fff' : 'var(--text-subtle)'} />
                     </div>
                     <div style={{ fontSize: 11, fontWeight: step.current ? 700 : 500, color: step.done ? 'var(--text-strong)' : 'var(--text-subtle)', marginTop: 6, textAlign: 'center', whiteSpace: 'nowrap' }}>{step.label}</div>
                   </div>

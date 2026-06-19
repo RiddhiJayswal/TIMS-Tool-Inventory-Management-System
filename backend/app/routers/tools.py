@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.auth.roles import RequireAdmin, get_current_user
+from app.auth.roles import RequireAdmin, RequireMaintenance, get_current_user
 from app.database import get_db
 from app.models.master import StorageBin, Tool
 from app.models.transaction import AuditLog, IssuanceLog, Notification, User
@@ -129,7 +129,7 @@ def list_tools(
 @router.post("", status_code=201)
 def create_tool(
     payload: ToolCreate,
-    current_user: User = Depends(RequireAdmin),
+    current_user: User = Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
     if db.query(Tool).filter(Tool.tool_code == payload.tool_code).first():
@@ -245,7 +245,7 @@ def get_tool(
 def update_tool(
     tool_id: UUID,
     payload: ToolUpdate,
-    current_user: User = Depends(RequireAdmin),
+    current_user: User = Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
     tool = db.query(Tool).filter(Tool.id == tool_id).first()
@@ -290,7 +290,7 @@ def update_tool(
 @router.delete("/{tool_id}")
 def write_off_tool(
     tool_id: UUID,
-    current_user: User = Depends(RequireAdmin),
+    current_user: User = Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
     tool = db.query(Tool).filter(Tool.id == tool_id).first()

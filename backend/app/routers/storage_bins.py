@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.auth.roles import RequireAdmin, get_current_user
+from app.auth.roles import RequireAdmin, RequireMaintenance, get_current_user
 from app.database import get_db
 from app.models.master import StorageBin, Tool
 from app.models.transaction import Notification, User
@@ -60,7 +60,7 @@ def list_bins(
 @router.post("", status_code=201)
 def create_bin(
     payload: StorageBinCreate,
-    current_user: User = Depends(RequireAdmin),
+    current_user: User = Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
     if db.query(StorageBin).filter(StorageBin.bin_code == payload.bin_code).first():
@@ -90,7 +90,7 @@ def create_bin(
 def update_bin(
     bin_id: UUID,
     payload: StorageBinUpdate,
-    current_user: User = Depends(RequireAdmin),
+    current_user: User = Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
     sync_calibration_statuses(db)

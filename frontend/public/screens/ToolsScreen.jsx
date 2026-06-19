@@ -161,7 +161,7 @@ function ToolsScreen() {
   const [search, setSearch] = React.useState('');
   const [fType, setFType] = React.useState('');
   const [fStatus, setFStatus] = React.useState('');
-  const canManageTools = (window.MOCK.USER || {}).role === 'maintenance_admin';
+  const canManageTools = ['maintenance_admin', 'maintenance_staff'].includes((window.MOCK.USER || {}).role);
 
   const rows = (window.MOCK.TOOLS || []).filter(t => {
     if (search && !(`${t.name} ${t.tool_code}`.toLowerCase().includes(search.toLowerCase()))) return false;

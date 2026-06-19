@@ -14,7 +14,7 @@ const ALL_NAV_GROUPS = [
   { label: 'Admin', items: [
     { key: 'reports',     label: 'Reports',      icon: 'bar_chart', roles: ['maintenance_staff','maintenance_admin'] },
     { key: 'calibration', label: 'Calibration',  icon: 'activity',  roles: ['maintenance_admin'] },
-    { key: 'bins',        label: 'Storage Bins', icon: 'archive',   roles: ['maintenance_admin'] },
+    { key: 'bins',        label: 'Storage Bins', icon: 'archive',   roles: ['maintenance_staff','maintenance_admin'] },
     { key: 'users',       label: 'Users',        icon: 'users',     roles: ['maintenance_admin'] },
   ]},
 ];
@@ -36,7 +36,15 @@ const ROLE_TONE = {
 
 function Sidebar({ route, onNavigate, collapsed, onToggle, user }) {
   const { Logo } = NS_SHELL;
-  const pendingAccessCount = (window.MOCK?.ACCESS_REQUESTS || []).filter(r => r.status === 'pending').length;
+  const _summary = window.MOCK?.SUMMARY || {};
+  const navBadges = {
+    requisitions: _summary.my_pending_requests || 0,
+    approvals:    _summary.pending_approvals_count || 0,
+    issuance:     (window.MOCK?.APPROVED_QUEUE || []).length || _summary.approved_queue_count || 0,
+    returns:      _summary.overdue_count || 0,
+    calibration:  _summary.calibration_due_count || 0,
+    users:        (window.MOCK?.ACCESS_REQUESTS || []).filter(r => r.status === 'pending').length,
+  };
   const toggleBtn = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     width: 30, height: 30, border: 'none', background: 'transparent',
@@ -105,28 +113,29 @@ function Sidebar({ route, onNavigate, collapsed, onToggle, user }) {
                     )}
                     <Icon name={it.icon} size={17} color={active ? 'var(--brand-yellow)' : 'currentColor'} />
                     {!collapsed && it.label}
-                    {!collapsed && it.key === 'users' && pendingAccessCount > 0 && (
-                      <span style={{
-                        marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 9,
-                        background: 'var(--danger-solid)', color: '#fff',
-                        fontSize: 10, fontWeight: 700, lineHeight: 1,
-                        display: 'grid', placeItems: 'center', padding: '0 4px', flexShrink: 0,
-                      }}>
-                        {pendingAccessCount > 99 ? '99+' : pendingAccessCount}
-                      </span>
-                    )}
-                    {collapsed && it.key === 'users' && pendingAccessCount > 0 && (
-                      <span style={{
-                        position: 'absolute', top: 6, right: 6,
-                        minWidth: 15, height: 15, borderRadius: 8,
-                        background: 'var(--danger-solid)', color: '#fff',
-                        fontSize: 9, fontWeight: 700, lineHeight: 1,
-                        display: 'grid', placeItems: 'center', padding: '0 3px',
-                        border: '1.5px solid var(--brand-black)',
-                      }}>
-                        {pendingAccessCount > 9 ? '9+' : pendingAccessCount}
-                      </span>
-                    )}
+                    {(() => { const count = navBadges[it.key] || 0; return count > 0 ? (
+                      !collapsed ? (
+                        <span style={{
+                          marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 9,
+                          background: 'var(--danger-solid)', color: '#fff',
+                          fontSize: 10, fontWeight: 700, lineHeight: 1,
+                          display: 'grid', placeItems: 'center', padding: '0 4px', flexShrink: 0,
+                        }}>
+                          {count > 99 ? '99+' : count}
+                        </span>
+                      ) : (
+                        <span style={{
+                          position: 'absolute', top: 6, right: 6,
+                          minWidth: 15, height: 15, borderRadius: 8,
+                          background: 'var(--danger-solid)', color: '#fff',
+                          fontSize: 9, fontWeight: 700, lineHeight: 1,
+                          display: 'grid', placeItems: 'center', padding: '0 3px',
+                          border: '1.5px solid var(--brand-black)',
+                        }}>
+                          {count > 9 ? '9+' : count}
+                        </span>
+                      )
+                    ) : null; })()}
                   </button>
                 );
               })}
@@ -138,7 +147,18 @@ function Sidebar({ route, onNavigate, collapsed, onToggle, user }) {
   );
 }
 
-function Navbar({ user, notifs = [], onLogout }) {
+function routeFromNotification(message) {
+  if (!message) return null;
+  const m = message.toLowerCase();
+  if (m.includes('access request') || (m.includes('requested') && m.includes('access'))) return 'users';
+  if (m.startsWith('overdue') || m.includes('past return date') || m.includes('damage assessment') || (m.includes('return') && m.includes('damage'))) return 'returns';
+  if (m.includes('calibration')) return 'calibration';
+  if (m.includes('approved') || m.includes('rejected') || m.includes('requisition')) return 'requisitions';
+  if (m.includes('issued') || m.includes('issuance')) return 'issuance';
+  return null;
+}
+
+function Navbar({ user, notifs = [], onLogout, onNavigate }) {
   const [open, setOpen] = React.useState(false);
   const [, forceRefresh] = React.useState(0);
   const tone = ROLE_TONE[user.role] || ROLE_TONE.requester;
@@ -181,15 +201,29 @@ function Navbar({ user, notifs = [], onLogout }) {
 
   const NotifRow = ({ n }) => {
     const isRead = !!n.is_read;
+    const dest = routeFromNotification(n.message);
+    const baseBg = isRead ? 'transparent' : 'rgba(250,196,0,0.04)';
+    const hoverBg = isRead ? 'var(--surface-sunken)' : 'rgba(250,196,0,0.10)';
+    const handleClick = async () => {
+      if (!isRead) markRead(n).catch(() => {});
+      setOpen(false);
+      if (dest && onNavigate) onNavigate(dest);
+    };
     return (
-      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: 9, alignItems: 'flex-start', background: isRead ? 'transparent' : 'rgba(250,196,0,0.04)' }}>
+      <div onClick={handleClick}
+        style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: 9, alignItems: 'flex-start', background: baseBg, cursor: dest ? 'pointer' : 'default', transition: 'background 0.12s' }}
+        onMouseEnter={e => { e.currentTarget.style.background = hoverBg; }}
+        onMouseLeave={e => { e.currentTarget.style.background = baseBg; }}>
         <div style={{ width: 7, height: 7, borderRadius: '50%', marginTop: 5, flexShrink: 0, background: isRead ? 'transparent' : 'var(--brand-yellow)' }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.45, color: isRead ? 'var(--text-subtle)' : 'var(--text-default)', whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{n.message || 'Notification update'}</p>
-          <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 4 }}>{n.date}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 4 }}>
+            {n.date}
+            {dest && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 600, color: 'var(--text-subtle)', letterSpacing: '0.04em' }}>→ {dest === 'requisitions' ? 'My Requests' : dest === 'issuance' ? 'Issue Tool' : dest.charAt(0).toUpperCase() + dest.slice(1)}</span>}
+          </div>
         </div>
         {!isRead && (
-          <button onClick={() => markRead(n)} title="Mark as read"
+          <button onClick={e => { e.stopPropagation(); markRead(n); }} title="Mark as read"
             style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-subtle)', padding: 2, flexShrink: 0, display: 'flex', borderRadius: 'var(--radius-sm)' }}
             onMouseEnter={e => { e.currentTarget.style.color = 'var(--success-solid)'; e.currentTarget.style.background = 'var(--success-bg)'; }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-subtle)'; e.currentTarget.style.background = 'transparent'; }}>
@@ -291,7 +325,7 @@ function AppShell({ user, route, onNavigate, notifs, onLogout, children }) {
     <div className="tims-shell" style={{ display: 'flex', height: '100%', overflow: 'hidden', background: 'var(--surface-page)' }}>
       <Sidebar route={route} onNavigate={onNavigate} collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} user={user} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
-        <Navbar user={user} notifs={notifs} onLogout={onLogout} />
+        <Navbar user={user} notifs={notifs} onLogout={onLogout} onNavigate={onNavigate} />
         <main className="tims-main" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '24px 26px', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.12) transparent' }}>{children}</main>
       </div>
     </div>

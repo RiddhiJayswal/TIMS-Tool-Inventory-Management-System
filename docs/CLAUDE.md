@@ -123,7 +123,7 @@ notes, created_at
 |---|---|
 | `requester` | Raise requisition, view own requests, view tool availability |
 | `dept_head` | Approve/reject requisitions from own department |
-| `maintenance_staff` | Issue tools, process returns, check conditions |
+| `maintenance_staff` | Issue tools, process returns, check conditions, manage tool catalogue and storage bins |
 | `maintenance_admin` | Full access: master data, reports, calibration, damage write-offs, procurement |
 
 No role bypasses the approval workflow. A requester cannot self-approve.

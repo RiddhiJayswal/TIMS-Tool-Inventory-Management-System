@@ -8,7 +8,7 @@
 
 | ID | Requirement | Priority |
 |---|---|---|
-| FR-01.1 | System shall allow maintenance_admin to create, edit, and deactivate tool records | Must Have |
+| FR-01.1 | System shall allow maintenance_admin and maintenance_staff to create, edit, and deactivate tool records | Must Have |
 | FR-01.2 | Each tool record shall store: tool_code, name, category, tool_type, department_access, make, model, serial_number, purchase_date, purchase_price, standard_life_months | Must Have |
 | FR-01.3 | System shall classify tools as General or Specialized (E&I / Mechanical / Civil / Process) | Must Have |
 | FR-01.4 | System shall flag whether a tool requires calibration (boolean) | Must Have |
@@ -25,7 +25,7 @@
 
 | ID | Requirement | Priority |
 |---|---|---|
-| FR-02.1 | System shall allow maintenance_admin to create and label storage bins | Must Have |
+| FR-02.1 | System shall allow maintenance_admin and maintenance_staff to create and label storage bins | Must Have |
 | FR-02.2 | Each bin shall have a bin_code, shelf_label, section, and department_category | Must Have |
 | FR-02.3 | Tools shall be mapped to a bin; bin location displayed on tool detail page | Must Have |
 | FR-02.4 | System shall show all tools in a given bin on the bin detail view | Should Have |

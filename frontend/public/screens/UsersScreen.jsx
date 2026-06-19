@@ -60,11 +60,11 @@ function EmployeeForm({ title, subtitle, initial = {}, onClose, onSubmit, submit
       </Section>
       <Section title="Work Details">
         <Select label="Department" required value={form.department} onChange={set('department')}>
-          <option value="">Select departmentâ€¦</option>
+          <option value="">Select department...</option>
           {['Maintenance', 'Mechanical', 'E&I', 'Civil', 'Process'].map(d => <option key={d}>{d}</option>)}
         </Select>
         <Select label="Role" required value={form.role} onChange={set('role')}>
-          <option value="">Select roleâ€¦</option>
+          <option value="">Select role...</option>
           <option value="requester">Requester</option>
           <option value="dept_head">Dept Head</option>
           <option value="maintenance_staff">Maintenance Staff</option>
@@ -155,7 +155,7 @@ function AccessRequestCard({ req, onDecide }) {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, color: 'var(--text-strong)', fontSize: 14 }}>{req.full_name}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-subtle)' }}>{req.emp_id} Â· {req.department} Â· {req.designation} Â· Submitted {req.submitted}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-subtle)' }}>{req.emp_id} · {req.department} · {req.designation} · Submitted {req.submitted}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
           <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 'var(--radius-pill)', background: pending ? 'var(--warning-bg)' : req.status === 'approved' ? 'var(--success-bg)' : 'var(--danger-bg)', color: pending ? 'var(--warning-text)' : req.status === 'approved' ? 'var(--success-text)' : 'var(--danger-text)', textTransform: 'capitalize' }}>{req.status}</span>
@@ -197,7 +197,7 @@ function AccessRequestCard({ req, onDecide }) {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Reason for rejection (required)â€¦"
+              <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Reason for rejection (required)..."
                 style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-sans)', fontSize: 13.5, color: 'var(--text-default)', resize: 'vertical', minHeight: 68, boxSizing: 'border-box', outline: 'none' }} />
               <div style={{ display: 'flex', gap: 8 }}>
                 <button disabled={!rejectReason.trim()} onClick={() => onDecide(req.id, 'rejected', rejectReason)}
@@ -374,7 +374,7 @@ function UsersScreen() {
         </div>
       )}
 
-      {/* Stats â€" 3 cols Ã— 2 rows */}
+      {/* Stats - 3 cols x 2 rows */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 22 }}>
         {stats.map(s => (
           <div key={s.label} style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -394,7 +394,7 @@ function UsersScreen() {
         <div style={{ position: 'relative', flex: 1, maxWidth: 320 }}>
           <Icon name="search" size={15} color="var(--text-subtle)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search name, ID or departmentâ€¦"
+            placeholder="Search name, ID or department..."
             style={{ width: '100%', paddingLeft: 34, paddingRight: 12, height: 36, border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-sans)', fontSize: 13.5, color: 'var(--text-default)', background: 'var(--surface-card)', outline: 'none', boxSizing: 'border-box' }} />
         </div>
         <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}

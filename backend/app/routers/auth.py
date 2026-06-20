@@ -274,7 +274,15 @@ def send_access_otp(payload: AccessOtpSendRequest, db: Session = Depends(get_db)
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    access_request = _find_access_draft(db, email, mobile_number)
+    access_request = (
+        db.query(AccessRequest)
+        .filter(
+            AccessRequest.email == email,
+            AccessRequest.status == "otp_pending",
+        )
+        .order_by(AccessRequest.created_at.desc())
+        .first()
+    )
     if not access_request:
         count = db.query(AccessRequest).count() + 1
         access_request = AccessRequest(
@@ -408,7 +416,7 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
         .filter(PasswordResetToken.token_hash == _reset_token_hash(payload.token))
         .first()
     )
-    if not reset_token or reset_token.used_at or reset_token.expires_at < now:
+    if not reset_token or reset_token.used_at or reset_token.expires_at <= now:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
 
     user = db.query(User).filter(User.id == reset_token.user_id, User.is_active == True).first()

@@ -176,6 +176,16 @@ function LoginScreen({ onLogin }) {
     setOtpDevMsg('');
   };
 
+  const validatePasswordStrength = (pwd, minLen = 6) => {
+    if (!pwd) return 'Password is required.';
+    if (pwd.length < minLen) return `Password must be at least ${minLen} characters.`;
+    if (!/[A-Z]/.test(pwd)) return 'Password must contain at least one uppercase letter.';
+    if (!/[a-z]/.test(pwd)) return 'Password must contain at least one lowercase letter.';
+    if (!/[0-9]/.test(pwd)) return 'Password must contain at least one number.';
+    if (!/[^A-Za-z0-9]/.test(pwd)) return 'Password must contain at least one special character.';
+    return '';
+  };
+
   const accessPayload = () => ({
     employee_id: accessForm.employee_id.trim(),
     full_name: accessForm.full_name.trim(),
@@ -195,6 +205,8 @@ function LoginScreen({ onLogin }) {
       return 'Mobile number is required for mobile OTP.';
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accessForm.email.trim())) return 'Enter a valid work email address.';
+    const strengthErr = validatePasswordStrength(accessForm.password);
+    if (strengthErr) return strengthErr;
     if (accessForm.password !== accessForm.confirm_password) return 'Password and confirm password must match.';
     return '';
   };
@@ -309,6 +321,11 @@ function LoginScreen({ onLogin }) {
     }
     if (newPassword !== confirmNewPassword) {
       setResetErr('New password and confirmation must match.');
+      return;
+    }
+    const strengthErr = validatePasswordStrength(newPassword, 8);
+    if (strengthErr) {
+      setResetErr(strengthErr);
       return;
     }
     setRecoveryLoading(true);

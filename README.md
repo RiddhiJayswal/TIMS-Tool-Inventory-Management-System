@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/AB_TIMS_logo.png" alt="Aditya Birla × TIMS" />
+<img src="docs/AB_TIMS_logo.png" height="120" alt="Aditya Birla × TIMS" />
 <br/>
 <br/>
 

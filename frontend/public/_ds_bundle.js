@@ -735,6 +735,11 @@ const STATUS_MAP = {
     icon: 'check',
     label: 'Returned'
   },
+  completed: {
+    tone: 'success',
+    icon: 'check',
+    label: 'Completed'
+  },
   cancelled: {
     tone: 'neutral',
     icon: 'ban',
@@ -761,11 +766,21 @@ const STATUS_MAP = {
     icon: 'ban',
     label: 'Written Off'
   },
+  out_of_stock: {
+    tone: 'neutral',
+    icon: 'ban',
+    label: 'Out of Stock'
+  },
   // Return condition
   good: {
     tone: 'success',
     icon: 'check',
     label: 'Good'
+  },
+  consumed: {
+    tone: 'success',
+    icon: 'check',
+    label: 'Consumed'
   },
   partial: {
     tone: 'warning',

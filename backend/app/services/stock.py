@@ -74,7 +74,7 @@ def consume_stock(db: Session, tool_id: str, quantity: int) -> Tool:
     if tool.available_quantity > tool.total_quantity:
         tool.available_quantity = tool.total_quantity
     if tool.total_quantity <= 0:
-        tool.status = "written_off"
+        tool.status = "out_of_stock" if tool.is_consumable else "written_off"
     db.flush()
     return tool
 

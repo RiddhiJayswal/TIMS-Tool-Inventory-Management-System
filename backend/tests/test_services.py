@@ -284,3 +284,24 @@ def test_disabling_calibration_clears_schedule_and_unblocks_tool():
     assert tool.last_calibration_date is None
     assert tool.next_calibration_due is None
     assert tool.status == "active"
+
+
+def test_depleted_consumable_becomes_out_of_stock_not_written_off():
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock, patch
+
+    from app.services.stock import consume_stock
+
+    tool = SimpleNamespace(
+        total_quantity=3,
+        available_quantity=0,
+        is_consumable=True,
+        status="active",
+    )
+    db = MagicMock()
+    with patch("app.services.stock.get_tool_locked", return_value=tool):
+        consume_stock(db, "tool-id", 3)
+
+    assert tool.total_quantity == 0
+    assert tool.available_quantity == 0
+    assert tool.status == "out_of_stock"

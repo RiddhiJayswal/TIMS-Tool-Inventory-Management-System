@@ -90,6 +90,7 @@ def get_dashboard_summary(
         "rejected_requests_count": req_scope.filter(Requisition.status == "rejected").count(),
         "issued_requests_count": req_scope.filter(Requisition.status == "issued").count(),
         "returned_requests_count": req_scope.filter(Requisition.status == "returned").count(),
+        "completed_requests_count": req_scope.filter(Requisition.status == "completed").count(),
         "cancelled_requests_count": req_scope.filter(Requisition.status == "cancelled").count(),
         "active_users_count": db.query(User).filter(User.is_active == True).count()
         if role in ("maintenance_admin", "maintenance_staff")

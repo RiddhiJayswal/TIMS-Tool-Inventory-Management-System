@@ -14,8 +14,8 @@ from app.schemas.issuance import IssuanceCreate
 from app.services.audit import log_action
 from app.services.calibration_status import is_calibration_blocked, sync_calibration_statuses
 from app.services.depreciation import snapshot_value_at_issuance
-from app.services.notifications import notify_tool_issued
-from app.services.stock import get_tool_locked, reduce_stock
+from app.services.notifications import notify_consumable_issued, notify_tool_issued
+from app.services.stock import consume_stock, get_tool_locked, reduce_stock
 
 router = APIRouter(prefix="/issuance", tags=["issuance"])
 
@@ -110,6 +110,12 @@ def issue_tool(
         # Reduce stock (SELECT FOR UPDATE already held)
         reduce_stock(db, str(tool.id), req.quantity_requested)
 
+        # Consumables are stock movements, not borrowed assets. Close them at
+        # issuance so they never enter return or overdue queues.
+        consumed_at_issue = bool(tool.is_consumable)
+        if consumed_at_issue:
+            consume_stock(db, str(tool.id), req.quantity_requested)
+
         # Create issuance log
         log = IssuanceLog(
             id=uuid.uuid4(),
@@ -119,6 +125,10 @@ def issue_tool(
             issued_by=current_user.id,
             quantity_issued=req.quantity_requested,
             expected_return_date=req.to_date,
+            actual_return_date=date.today() if consumed_at_issue else None,
+            return_condition="consumed" if consumed_at_issue else None,
+            quantity_returned=0 if consumed_at_issue else None,
+            quantity_consumed=req.quantity_requested if consumed_at_issue else None,
             depreciated_value_at_issue=snapshot,
             notes=payload.notes,
         )
@@ -126,19 +136,23 @@ def issue_tool(
         db.flush()
 
         # Update requisition status
-        req.status = "issued"
+        req.status = "completed" if consumed_at_issue else "issued"
 
         # Notify requester
         requester = db.query(User).filter(User.id == req.requested_by).first()
         if requester:
-            notify_tool_issued(db, requester, tool.name, req.to_date)
+            if consumed_at_issue:
+                notify_consumable_issued(db, requester, tool.name, req.quantity_requested)
+            else:
+                notify_tool_issued(db, requester, tool.name, req.to_date)
 
         # Audit log
-        log_action(db, str(current_user.id), "TOOL_ISSUED", "issuance_logs", str(log.id), {
+        log_action(db, str(current_user.id), "CONSUMABLE_ISSUED" if consumed_at_issue else "TOOL_ISSUED", "issuance_logs", str(log.id), {
             "tool_id": str(tool.id),
             "tool_name": tool.name,
             "issued_to": str(req.requested_by),
             "quantity": req.quantity_requested,
+            "consumed_at_issue": consumed_at_issue,
         })
 
         db.commit()

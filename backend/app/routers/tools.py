@@ -199,6 +199,11 @@ def create_tool(
         last_calibration_date=payload.last_calibration_date,
         next_calibration_due=next_cal_due,
         service_partner=payload.service_partner,
+        status=(
+            "out_of_stock"
+            if payload.is_consumable and payload.total_quantity == 0
+            else "active"
+        ),
     )
     db.add(tool)
     db.flush()
@@ -303,6 +308,12 @@ def update_tool(
     # Recalculate next_calibration_due if calibration fields change
     for field, value in update_data.items():
         setattr(tool, field, value)
+
+    if tool.is_consumable:
+        if tool.total_quantity <= 0:
+            tool.status = "out_of_stock"
+        elif tool.status == "out_of_stock":
+            tool.status = "active"
 
     _sync_calibration_fields(tool, set(update_data))
 

@@ -44,6 +44,11 @@ def notify_tool_issued(db: Session, requester: User, tool_name: str, expected_re
         f"Tool issued: '{tool_name}' has been issued to you. Please return by {expected_return_date}.")
 
 
+def notify_consumable_issued(db: Session, requester: User, tool_name: str, quantity: int):
+    notify_user(db, str(requester.id),
+        f"Consumable issued: {quantity} unit(s) of '{tool_name}' were issued and recorded as consumed. No return is required.")
+
+
 def notify_overdue(db: Session, requester: User, dept_head: User, tool_name: str, days_overdue: int):
     msg = f"OVERDUE: '{tool_name}' was due {days_overdue} day(s) ago. Please return immediately."
     notify_user(db, str(requester.id), msg)

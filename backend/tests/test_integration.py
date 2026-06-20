@@ -271,11 +271,8 @@ class TestHappyPath:
         req_res = client.get(f"/api/requisitions/{req_id}", headers=auth(stf_token))
         assert req_res.json()["status"] == "returned"
 
-    def test_consumable_partial_return(self, client, db):
-        """
-        Issue 10 consumable units, return 7. Verify stock restores by 7 only,
-        and quantity_consumed = 3 is stored.
-        """
+    def test_consumable_is_completed_and_consumed_at_issuance(self, client, db):
+        """Consumables leave stock immediately and never require a return."""
         tool = make_tool(db, quantity=20, is_consumable=True)
 
         usr_token = get_token(client, "USR001", "User@123")
@@ -287,20 +284,26 @@ class TestHappyPath:
         issued = issue_tool(client, stf_token, req["id"])
 
         db.refresh(tool)
-        qty_after_issue = tool.available_quantity  # should be 20 - 10 = 10
+        assert tool.total_quantity == 10
+        assert tool.available_quantity == 10
+        assert tool.status == "active"
+        assert issued["actual_return_date"] is not None
+        assert issued["return_condition"] == "consumed"
+        assert issued["quantity_consumed"] == 10
+        assert issued["quantity_returned"] == 0
 
-        # Partial return: 7 of 10
-        returned = return_tool(client, stf_token, issued["id"], qty_returned=7, condition="good")
+        req_res = client.get(f"/api/requisitions/{req['id']}", headers=auth(stf_token))
+        assert req_res.json()["status"] == "completed"
 
-        db.refresh(tool)
-        # Stock should restore by 7, not 10
-        assert tool.available_quantity == qty_after_issue + 7, (
-            f"Expected {qty_after_issue + 7}, got {tool.available_quantity}"
+        open_res = client.get("/api/issuance?status=open", headers=auth(stf_token))
+        assert issued["id"] not in {row["id"] for row in open_res.json()}
+
+        return_res = client.post(
+            f"/api/returns/{issued['id']}",
+            json={"quantity_returned": 0, "return_condition": "partial"},
+            headers=auth(stf_token),
         )
-        # quantity_consumed = 10 - 7 = 3
-        assert returned["quantity_consumed"] == 3
-        assert returned["quantity_returned"] == 7
-        assert tool.total_quantity == 17, "Consumed consumables must reduce total stock"
+        assert return_res.status_code == 400
 
     def test_depreciation_snapshot_stored_at_issuance(self, client, db):
         """

@@ -35,14 +35,15 @@ function ReqPriorityBadges({ req }) {
 function ReqTimeline({ status }) {
   const rejected = status === 'rejected';
   const cancelled = status === 'cancelled';
+  const completed = status === 'completed';
   const steps = [
     { key:'pending',  label:'Requested', icon:'clipboard' },
     { key:'approved', label:rejected?'Rejected':cancelled?'Cancelled':'Approved', icon:(rejected||cancelled)?'x':'check_circle' },
     { key:'issued',   label:'Issued',    icon:'arrow_right_circle' },
-    { key:'returned', label:'Returned',  icon:'arrow_left_circle' },
+    { key:'returned', label:completed?'Consumed':'Returned', icon:completed?'check_circle':'arrow_left_circle' },
   ];
   const order = ['pending','approved','issued','returned'];
-  const curIdx = order.indexOf((rejected || cancelled) ? 'approved' : status);
+  const curIdx = order.indexOf((rejected || cancelled) ? 'approved' : completed ? 'returned' : status);
   const st = (i) => i < curIdx ? 'done' : i === curIdx ? ((rejected || cancelled)?'rejected':'active') : 'future';
   return (
     <div style={{ display:'flex',alignItems:'flex-start', marginTop: 4 }}>
@@ -287,6 +288,7 @@ function RequisitionsScreen() {
     approved: 'Approved requests ready for issuance will appear here.',
     issued:   'Tools currently issued to you will appear here.',
     returned: 'Completed returns will appear here.',
+    completed: 'Completed consumable issues will appear here.',
     rejected: 'Rejected requests will appear here.',
     cancelled: 'Cancelled requests will appear here.',
     all:      'You have no requisitions yet.',
@@ -355,6 +357,7 @@ function RequisitionsScreen() {
           { val:'approved', label:'Approved', n: count('approved') },
           { val:'issued',   label:'Issued',   n: count('issued') },
           { val:'returned', label:'Returned', n: count('returned') },
+          { val:'completed', label:'Completed', n: count('completed') },
           { val:'rejected', label:'Rejected', n: count('rejected'), tone:'danger' },
           { val:'cancelled', label:'Cancelled', n: count('cancelled') },
         ].map(t => (

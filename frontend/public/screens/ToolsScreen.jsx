@@ -179,7 +179,7 @@ function ToolsScreen() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <Input icon={<Icon name="search" size={14} />} placeholder="Search name or code..." value={search} onChange={(e) => setSearch(e.target.value)} />
           <ToolChipGroup label="Type" value={fType} onChange={setFType} options={[{value:'',label:'All Types'},{value:'general',label:'General'},{value:'specialized',label:'Specialized'}]} />
-          <ToolChipGroup label="Status" value={fStatus} onChange={setFStatus} options={[{value:'',label:'All Statuses'},{value:'active',label:'Active'},{value:'calibration_due',label:'Calibration Due'},{value:'damaged',label:'Damaged'}]} />
+          <ToolChipGroup label="Status" value={fStatus} onChange={setFStatus} options={[{value:'',label:'All Statuses'},{value:'active',label:'Active'},{value:'out_of_stock',label:'Out of Stock'},{value:'calibration_due',label:'Calibration Due'},{value:'damaged',label:'Damaged'}]} />
         </div>
       </Card>
 

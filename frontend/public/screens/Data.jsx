@@ -191,7 +191,7 @@ function buildDamageQueue(closedIssuances, toolById = {}) {
 
 function buildReturnHistory(closedIssuances, toolById = {}) {
   return (closedIssuances || [])
-    .filter(i => i.actual_return_date)
+    .filter(i => i.actual_return_date && i.return_condition !== 'consumed')
     .map(i => {
       const mapped = normalizeIssuance(i, toolById);
       return {
@@ -311,6 +311,7 @@ const API = {
       rejected_requests_count: qty(summary.rejected_requests_count),
       issued_requests_count: qty(summary.issued_requests_count),
       returned_requests_count: qty(summary.returned_requests_count),
+      completed_requests_count: qty(summary.completed_requests_count),
       cancelled_requests_count: qty(summary.cancelled_requests_count),
       active_users_count: qty(summary.active_users_count),
       damaged_or_lost_count: qty(summary.damaged_or_lost_count),

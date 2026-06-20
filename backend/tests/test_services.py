@@ -94,6 +94,24 @@ def test_validate_consumable_return_partial_allowed():
     assert consumed == 4
 
 
+def test_get_tool_locked_requests_database_row_lock():
+    from unittest.mock import MagicMock
+
+    from app.models.master import Tool
+    from app.services.stock import get_tool_locked
+
+    tool = MagicMock(spec=Tool)
+    query = MagicMock()
+    query.filter.return_value = query
+    query.with_for_update.return_value = query
+    query.first.return_value = tool
+    db = MagicMock()
+    db.query.return_value = query
+
+    assert get_tool_locked(db, "tool-id") is tool
+    query.with_for_update.assert_called_once_with()
+
+
 def test_validate_consumable_return_full_return():
     from app.services.stock import validate_consumable_return
     from unittest.mock import MagicMock

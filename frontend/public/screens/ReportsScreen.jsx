@@ -14,11 +14,11 @@ const SEARCH_HINTS = {
 
 const REPORT_TABS = [
   { value: 'stock',       label: 'Stock Status',      desc: 'Current inventory levels, availability and asset values for all tools.' },
-  { value: 'issuance',    label: 'Issuance History',  desc: 'All active tool issuances with current due dates and return status.' },
+  { value: 'issuance',    label: 'Issuance History',  desc: 'Complete tool issuance history, including active and returned records.' },
   { value: 'overdue',     label: 'Overdue',           desc: 'Tools that have passed their expected return date and require follow-up.' },
   { value: 'calibration', label: 'Calibration',       desc: 'Tools with scheduled, due, or overdue calibration requirements.' },
-  { value: 'damage',      label: 'Damage & Penalty',  desc: 'Tools returned in damaged or missing condition pending assessment.' },
-  { value: 'utilization', label: 'Utilization',       desc: 'Tool usage rates and availability across departments.' },
+  { value: 'damage',      label: 'Damage & Penalty',  desc: 'Completed damage assessments and penalties recorded against borrowers.' },
+  { value: 'utilization', label: 'Utilization',       desc: 'Request and issuance activity summarized by department.' },
   { value: 'depreciation',label: 'Depreciation',      desc: 'Asset value depreciation by tool over time.' },
 ];
 
@@ -41,6 +41,7 @@ function StatusPill({ status }) {
     overdue:         { bg: 'var(--danger-bg)',   fg: 'var(--danger-text)',  label: 'Overdue' },
     due_today:       { bg: 'var(--warning-bg)',  fg: 'var(--warning-text)', label: 'Due Today' },
     on_time:         { bg: 'var(--success-bg)',  fg: 'var(--success-text)', label: 'On Time' },
+    returned:        { bg: 'var(--info-bg)',     fg: 'var(--info-text)',    label: 'Returned' },
     missing:         { bg: 'var(--danger-bg)',   fg: 'var(--danger-text)',  label: 'Missing' },
   }[status] || { bg: 'var(--surface-sunken)', fg: 'var(--text-muted)', label: status };
   return <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 'var(--radius-pill)', background: cfg.bg, color: cfg.fg, whiteSpace: 'nowrap' }}>{cfg.label}</span>;
@@ -51,6 +52,26 @@ function MoneyCell({ value }) {
     return <span style={{ color: 'var(--text-subtle)' }}>Not set</span>;
   }
   return <span style={{ fontFamily: 'monospace' }}>{window.inr(value)}</span>;
+}
+
+function reportDate(value) {
+  if (!value) return '-';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function reportIssuanceState(row) {
+  if (row.actual_return_date) return { state: 'returned', days_left: null };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(row.expected_return_date);
+  due.setHours(0, 0, 0, 0);
+  const daysLeft = Math.round((due - today) / 86400000);
+  return {
+    state: daysLeft < 0 ? 'overdue' : daysLeft === 0 ? 'due_today' : 'on_time',
+    days_left: daysLeft,
+  };
 }
 
 /* ── Sort icon ─────────────────────────────────────────────────────── */
@@ -171,15 +192,38 @@ function getReportConfig(tab, search) {
 
   const stockRows = (window.MOCK.REPORT_STOCK || []).filter(r =>
     !q || `${r.code || ''} ${r.name || ''} ${r.type || ''} ${r.status || ''}`.toLowerCase().includes(q));
-  const issuanceRows = (window.MOCK.ACTIVE_ISSUANCES || []).filter(r =>
+  const issuanceRows = (window.MOCK.REPORT_ISSUANCE || []).map(r => ({
+    ...r,
+    issued_to: r.borrower_name || '-',
+    dept: r.borrower_dept || '-',
+    issued_on: reportDate(r.issued_at),
+    due: reportDate(r.expected_return_date),
+    returned_on: reportDate(r.actual_return_date),
+    ...reportIssuanceState(r),
+  })).filter(r =>
     !q || `${r.tool_name || ''} ${r.tool_code || ''} ${r.issued_to || ''} ${r.dept || ''}`.toLowerCase().includes(q));
-  const overdueRows = issuanceRows.filter(r => r.state === 'overdue' || r.state === 'due_today');
+  const overdueRows = (window.MOCK.REPORT_OVERDUE || []).map(r => ({
+    ...r,
+    issued_to: r.borrower_name || '-',
+    dept: r.borrower_dept || '-',
+    due: reportDate(r.expected_return_date),
+    state: 'overdue',
+    days_left: -Number(r.days_overdue || 0),
+  })).filter(r =>
+    !q || `${r.tool_name || ''} ${r.issued_to || ''} ${r.dept || ''}`.toLowerCase().includes(q));
   const calRows = (window.MOCK.CALIBRATION || []).filter(r =>
     !q || `${r.tool_name || ''} ${r.tool_code || ''} ${r.service_partner || ''} ${r.freq || ''} ${r.next || ''}`.toLowerCase().includes(q));
-  const dmgRows = (window.MOCK.PENDING_DAMAGE || []).filter(r =>
-    !q || `${r.tool_name || ''} ${r.tool_code || ''} ${r.returned_by || ''}`.toLowerCase().includes(q));
-  const utilRows = (window.MOCK.TOOLS || []).filter(r =>
-    !q || `${r.tool_code || ''} ${r.name || ''} ${r.tool_type || ''}`.toLowerCase().includes(q));
+  const dmgRows = (window.MOCK.REPORT_DAMAGE || []).map(r => ({
+    ...r,
+    returned_by: r.borrower_name || '-',
+    dept: r.borrower_dept || '-',
+    returned_on: reportDate(r.actual_return_date),
+  })).filter(r =>
+    !q || `${r.tool_name || ''} ${r.returned_by || ''} ${r.dept || ''} ${r.damage_type || ''}`.toLowerCase().includes(q));
+  const utilRows = (window.MOCK.REPORT_UTILIZATION || []).filter(r =>
+    !q || `${r.department || ''} ${r.most_borrowed_tool || ''}`.toLowerCase().includes(q));
+  const depreciationRows = (window.MOCK.REPORT_DEPRECIATION || []).filter(r =>
+    !q || `${r.tool_code || ''} ${r.name || ''} ${r.status || ''}`.toLowerCase().includes(q));
 
   const configs = {
     stock: {
@@ -205,10 +249,12 @@ function getReportConfig(tab, search) {
         { key: 'tool_name', header: 'Tool', render: (r) => <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{r.tool_name}</span> },
         { key: 'tool_code', header: 'Code', render: (r) => <span style={{ fontFamily: 'monospace', fontSize: 12.5, color: 'var(--text-muted)' }}>{r.tool_code}</span> },
         { key: 'issued_to', header: 'Issued To', render: (r) => <div><div style={{ fontWeight: 500 }}>{r.issued_to}</div><div style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>{r.dept}</div></div> },
+        { key: 'quantity_issued', header: 'Qty', align: 'right' },
         { key: 'issued_on', header: 'Issued On', render: (r) => <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{r.issued_on}</span> },
         { key: 'due', header: 'Due', render: (r) => <span style={{ color: r.state === 'overdue' ? 'var(--danger-text)' : 'var(--text-muted)', fontWeight: r.state === 'overdue' ? 600 : 400 }}>{r.due}</span> },
+        { key: 'returned_on', header: 'Returned', render: (r) => <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{r.returned_on}</span> },
         { key: 'state', header: 'Status', render: (r) => <StatusPill status={r.state} /> },
-        { key: 'days_left', header: 'Days Left', align: 'right', render: (r) => <span style={{ fontWeight: 600, color: r.state === 'overdue' ? 'var(--danger-text)' : r.state === 'due_today' ? 'var(--warning-text)' : 'var(--success-text)' }}>{r.state === 'overdue' ? `−${Math.abs(r.days_left)}` : r.days_left}</span> },
+        { key: 'days_left', header: 'Days Left', align: 'right', render: (r) => <span style={{ fontWeight: 600, color: r.state === 'overdue' ? 'var(--danger-text)' : r.state === 'due_today' ? 'var(--warning-text)' : 'var(--success-text)' }}>{r.days_left == null ? '-' : r.state === 'overdue' ? `−${Math.abs(r.days_left)}` : r.days_left}</span> },
       ],
     },
     overdue: {
@@ -237,37 +283,40 @@ function getReportConfig(tab, search) {
     },
     damage: {
       rows: dmgRows,
-      sortable: ['current_value'],
+      sortable: ['penalty_amount', 'returned_on'],
       columns: [
         { key: 'tool_name', header: 'Tool', render: (r) => <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{r.tool_name}</span> },
-        { key: 'tool_code', header: 'Code', render: (r) => <span style={{ fontFamily: 'monospace', fontSize: 12.5, color: 'var(--text-muted)' }}>{r.tool_code}</span> },
         { key: 'returned_by', header: 'Returned By', render: (r) => <div><div style={{ fontWeight: 500 }}>{r.returned_by}</div><div style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>{r.dept}</div></div> },
         { key: 'returned_on', header: 'Date', render: (r) => <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{r.returned_on}</span> },
-        { key: 'condition', header: 'Condition', render: (r) => <StatusPill status={r.condition} /> },
-        { key: 'current_value', header: 'Tool Value', align: 'right', render: (r, inr) => <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{inr(r.current_value)}</span> },
+        { key: 'return_condition', header: 'Condition', render: (r) => <StatusPill status={r.return_condition} /> },
+        { key: 'damage_type', header: 'Assessment', render: (r) => <span style={{ textTransform: 'capitalize' }}>{String(r.damage_type || '-').replaceAll('_', ' ')}</span> },
+        { key: 'penalty_amount', header: 'Penalty', align: 'right', render: (r) => <MoneyCell value={r.penalty_amount} /> },
       ],
     },
     utilization: {
       rows: utilRows,
-      sortable: ['available', 'total'],
+      sortable: ['total_requests', 'total_issued', 'active_issuances', 'overdue_count'],
       columns: [
-        { key: 'tool_code', header: 'Code', render: (r) => <span style={{ fontFamily: 'monospace', fontSize: 12.5, color: 'var(--text-muted)' }}>{r.tool_code}</span> },
-        { key: 'name', header: 'Tool', render: (r) => <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{r.name}</span> },
-        { key: 'tool_type', header: 'Type', render: (r) => <span style={{ color: 'var(--text-muted)', textTransform: 'capitalize' }}>{r.tool_type}</span> },
-        { key: 'available', header: 'Available', align: 'right', render: (r) => <span style={{ fontWeight: 600, color: r.available === 0 ? 'var(--danger-text)' : 'var(--success-text)' }}>{r.available}</span> },
-        { key: 'total', header: 'Total', align: 'right' },
-        { key: 'status', header: 'Status', render: (r) => <StatusPill status={r.status} /> },
+        { key: 'department', header: 'Department', render: (r) => <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{r.department}</span> },
+        { key: 'total_requests', header: 'Requests', align: 'right' },
+        { key: 'approved_requests', header: 'Approved', align: 'right' },
+        { key: 'total_issued', header: 'Issued', align: 'right' },
+        { key: 'active_issuances', header: 'Active', align: 'right' },
+        { key: 'overdue_count', header: 'Overdue', align: 'right', render: (r) => <span style={{ color: r.overdue_count ? 'var(--danger-text)' : 'var(--text-default)', fontWeight: 600 }}>{r.overdue_count}</span> },
+        { key: 'most_borrowed_tool', header: 'Most Borrowed Tool', render: (r) => <span style={{ color: 'var(--text-muted)' }}>{r.most_borrowed_tool || '-'}</span> },
       ],
     },
     depreciation: {
-      rows: stockRows,
-      sortable: ['value'],
+      rows: depreciationRows,
+      sortable: ['purchase_price', 'current_value', 'depreciation_to_date', 'depreciation_pct'],
       columns: [
-        { key: 'code', header: 'Code', render: (r) => <span style={{ fontFamily: 'monospace', fontSize: 12.5, color: 'var(--text-muted)' }}>{r.code}</span> },
+        { key: 'tool_code', header: 'Code', render: (r) => <span style={{ fontFamily: 'monospace', fontSize: 12.5, color: 'var(--text-muted)' }}>{r.tool_code}</span> },
         { key: 'name', header: 'Tool', render: (r) => <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{r.name}</span> },
-        { key: 'total', header: 'Qty', align: 'right' },
-        { key: 'value', header: 'Current Value', align: 'right', render: (r) => <MoneyCell value={r.value} /> },
-        { key: 'unit_value', header: 'Unit Value', align: 'right', render: (r) => <MoneyCell value={r.current_unit_value} /> },
+        { key: 'purchase_date', header: 'Purchased', render: (r) => <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{reportDate(r.purchase_date)}</span> },
+        { key: 'purchase_price', header: 'Purchase Value', align: 'right', render: (r) => <MoneyCell value={r.purchase_price} /> },
+        { key: 'current_value', header: 'Current Value', align: 'right', render: (r) => <MoneyCell value={r.current_value} /> },
+        { key: 'depreciation_to_date', header: 'Depreciated', align: 'right', render: (r) => <MoneyCell value={r.depreciation_to_date} /> },
+        { key: 'depreciation_pct', header: 'Depreciation %', align: 'right', render: (r) => <span style={{ fontFamily: 'monospace' }}>{r.depreciation_pct == null ? '-' : `${r.depreciation_pct}%`}</span> },
         { key: 'status', header: 'Status', render: (r) => <StatusPill status={r.status} /> },
       ],
     },

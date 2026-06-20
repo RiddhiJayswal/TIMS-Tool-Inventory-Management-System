@@ -12,11 +12,17 @@ from app.models.transaction import IssuanceLog
 
 def get_tool_locked(db: Session, tool_id: str) -> Tool:
     """
-    Fetch tool for stock modification.
-    NOTE: SELECT FOR UPDATE is not supported by SQLite; a plain query is used instead.
-    For PostgreSQL, replace with: db.query(Tool).with_for_update().filter(Tool.id == tool_id).first()
+    Fetch and lock a tool row for stock modification.
+
+    SQLAlchemy omits FOR UPDATE on databases such as SQLite that do not support it,
+    while PostgreSQL holds the row lock until the surrounding transaction ends.
     """
-    tool = db.query(Tool).filter(Tool.id == tool_id).first()
+    tool = (
+        db.query(Tool)
+        .filter(Tool.id == tool_id)
+        .with_for_update()
+        .first()
+    )
     if not tool:
         raise HTTPException(status_code=404, detail="Tool not found")
     return tool

@@ -67,7 +67,14 @@ def issue_tool(
     sync_calibration_statuses(db)
     try:
         # Check 1: Requisition exists and is approved
-        req = db.query(Requisition).filter(Requisition.id == payload.requisition_id).first()
+        # Lock the requisition first so two workers cannot issue the same approved
+        # request. The tool row is locked immediately afterwards for stock safety.
+        req = (
+            db.query(Requisition)
+            .filter(Requisition.id == payload.requisition_id)
+            .with_for_update()
+            .first()
+        )
         if not req:
             raise HTTPException(404, "Requisition not found")
         if req.status != "approved":

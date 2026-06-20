@@ -12,7 +12,12 @@ from app.routers.issuance import _issuance_to_dict
 from app.schemas.issuance import ReturnCreate
 from app.services.audit import log_action
 from app.services.notifications import notify_user
-from app.services.stock import consume_stock, restore_stock, validate_consumable_return
+from app.services.stock import (
+    consume_stock,
+    restore_stock,
+    validate_consumable_return,
+    validate_damage_return,
+)
 
 router = APIRouter(prefix="/returns", tags=["returns"])
 
@@ -41,6 +46,11 @@ def process_return(
             )
         if payload.return_condition in ("damaged", "missing") and not (payload.notes or "").strip():
             raise HTTPException(400, "Notes are required for damaged or missing returns")
+        validate_damage_return(
+            log.quantity_issued,
+            payload.quantity_returned,
+            payload.return_condition,
+        )
 
         tool = db.query(Tool).filter(Tool.id == log.tool_id).first()
         if not tool:

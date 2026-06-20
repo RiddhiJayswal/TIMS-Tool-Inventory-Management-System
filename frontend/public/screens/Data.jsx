@@ -199,6 +199,23 @@ function buildReturnHistory(closedIssuances, toolById = {}) {
     });
 }
 
+function buildDamageHistory(assessments) {
+  return (assessments || []).map(row => ({
+    id: row.issuance_id,
+    tool_name: row.tool_name || '-',
+    tool_code: row.tool_code || '-',
+    returned_by: row.borrower_name || '-',
+    dept: row.borrower_dept || '-',
+    condition: row.return_condition || 'damaged',
+    kind: row.damage_type,
+    penalty: qty(row.penalty_amount),
+    assessedOn: fmtDate(row.actual_return_date),
+    returned_on: fmtDate(row.actual_return_date),
+    current_value: qty(row.depreciated_value_at_issue),
+    notes: row.notes || '',
+  }));
+}
+
 const API = {
   login: async (employeeId, password) => {
     const form = new URLSearchParams({ username: employeeId, password });
@@ -396,10 +413,11 @@ const API = {
   },
 
   loadIssuances: async () => {
-    const [queue, issuances, closedIssuances] = await Promise.all([
+    const [queue, issuances, closedIssuances, damageAssessments] = await Promise.all([
       apiFetch('/requisitions?status=approved').catch(() => []),
       apiFetch('/issuance?status=open').catch(() => []),
       apiFetch('/issuance?status=closed').catch(() => []),
+      apiFetch('/reports/damage-penalty').catch(() => []),
     ]);
 
     const toolById = {};
@@ -433,6 +451,7 @@ const API = {
     window.MOCK.ACTIVE_ISSUANCES = issuances.map(i => normalizeIssuance(i, toolById));
     window.MOCK.PENDING_DAMAGE = buildDamageQueue(closedIssuances, toolById);
     window.MOCK.RETURN_HISTORY = buildReturnHistory(closedIssuances, toolById);
+    window.MOCK.DAMAGE_HISTORY = buildDamageHistory(damageAssessments);
   },
 
   loadReports: async () => {
@@ -450,6 +469,7 @@ const API = {
     window.MOCK.REPORT_OVERDUE = overdue;
     window.MOCK.REPORT_CALIBRATION = calibration;
     window.MOCK.REPORT_DAMAGE = damage;
+    window.MOCK.DAMAGE_HISTORY = buildDamageHistory(damage);
     window.MOCK.REPORT_UTILIZATION = utilization;
     window.MOCK.REPORT_DEPRECIATION = depreciation;
   },
@@ -623,6 +643,7 @@ Object.assign(window, {
     REPORT_UTILIZATION: [],
     REPORT_DEPRECIATION: [],
     RETURN_HISTORY: [],
+    DAMAGE_HISTORY: [],
     USERS: [],
     ACCESS_REQUESTS: [],
   },

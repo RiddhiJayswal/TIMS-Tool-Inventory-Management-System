@@ -351,7 +351,9 @@ def report_damage_penalty(
         req = db.query(Requisition).filter(Requisition.id == log.requisition_id).first()
         data.append(
             {
+                "issuance_id": str(log.id),
                 "requisition_number": req.requisition_number if req else None,
+                "tool_code": tool.tool_code if tool else None,
                 "tool_name": tool.name if tool else None,
                 "borrower_name": borrower.full_name if borrower else None,
                 "borrower_dept": borrower.department if borrower else None,

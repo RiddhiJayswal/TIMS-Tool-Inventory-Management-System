@@ -310,7 +310,9 @@ function ProcessReturnModal({ item, onClose, onConfirm }) {
     setErr('');
     try {
       const returnedQty = condition === 'missing' ? 0 : Number(qtyReturned || 0);
-      if (returnedQty < 0 || returnedQty > Number(item.qty || 0)) throw new Error('Returned quantity must be between 0 and issued quantity');
+      const issuedQty = Number(item.qty || 0);
+      if (returnedQty < 0 || returnedQty > issuedQty) throw new Error('Returned quantity must be between 0 and issued quantity');
+      if (condition === 'damaged' && returnedQty !== issuedQty) throw new Error(`A damaged return must account for all ${issuedQty} issued unit(s)`);
       if (warn && !notes.trim()) throw new Error('Notes are required for damaged or missing returns');
       await window.API.processReturn(item.id, {
         quantity_returned: returnedQty,
@@ -333,7 +335,7 @@ function ProcessReturnModal({ item, onClose, onConfirm }) {
         <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'monospace' }}>{item.tool_code} - issued to {item.issued_to}</div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-        <Input label="Quantity returned" required type="number" value={qtyReturned} onChange={(e) => setQtyReturned(e.target.value)} min="0" max={item.qty} />
+        <Input label="Quantity returned" required type="number" value={condition === 'missing' ? 0 : qtyReturned} onChange={(e) => setQtyReturned(e.target.value)} min="0" max={item.qty} disabled={condition === 'missing'} />
         <Select label="Condition" required value={condition} onChange={(e) => setCondition(e.target.value)}>
           <option value="good">Good</option>
           <option value="partial">Partial</option>
@@ -420,7 +422,7 @@ function ReturnsScreen() {
   const [activeList, setActiveList] = React.useState(window.MOCK.ACTIVE_ISSUANCES || []);
   const [damageList, setDamageList] = React.useState(window.MOCK.PENDING_DAMAGE || []);
   const [returnHistory, setReturnHistory] = React.useState(window.MOCK.RETURN_HISTORY || []);
-  const [damageHistory, setDamageHistory] = React.useState([]);
+  const [damageHistory, setDamageHistory] = React.useState(window.MOCK.DAMAGE_HISTORY || []);
   const [viewMode, setViewMode] = React.useState('list');
   const [recordsTab, setRecordsTab] = React.useState('returns');
   const [search, setSearch] = React.useState('');
@@ -459,7 +461,8 @@ function ReturnsScreen() {
     setActiveList(window.MOCK.ACTIVE_ISSUANCES || []);
     setDamageList(window.MOCK.PENDING_DAMAGE || []);
     setReturnHistory(window.MOCK.RETURN_HISTORY || []);
-  }, [window.MOCK.ACTIVE_ISSUANCES, window.MOCK.PENDING_DAMAGE, window.MOCK.RETURN_HISTORY]);
+    setDamageHistory(window.MOCK.DAMAGE_HISTORY || []);
+  }, [window.MOCK.ACTIVE_ISSUANCES, window.MOCK.PENDING_DAMAGE, window.MOCK.RETURN_HISTORY, window.MOCK.DAMAGE_HISTORY]);
 
   const all = activeList;
   const activeUnits = all.reduce((sum, i) => sum + Number(i.qty || 0), 0);
@@ -648,7 +651,7 @@ function ReturnsScreen() {
         </Card>
       )}
       {ret && <ProcessReturnModal item={ret} onClose={() => setRet(null)} onConfirm={(id, extra) => { const found = activeList.find(i => i.id === id); setActiveList(window.MOCK.ACTIVE_ISSUANCES || []); setDamageList(window.MOCK.PENDING_DAMAGE || []); if (found) { setReturnHistory(h => [...h, { ...found, condition: extra?.condition || 'good', returnedOn: new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) }]); showSuccess(`Return for ${found.tool_name} confirmed successfully.`); } }} />}
-      {dmg && <RecordDamageModal item={dmg} onClose={() => setDmg(null)} onConfirm={(id, extra) => { const found = damageList.find(i => i.id === id); setActiveList(window.MOCK.ACTIVE_ISSUANCES || []); setDamageList(window.MOCK.PENDING_DAMAGE || []); if (found) { setDamageHistory(h => [...h, { ...found, kind: extra?.kind, penalty: extra?.penalty || 0, assessedOn: new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) }]); showSuccess(`Damage assessment for ${found.tool_name} recorded.`); } }} />}
+      {dmg && <RecordDamageModal item={dmg} onClose={() => setDmg(null)} onConfirm={(id) => { const found = damageList.find(i => i.id === id); setActiveList(window.MOCK.ACTIVE_ISSUANCES || []); setDamageList(window.MOCK.PENDING_DAMAGE || []); setDamageHistory(window.MOCK.DAMAGE_HISTORY || []); if (found) showSuccess(`Damage assessment for ${found.tool_name} recorded.`); }} />}
       {viewDmg && <ViewDamageModal    item={viewDmg} onClose={() => setViewDmg(null)} />}
       {retHist && <ReturnHistoryModal item={retHist} onClose={() => setRetHist(null)} />}
       {selectedIssuance && <window.IssuanceDetailModal issuance={selectedIssuance} onClose={() => setSelectedIssuance(null)} />}

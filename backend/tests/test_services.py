@@ -112,6 +112,22 @@ def test_get_tool_locked_requests_database_row_lock():
     query.with_for_update.assert_called_once_with()
 
 
+def test_damage_return_must_account_for_entire_issuance():
+    from fastapi import HTTPException
+
+    from app.services.stock import validate_damage_return
+
+    validate_damage_return(3, 3, "damaged")
+    validate_damage_return(3, 0, "missing")
+
+    for issued, returned, condition in ((3, 1, "damaged"), (3, 1, "missing")):
+        try:
+            validate_damage_return(issued, returned, condition)
+            assert False, f"Expected {condition} quantity validation to fail"
+        except HTTPException as exc:
+            assert exc.status_code == 400
+
+
 def test_validate_consumable_return_full_return():
     from app.services.stock import validate_consumable_return
     from unittest.mock import MagicMock

@@ -217,6 +217,7 @@ function ReturnRequestModal({ req, issuance, onClose, onReturned }) {
       const returnedQty = condition === 'missing' ? 0 : Number(qty || 0);
       const issuedQty = Number(issuance.quantity_issued || issuance.qty || req.qty || 1);
       if (returnedQty < 0 || returnedQty > issuedQty) throw new Error('Returned quantity must be between 0 and issued quantity');
+      if (condition === 'damaged' && returnedQty !== issuedQty) throw new Error(`A damaged return must account for all ${issuedQty} issued unit(s)`);
       if (warn && !notes.trim()) throw new Error('Notes are required for damaged or missing returns');
       await window.API.processReturn(issuance.id, {
         quantity_returned: returnedQty,
@@ -240,7 +241,7 @@ function ReturnRequestModal({ req, issuance, onClose, onReturned }) {
         <div style={{ fontSize:11.5, color:'var(--text-muted)', marginTop:2, fontFamily:'monospace' }}>{req.requisition_number}</div>
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
-        <Input label="Quantity returned" required type="number" value={qty} min="0" max={issuance.quantity_issued || issuance.qty || req.qty || 1} onChange={e => setQty(e.target.value)} />
+        <Input label="Quantity returned" required type="number" value={condition === 'missing' ? 0 : qty} min="0" max={issuance.quantity_issued || issuance.qty || req.qty || 1} onChange={e => setQty(e.target.value)} disabled={condition === 'missing'} />
         <Select label="Condition" required value={condition} onChange={e => setCondition(e.target.value)}>
           <option value="good">Good</option>
           <option value="partial">Partial</option>

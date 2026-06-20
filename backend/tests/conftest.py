@@ -5,6 +5,7 @@ from datetime import date, timedelta
 # Must happen BEFORE any app imports so app.config reads the right values
 os.environ.setdefault("DATABASE_URL", "postgresql://tims_user:tims_pass@localhost:5432/tims_test")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-unit-tests-only")
+os.environ.setdefault("TIMS_DISABLE_SCHEDULER", "1")
 
 import pytest
 

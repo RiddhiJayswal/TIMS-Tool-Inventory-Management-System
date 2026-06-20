@@ -1,1 +1,0 @@
-still this reports page UI have one long horizontal scroll bar and UI also have glicthces in mobile view also the other pages have horizontal items list or toollist ....make it vertical list with all the sub features

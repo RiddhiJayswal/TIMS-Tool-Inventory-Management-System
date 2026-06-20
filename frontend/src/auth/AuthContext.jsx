@@ -10,10 +10,22 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const stored = localStorage.getItem('tims_user')
     const token = localStorage.getItem('tims_token')
-    if (stored && token) {
-      setUser(JSON.parse(stored))
+    if (!stored || !token) {
+      setLoading(false)
+      return
     }
-    setLoading(false)
+    setUser(JSON.parse(stored))
+    authAPI.me()
+      .then((res) => {
+        localStorage.setItem('tims_user', JSON.stringify(res.data))
+        setUser(res.data)
+      })
+      .catch(() => {
+        localStorage.removeItem('tims_token')
+        localStorage.removeItem('tims_user')
+        setUser(null)
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   const login = async (employee_id, password) => {

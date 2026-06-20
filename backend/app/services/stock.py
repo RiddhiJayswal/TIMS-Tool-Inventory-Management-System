@@ -3,11 +3,32 @@ Stock management service — ALL functions must be called inside an active db tr
 The caller (router) wraps in try/except and calls db.rollback() on failure.
 """
 
-from sqlalchemy import func
+import json
+from datetime import date
+from sqlalchemy import func, Date
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.models.master import Tool
-from app.models.transaction import IssuanceLog
+from app.models.transaction import IssuanceLog, Requisition
+
+BREAKDOWN_PREFIX = "RETURN_BREAKDOWN:"
+
+
+def _return_breakdown(notes: str | None) -> dict:
+    if not notes:
+        return {"good": 0, "damaged": 0, "missing": 0}
+    first = notes.split("\n", 1)[0]
+    if not first.startswith(BREAKDOWN_PREFIX):
+        return {"good": 0, "damaged": 0, "missing": 0}
+    try:
+        data = json.loads(first[len(BREAKDOWN_PREFIX):])
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {"good": 0, "damaged": 0, "missing": 0}
+    return {
+        "good": int(data.get("good", 0) or 0),
+        "damaged": int(data.get("damaged", 0) or 0),
+        "missing": int(data.get("missing", 0) or 0),
+    }
 
 
 def validate_writeoff_eligibility(tool: Tool) -> None:
@@ -97,7 +118,10 @@ def get_open_issued_by_tool(db: Session) -> dict:
     rows = (
         db.query(
             IssuanceLog.tool_id,
-            func.coalesce(func.sum(IssuanceLog.quantity_issued), 0).label("issued_quantity"),
+            func.coalesce(
+                func.sum(IssuanceLog.quantity_issued - func.coalesce(IssuanceLog.quantity_returned, 0)),
+                0,
+            ).label("issued_quantity"),
         )
         .filter(IssuanceLog.actual_return_date == None)
         .group_by(IssuanceLog.tool_id)
@@ -106,21 +130,76 @@ def get_open_issued_by_tool(db: Session) -> dict:
     return {tool_id: int(qty or 0) for tool_id, qty in rows}
 
 
-def get_pending_damage_by_tool(db: Session) -> dict:
+def get_reserved_by_tool(db: Session) -> dict:
+    today = date.today()
     rows = (
         db.query(
-            IssuanceLog.tool_id,
-            func.coalesce(func.sum(IssuanceLog.quantity_issued), 0).label("pending_quantity"),
+            Requisition.tool_id,
+            func.coalesce(func.sum(Requisition.quantity_requested), 0).label("reserved_quantity"),
         )
+        .filter(
+            Requisition.status == "approved",
+            Requisition.to_date >= today,
+        )
+        .group_by(Requisition.tool_id)
+        .all()
+    )
+    return {tool_id: int(qty or 0) for tool_id, qty in rows}
+
+
+def get_period_reserved_quantity(
+    db: Session,
+    tool_id,
+    from_date: date,
+    to_date: date,
+    exclude_requisition_id=None,
+) -> int:
+    query = db.query(func.coalesce(func.sum(Requisition.quantity_requested), 0)).filter(
+        Requisition.tool_id == tool_id,
+        Requisition.status == "approved",
+        Requisition.from_date <= to_date,
+        Requisition.to_date >= from_date,
+    )
+    if exclude_requisition_id:
+        query = query.filter(Requisition.id != exclude_requisition_id)
+    return int(query.scalar() or 0)
+
+
+def get_period_open_issued_quantity(db: Session, tool_id, from_date: date, to_date: date) -> int:
+    rows = (
+        db.query(IssuanceLog)
+        .filter(
+            IssuanceLog.tool_id == tool_id,
+            IssuanceLog.actual_return_date == None,
+            IssuanceLog.issued_at.cast(Date) <= to_date,
+            IssuanceLog.expected_return_date >= from_date,
+        )
+        .all()
+    )
+    return sum(
+        max(int(row.quantity_issued or 0) - int(row.quantity_returned or 0), 0)
+        for row in rows
+    )
+
+
+def get_pending_damage_by_tool(db: Session) -> dict:
+    logs = (
+        db.query(IssuanceLog)
         .filter(
             IssuanceLog.actual_return_date != None,
             IssuanceLog.return_condition.in_(["damaged", "missing"]),
             IssuanceLog.damage_type == None,
         )
-        .group_by(IssuanceLog.tool_id)
         .all()
     )
-    return {tool_id: int(qty or 0) for tool_id, qty in rows}
+    result = {}
+    for log in logs:
+        breakdown = _return_breakdown(log.notes)
+        qty = breakdown.get("missing", 0) if log.return_condition == "missing" else breakdown.get("damaged", 0)
+        if qty <= 0:
+            qty = int(log.quantity_returned or log.quantity_issued or 0)
+        result[log.tool_id] = result.get(log.tool_id, 0) + qty
+    return result
 
 
 def get_tool_stock_snapshot(db: Session, include_written_off: bool = False) -> list[dict]:
@@ -129,14 +208,22 @@ def get_tool_stock_snapshot(db: Session, include_written_off: bool = False) -> l
         query = query.filter(Tool.status != "written_off")
 
     issued_by_tool = get_open_issued_by_tool(db)
+    reserved_by_tool = get_reserved_by_tool(db)
     pending_damage_by_tool = get_pending_damage_by_tool(db)
     rows = []
     for tool in query.order_by(Tool.name).all():
         currently_issued = issued_by_tool.get(tool.id, 0)
+        reserved_quantity = reserved_by_tool.get(tool.id, 0)
         pending_damage_quantity = pending_damage_by_tool.get(tool.id, 0)
-        calculated_available = max(tool.total_quantity - currently_issued - pending_damage_quantity, 0)
+        calculated_available = max(
+            tool.total_quantity - currently_issued - reserved_quantity - pending_damage_quantity,
+            0,
+        )
         stored_available = tool.available_quantity
-        unavailable_quantity = max(tool.total_quantity - calculated_available - currently_issued, 0)
+        unavailable_quantity = max(
+            tool.total_quantity - calculated_available - currently_issued - reserved_quantity,
+            0,
+        )
         rows.append(
             {
                 "tool": tool,
@@ -145,6 +232,7 @@ def get_tool_stock_snapshot(db: Session, include_written_off: bool = False) -> l
                 "stored_available_quantity": stored_available,
                 "currently_issued": currently_issued,
                 "issued_quantity": currently_issued,
+                "reserved_quantity": reserved_quantity,
                 "unavailable_quantity": unavailable_quantity,
                 "pending_damage_quantity": pending_damage_quantity,
                 "stock_mismatch": stored_available != calculated_available,
@@ -172,12 +260,6 @@ def validate_consumable_return(tool: Tool, quantity_issued: int, quantity_return
     Raises HTTP 400 for invalid partial return on non-consumable.
     """
     if quantity_returned < quantity_issued:
-        if not tool.is_consumable:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Partial return not allowed for non-consumable tool '{tool.name}'. "
-                       f"Must return all {quantity_issued} units or report as damaged/missing."
-            )
         return quantity_issued - quantity_returned  # quantity_consumed
     return 0
 

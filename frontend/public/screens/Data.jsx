@@ -87,6 +87,8 @@ function normalizeIssuance(i, toolById = {}) {
     tool_code: i.tool_code || tool.tool_code || '-',
     qty: quantity,
     quantity_issued: quantity,
+    quantity_returned: qty(i.quantity_returned),
+    remaining_quantity: qty(i.remaining_quantity ?? Math.max(quantity - qty(i.quantity_returned), 0)),
     issued_to_id: i.issued_to,
     issued_to: i.borrower_name || i.issued_to || '-',
     dept: i.borrower_dept || i.dept || '-',
@@ -121,6 +123,7 @@ function normalizeStockRow(r) {
     available: qty(r.available_quantity),
     total: qty(r.total_quantity),
     issued: qty(r.issued_quantity ?? r.currently_issued),
+    reserved: qty(r.reserved_quantity),
     unavailable: qty(r.unavailable_quantity),
     value: currentValue,
     unit_cost: unitCost,
@@ -153,6 +156,7 @@ function mapTool(t, binMap = {}) {
     available: qty(t.available_quantity),
     total: qty(t.total_quantity),
     issued: qty(t.issued_quantity ?? t.currently_issued),
+    reserved: qty(t.reserved_quantity),
     unavailable: qty(t.unavailable_quantity),
     status: t.status,
     bin: t.storage_bin_code || binMap[t.storage_bin_id] || '-',
@@ -251,6 +255,8 @@ const API = {
     localStorage.removeItem('tims_token');
     localStorage.removeItem('tims_user');
   },
+
+  me: () => apiFetch('/auth/me'),
 
   forgotUsername: (identifier) =>
     apiFetch('/auth/forgot-username', { method: 'POST', body: JSON.stringify({ identifier }) }),
@@ -385,6 +391,8 @@ const API = {
       shelf_level: b.shelf_level || '',
       floor_area: b.floor_area || '',
       capacity: b.capacity,
+      used_units: qty(b.used_units),
+      remaining_capacity: b.remaining_capacity == null ? null : qty(b.remaining_capacity),
       description: b.description || '',
     }));
   },
@@ -510,6 +518,8 @@ const API = {
       shelf_level: b.shelf_level || '',
       floor_area: b.floor_area || '',
       capacity: b.capacity,
+      used_units: qty(b.used_units),
+      remaining_capacity: b.remaining_capacity == null ? null : qty(b.remaining_capacity),
       description: b.description || '',
     }));
   },

@@ -11,6 +11,7 @@ Job 2 — Overdue return check:
   - Notify the borrower and their dept_head
 """
 
+import os
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from datetime import date, timedelta
@@ -95,6 +96,10 @@ def run_overdue_check():
 
 
 def start_scheduler():
+    if os.getenv("TIMS_DISABLE_SCHEDULER") == "1":
+        return
+    if scheduler.running:
+        return
     scheduler.add_job(run_calibration_check, CronTrigger(hour=8, minute=0), id="calibration_check", replace_existing=True)
     scheduler.add_job(run_overdue_check, CronTrigger(hour=8, minute=0), id="overdue_check", replace_existing=True)
     scheduler.start()
@@ -102,4 +107,6 @@ def start_scheduler():
 
 
 def stop_scheduler():
+    if os.getenv("TIMS_DISABLE_SCHEDULER") == "1" or not scheduler.running:
+        return
     scheduler.shutdown()

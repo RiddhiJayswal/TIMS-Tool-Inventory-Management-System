@@ -92,6 +92,7 @@ function BinForm({ bin, onClose }) {
         description:    form.description.trim() || null,
       };
       if (!payload.bin_code || !payload.shelf_label) throw new Error('Bin Code and Shelf Label are required');
+      if (payload.capacity !== null && payload.capacity <= 0) throw new Error('Capacity must be greater than zero');
       if (editing) await window.API.updateBin(bin.id, payload);
       else         await window.API.createBin(payload);
       await Promise.all([window.API.loadBins(), window.API.loadDashboard()]);
@@ -114,7 +115,11 @@ function BinForm({ bin, onClose }) {
           <option value="">Select...</option>
           {BIN_DEPTS.map(d => <option key={d}>{d}</option>)}
         </Select>
+<<<<<<< HEAD
         <Input label="Capacity (tools)" type="number" placeholder="0" value={form.capacity} onChange={set('capacity')} />
+=======
+        <Input label="Capacity" required type="number" min="1" placeholder="1" value={form.capacity} onChange={set('capacity')} />
+>>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
       </Section>
 
       <Section title="Physical Location">
@@ -403,6 +408,7 @@ function StorageBinsScreen() {
                 </div>
               </div>
             )},
+<<<<<<< HEAD
             { key: 'dept_category', header: 'Dept', render: b => (
               b.dept_category
                 ? <span style={{ fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 'var(--radius-pill)', background: 'var(--surface-sunken)', color: 'var(--text-default)' }}>{b.dept_category}</span>
@@ -416,6 +422,12 @@ function StorageBinsScreen() {
             { key: 'actions', header: '', render: b => (
               <Button size="sm" variant="secondary" onClick={e => { e.stopPropagation(); setForm({ bin: b }); }}>Edit</Button>
             )},
+=======
+            { key: 'dept_category', header: 'Dept', render: (b) => <span style={{ color: 'var(--text-muted)' }}>{b.dept_category}</span> },
+            { key: 'capacity', header: 'Occupancy', align: 'right', render: (b) => <span style={{ fontWeight: 600 }}>{Number(b.used_units || 0)} / {b.capacity || '-'}</span> },
+            { key: 'description', header: 'Notes', render: (b) => <span style={{ display: 'block', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: 12.5 }} title={b.description}>{b.description || '-'}</span> },
+            { key: 'actions', header: '', render: (b) => <Button size="sm" variant="secondary" onClick={() => setForm({ bin: b })}>Edit</Button> },
+>>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
           ]}
           rows={rows}
           onRowClick={b => setSelectedBin(b)}

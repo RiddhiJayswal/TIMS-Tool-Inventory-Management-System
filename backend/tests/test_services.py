@@ -181,20 +181,42 @@ def test_validate_consumable_return_full_return():
     assert consumed == 0
 
 
-def test_validate_non_consumable_partial_return_raises():
+def test_validate_non_consumable_partial_return_allowed():
     from app.services.stock import validate_consumable_return
     from unittest.mock import MagicMock
-    from fastapi import HTTPException
 
     tool = MagicMock()
     tool.name = "Torque Wrench"
     tool.is_consumable = False
 
+    consumed = validate_consumable_return(tool, quantity_issued=2, quantity_returned=1)
+    assert consumed == 1
+
+
+def test_return_breakdown_parser_counts_damaged_and_missing():
+    from app.services.stock import _return_breakdown
+
+    notes = 'RETURN_BREAKDOWN:{"good":4,"damaged":1,"missing":0}\nHandle cracked'
+    assert _return_breakdown(notes) == {"good": 4, "damaged": 1, "missing": 0}
+
+
+def test_requisition_create_rejects_past_from_date():
+    from datetime import date, timedelta
+    from pydantic import ValidationError
+    from uuid import uuid4
+    from app.schemas.requisition import RequisitionCreate
+
     try:
-        validate_consumable_return(tool, quantity_issued=2, quantity_returned=1)
-        assert False, "Should have raised HTTPException"
-    except HTTPException as e:
-        assert e.status_code == 400
+        RequisitionCreate(
+            tool_id=uuid4(),
+            quantity_requested=1,
+            purpose_of_job="Valid job purpose",
+            from_date=date.today() - timedelta(days=1),
+            to_date=date.today(),
+        )
+        assert False, "Should have raised ValidationError"
+    except ValidationError as exc:
+        assert "from_date cannot be in the past" in str(exc)
 
 
 def test_snapshot_value_at_issuance_matches_current_value():

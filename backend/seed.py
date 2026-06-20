@@ -28,7 +28,7 @@ engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} i
 Session = sessionmaker(bind=engine)
 
 from app.models.master import StorageBin, Tool
-from app.models.transaction import User, Requisition, IssuanceLog, Notification, AuditLog
+from app.models.transaction import AccessRequest, User, Requisition, IssuanceLog, Notification, AuditLog
 from app.database import Base
 from app.auth.roles import hash_password
 
@@ -51,7 +51,7 @@ def days_from(n): return TODAY + timedelta(days=n)
 # ─────────────────────────────────────────────────────────────────
 def wipe(db):
     print("Wiping existing data…")
-    for model in [Notification, AuditLog, IssuanceLog, Requisition, User, Tool, StorageBin]:
+    for model in [Notification, AuditLog, IssuanceLog, Requisition, AccessRequest, User, Tool, StorageBin]:
         db.query(model).delete()
     db.commit()
     print("  done.")

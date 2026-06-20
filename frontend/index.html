@@ -140,7 +140,12 @@ function App() {
   /* On page reload with existing token: resume session */
   React.useEffect(() => {
     if (!authed) return;
-    window.API.loadDashboard()
+    window.API.me()
+      .then((user) => {
+        localStorage.setItem('tims_user', JSON.stringify(user));
+        window.MOCK.USER = { id: user.id, employee_id: user.employee_id, full_name: user.full_name, department: user.department, role: user.role };
+      })
+      .then(() => window.API.loadDashboard())
       .then(() => window.API.loadNotifications().catch(() => {}))
       .then(() => loadAllScreens())
       .then(() => { setReady(true); setTick(t => t + 1); })
@@ -154,6 +159,7 @@ function App() {
   /* Refresh data whenever the user navigates to a route */
   React.useEffect(() => {
     if (!ready) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     window.API.loadForRoute(route)
       .then(() => setTick(t => t + 1))
       .catch(e => console.warn('Route refresh failed:', e));

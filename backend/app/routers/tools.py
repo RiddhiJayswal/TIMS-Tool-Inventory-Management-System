@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.auth.roles import RequireAdmin, RequireMaintenance, get_current_user
 from app.database import get_db
 from app.models.master import StorageBin, Tool
-from app.models.transaction import AuditLog, IssuanceLog, Notification, User
+from app.models.transaction import AuditLog, IssuanceLog, Notification, Requisition, User
 from app.schemas.tool import ToolCreate, ToolUpdate
 from app.services.calibration_status import sync_calibration_statuses
 from app.services.audit import log_action
@@ -73,6 +73,29 @@ def _stock_row_for_tool(db: Session, tool_id) -> dict | None:
     return None
 
 
+def _bin_used_units(db: Session, bin_id, excluding_tool_id=None) -> int:
+    query = db.query(Tool).filter(Tool.storage_bin_id == bin_id)
+    if excluding_tool_id:
+        query = query.filter(Tool.id != excluding_tool_id)
+    return sum(int(t.total_quantity or 0) for t in query.all())
+
+
+def _validate_bin_capacity(db: Session, bin_id, adding_units: int, excluding_tool_id=None) -> None:
+    if not bin_id:
+        return
+    storage_bin = db.query(StorageBin).filter(StorageBin.id == bin_id).first()
+    if not storage_bin:
+        raise HTTPException(404, "Storage bin not found")
+    if storage_bin.capacity is None:
+        return
+    used_units = _bin_used_units(db, bin_id, excluding_tool_id)
+    if used_units + int(adding_units or 0) > storage_bin.capacity:
+        raise HTTPException(
+            400,
+            f"Storage bin capacity exceeded. Used: {used_units}, Adding: {adding_units}, Capacity: {storage_bin.capacity}",
+        )
+
+
 def _tool_to_dict(tool: Tool, db: Session | None = None, stock_row: dict | None = None) -> dict:
     current_val = calculate_current_value(
         float(tool.purchase_price) if tool.purchase_price else None,
@@ -94,6 +117,7 @@ def _tool_to_dict(tool: Tool, db: Session | None = None, stock_row: dict | None 
         if stock_row
         else max(tool.total_quantity - available_quantity - currently_issued, 0)
     )
+    reserved_quantity = stock_row.get("reserved_quantity", 0) if stock_row else 0
 
     return {
         "id": str(tool.id),
@@ -114,6 +138,7 @@ def _tool_to_dict(tool: Tool, db: Session | None = None, stock_row: dict | None 
         "available_quantity": available_quantity,
         "currently_issued": currently_issued,
         "issued_quantity": currently_issued,
+        "reserved_quantity": reserved_quantity,
         "unavailable_quantity": unavailable_quantity,
         "storage_bin_id": str(tool.storage_bin_id) if tool.storage_bin_id else None,
         "storage_bin_code": storage_bin.bin_code if storage_bin else None,
@@ -172,8 +197,7 @@ def create_tool(
         raise HTTPException(400, f"Tool code '{payload.tool_code}' already exists")
 
     if payload.storage_bin_id:
-        if not db.query(StorageBin).filter(StorageBin.id == payload.storage_bin_id).first():
-            raise HTTPException(404, "Storage bin not found")
+        _validate_bin_capacity(db, payload.storage_bin_id, payload.total_quantity)
 
     next_cal_due = None
     if payload.requires_calibration and payload.last_calibration_date and payload.calibration_freq_days:
@@ -293,6 +317,26 @@ def update_tool(
 
     update_data = payload.model_dump(exclude_unset=True)
 
+    if "is_consumable" in update_data and update_data["is_consumable"] != tool.is_consumable:
+        active_reqs = db.query(Requisition).filter(
+            Requisition.tool_id == tool.id,
+            Requisition.status.in_(["pending", "approved"]),
+        ).count()
+        open_issuances = db.query(IssuanceLog).filter(
+            IssuanceLog.tool_id == tool.id,
+            IssuanceLog.actual_return_date == None,
+        ).count()
+        active_returns = db.query(IssuanceLog).filter(
+            IssuanceLog.tool_id == tool.id,
+            IssuanceLog.return_condition.in_(["damaged", "missing"]),
+            IssuanceLog.damage_type == None,
+        ).count()
+        if active_reqs or open_issuances or active_returns:
+            raise HTTPException(
+                400,
+                "Cannot change consumable type while active requisitions or issuances exist.",
+            )
+
     # Handle total_quantity change
     if "total_quantity" in update_data:
         new_total = update_data["total_quantity"]
@@ -308,6 +352,10 @@ def update_tool(
         tool.available_quantity += delta
         tool.total_quantity = new_total
         del update_data["total_quantity"]
+
+    target_bin_id = update_data.get("storage_bin_id", tool.storage_bin_id)
+    if target_bin_id:
+        _validate_bin_capacity(db, target_bin_id, tool.total_quantity, excluding_tool_id=tool.id)
 
     # Recalculate next_calibration_due if calibration fields change
     for field, value in update_data.items():

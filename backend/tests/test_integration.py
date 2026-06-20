@@ -29,7 +29,8 @@ def auth(token: str) -> dict:
 
 def make_tool(db, *, tool_code=None, quantity=5, is_consumable=False,
               requires_calibration=False, cal_overdue=False,
-              purchase_price=10000, purchase_date=None, standard_life_months=60):
+              purchase_price=10000, purchase_date=None, standard_life_months=60,
+              department_access=None):
     """Insert a fresh Tool row and return it.  Each test uses its own unique tool."""
     from app.models.master import Tool
 
@@ -42,7 +43,8 @@ def make_tool(db, *, tool_code=None, quantity=5, is_consumable=False,
         tool_code=code,
         name=f"Integration Test Tool {code}",
         category="Test",
-        tool_type="general",
+        tool_type="specialized" if department_access else "general",
+        department_access=department_access,
         is_consumable=is_consumable,
         total_quantity=quantity,
         available_quantity=quantity,
@@ -138,6 +140,46 @@ class TestAuth:
         token = get_token(client, "USR001", "User@123")
         res = client.get("/api/tools", headers=auth(token))
         assert res.status_code == 200
+
+    def test_tool_catalogue_and_bin_contents_are_department_scoped(self, client, db):
+        from app.models.master import StorageBin
+
+        bin_code = f"VIS-{__import__('uuid').uuid4().hex[:8].upper()}"
+        storage_bin = StorageBin(bin_code=bin_code, shelf_label="Visibility test")
+        db.add(storage_bin)
+        db.commit()
+        db.refresh(storage_bin)
+
+        unrestricted = make_tool(db)
+        own_department = make_tool(db, department_access="E&I")
+        other_department = make_tool(db, department_access="Mechanical")
+        for tool in (unrestricted, own_department, other_department):
+            tool.storage_bin_id = storage_bin.id
+        db.commit()
+
+        requester_token = get_token(client, "USR001", "User@123")
+        requester_tools = client.get("/api/tools", headers=auth(requester_token)).json()
+        requester_ids = {row["id"] for row in requester_tools}
+        assert str(unrestricted.id) in requester_ids
+        assert str(own_department.id) in requester_ids
+        assert str(other_department.id) not in requester_ids
+
+        bin_tools = client.get(
+            f"/api/storage-bins/{storage_bin.id}/tools",
+            headers=auth(requester_token),
+        ).json()
+        assert {row["id"] for row in bin_tools} == {
+            str(unrestricted.id),
+            str(own_department.id),
+        }
+
+        requester_bins = client.get("/api/storage-bins", headers=auth(requester_token)).json()
+        requester_bin = next(row for row in requester_bins if row["id"] == str(storage_bin.id))
+        assert requester_bin["tool_count"] == 2
+
+        admin_token = get_token(client, "ADM001", "Admin@123")
+        admin_tools = client.get("/api/tools", headers=auth(admin_token)).json()
+        assert str(other_department.id) in {row["id"] for row in admin_tools}
 
     def test_forgot_username_success_and_not_found(self, client):
         res = client.post("/api/auth/forgot-username", json={"identifier": "user@tims.test"})

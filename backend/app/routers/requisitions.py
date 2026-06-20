@@ -20,6 +20,7 @@ from app.services.notifications import (
     notify_user,
 )
 from app.services.requisition_number import generate_requisition_number
+from app.services.tool_visibility import user_can_access_tool
 
 router = APIRouter(prefix="/requisitions", tags=["requisitions"])
 
@@ -95,11 +96,7 @@ def create_requisition(
         raise HTTPException(400, "Tool is currently marked as damaged")
 
     # 2. Validate department access
-    if (
-        tool.department_access
-        and current_user.role not in ("maintenance_admin", "maintenance_staff")
-        and tool.department_access != current_user.department
-    ):
+    if not user_can_access_tool(tool, current_user):
         raise HTTPException(403, "Your department does not have access to this tool")
 
     # 3. Check stock availability
@@ -173,6 +170,8 @@ def check_requisition_availability(
     tool = db.query(Tool).filter(Tool.id == tool_id).first()
     if not tool:
         raise HTTPException(404, "Tool not found")
+    if not user_can_access_tool(tool, current_user):
+        raise HTTPException(403, "Your department does not have access to this tool")
     if from_date > to_date:
         raise HTTPException(400, "Required From date cannot be after Required To date")
     period = _period_availability(db, tool, from_date, to_date)

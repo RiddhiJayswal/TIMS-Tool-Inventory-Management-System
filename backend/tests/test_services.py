@@ -128,6 +128,24 @@ def test_damage_return_must_account_for_entire_issuance():
             assert exc.status_code == 400
 
 
+def test_tool_visibility_scopes_non_maintenance_queries():
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from app.services.tool_visibility import scope_tools_for_user
+
+    query = MagicMock()
+    query.filter.return_value = query
+    requester = SimpleNamespace(role="requester", department="E&I")
+    assert scope_tools_for_user(query, requester) is query
+    query.filter.assert_called_once()
+
+    maintenance_query = MagicMock()
+    staff = SimpleNamespace(role="maintenance_staff", department="Maintenance")
+    assert scope_tools_for_user(maintenance_query, staff) is maintenance_query
+    maintenance_query.filter.assert_not_called()
+
+
 def test_validate_consumable_return_full_return():
     from app.services.stock import validate_consumable_return
     from unittest.mock import MagicMock

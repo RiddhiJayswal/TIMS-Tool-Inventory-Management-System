@@ -16,6 +16,7 @@ from app.services.calibration_status import sync_calibration_statuses
 from app.services.audit import log_action
 from app.services.depreciation import calculate_current_value
 from app.services.stock import get_open_issued_by_tool, get_tool_stock_snapshot
+from app.services.tool_visibility import scope_tools_for_user, user_can_access_tool
 
 router = APIRouter(prefix="/tools", tags=["tools"])
 
@@ -103,7 +104,7 @@ def list_tools(
     db: Session = Depends(get_db),
 ):
     sync_calibration_statuses(db)
-    query = db.query(Tool)
+    query = scope_tools_for_user(db.query(Tool), current_user)
 
     if search:
         query = query.filter(
@@ -192,11 +193,7 @@ def get_tool(
         raise HTTPException(404, "Tool not found")
 
     # Department access check for non-maintenance roles
-    if (
-        current_user.role not in ("maintenance_admin", "maintenance_staff")
-        and tool.department_access
-        and tool.department_access != current_user.department
-    ):
+    if not user_can_access_tool(tool, current_user):
         raise HTTPException(403, "Access denied: tool belongs to a different department")
 
     open_issuances = (

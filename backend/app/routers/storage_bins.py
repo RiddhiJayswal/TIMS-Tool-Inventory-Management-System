@@ -11,6 +11,7 @@ from app.models.transaction import Notification, User
 from app.schemas.storage_bin import StorageBinCreate, StorageBinUpdate
 from app.services.calibration_status import sync_calibration_statuses
 from app.services.stock import get_tool_stock_snapshot
+from app.services.tool_visibility import scope_tools_for_user
 
 router = APIRouter(prefix="/storage-bins", tags=["storage-bins"])
 
@@ -52,7 +53,10 @@ def list_bins(
     bins = db.query(StorageBin).all()
     result = []
     for b in bins:
-        count = db.query(Tool).filter(Tool.storage_bin_id == b.id).count()
+        count = scope_tools_for_user(
+            db.query(Tool).filter(Tool.storage_bin_id == b.id),
+            current_user,
+        ).count()
         result.append(_bin_to_dict(b, count))
     return result
 
@@ -119,7 +123,10 @@ def get_bin_tools(
         raise HTTPException(404, "Storage bin not found")
 
     stock_by_tool = {row["tool"].id: row for row in get_tool_stock_snapshot(db, include_written_off=True)}
-    tools = db.query(Tool).filter(Tool.storage_bin_id == bin_id).all()
+    tools = scope_tools_for_user(
+        db.query(Tool).filter(Tool.storage_bin_id == bin_id),
+        current_user,
+    ).all()
     return [
         {
             "id": str(t.id),

@@ -146,6 +146,28 @@ def test_tool_visibility_scopes_non_maintenance_queries():
     maintenance_query.filter.assert_not_called()
 
 
+def test_period_availability_subtracts_only_overlaps_and_pending_damage():
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock, patch
+    from uuid import uuid4
+
+    from app.routers.requisitions import _period_availability
+
+    tool = SimpleNamespace(id=uuid4(), total_quantity=8)
+    with (
+        patch("app.routers.requisitions._overlapping_issue_quantity", return_value=3),
+        patch(
+            "app.routers.requisitions.get_pending_damage_by_tool",
+            return_value={tool.id: 1},
+        ),
+    ):
+        result = _period_availability(MagicMock(), tool, None, None)
+
+    assert result["overlapping_issued_quantity"] == 3
+    assert result["pending_damage_quantity"] == 1
+    assert result["available_quantity"] == 4
+
+
 def test_validate_consumable_return_full_return():
     from app.services.stock import validate_consumable_return
     from unittest.mock import MagicMock

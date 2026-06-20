@@ -437,6 +437,60 @@ class TestBlockScenarios:
         db.refresh(tool)
         assert tool.available_quantity == 0, f"available_quantity must be 0, got {tool.available_quantity}"
 
+    def test_overlapping_request_uses_remaining_quantity(self, client, db):
+        tool = make_tool(db, quantity=5)
+        usr_token = get_token(client, "USR001", "User@123")
+        hd_token = get_token(client, "HD001", "Head@123")
+        stf_token = get_token(client, "STF001", "Staff@123")
+
+        first = raise_req(client, usr_token, tool.id, qty=2)
+        approve_req(client, hd_token, first["id"])
+        issue_tool(client, stf_token, first["id"])
+
+        # Three units remain for the same period, so an overlap must not block them.
+        second = raise_req(client, usr_token, tool.id, qty=3)
+        assert second["quantity_requested"] == 3
+
+        availability = client.get(
+            "/api/requisitions/availability/check",
+            params={
+                "tool_id": str(tool.id),
+                "quantity": 3,
+                "from_date": date.today().isoformat(),
+                "to_date": (date.today() + timedelta(days=3)).isoformat(),
+            },
+            headers=auth(usr_token),
+        )
+        assert availability.status_code == 200
+        assert availability.json()["request_available"] is True
+        assert availability.json()["available_quantity"] == 3
+
+    def test_future_request_ignores_currently_issued_stock(self, client, db):
+        tool = make_tool(db, quantity=1)
+        usr_token = get_token(client, "USR001", "User@123")
+        hd_token = get_token(client, "HD001", "Head@123")
+        stf_token = get_token(client, "STF001", "Staff@123")
+
+        current = raise_req(client, usr_token, tool.id)
+        approve_req(client, hd_token, current["id"])
+        issue_tool(client, stf_token, current["id"])
+        db.refresh(tool)
+        assert tool.available_quantity == 0
+
+        future_from = date.today() + timedelta(days=4)
+        response = client.post(
+            "/api/requisitions",
+            json={
+                "tool_id": str(tool.id),
+                "quantity_requested": 1,
+                "purpose_of_job": "Future integration test job",
+                "from_date": future_from.isoformat(),
+                "to_date": (future_from + timedelta(days=2)).isoformat(),
+            },
+            headers=auth(usr_token),
+        )
+        assert response.status_code == 201, response.text
+
     def test_partial_return_blocked_for_non_consumable(self, client, db):
         """
         A non-consumable tool must return all units in good condition.

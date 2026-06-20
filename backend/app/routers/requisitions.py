@@ -2,7 +2,7 @@ from datetime import datetime, date
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import Date
 from sqlalchemy.orm import Session
 
@@ -20,6 +20,7 @@ from app.services.notifications import (
     notify_user,
 )
 from app.services.requisition_number import generate_requisition_number
+from app.services.stock import get_pending_damage_by_tool
 from app.services.tool_visibility import user_can_access_tool
 
 router = APIRouter(prefix="/requisitions", tags=["requisitions"])
@@ -41,11 +42,13 @@ def _overlapping_issue_quantity(db: Session, tool_id: UUID, from_date: date, to_
 
 def _period_availability(db: Session, tool: Tool, from_date: date, to_date: date) -> dict:
     overlapping = _overlapping_issue_quantity(db, tool.id, from_date, to_date)
-    available = max(int(tool.total_quantity or 0) - overlapping, 0)
+    pending_damage = get_pending_damage_by_tool(db).get(tool.id, 0)
+    available = max(int(tool.total_quantity or 0) - overlapping - pending_damage, 0)
     return {
         "tool_id": str(tool.id),
         "total_quantity": int(tool.total_quantity or 0),
         "overlapping_issued_quantity": overlapping,
+        "pending_damage_quantity": pending_damage,
         "available_quantity": available,
         "available": available > 0,
     }
@@ -99,14 +102,10 @@ def create_requisition(
     if not user_can_access_tool(tool, current_user):
         raise HTTPException(403, "Your department does not have access to this tool")
 
-    # 3. Check stock availability
-    if tool.available_quantity < payload.quantity_requested:
-        raise HTTPException(
-            400,
-            f"Insufficient stock. Requested: {payload.quantity_requested}, Available: {tool.available_quantity}",
-        )
+    # 3. Check availability for the requested period. Current availability is not
+    # used here because an open issuance may end before a future request begins.
     period = _period_availability(db, tool, payload.from_date, payload.to_date)
-    if period["overlapping_issued_quantity"] > 0 or period["available_quantity"] < payload.quantity_requested:
+    if period["available_quantity"] < payload.quantity_requested:
         raise HTTPException(
             400,
             "Tool is not available for the selected time period. Please choose a different time period.",
@@ -163,7 +162,7 @@ def check_requisition_availability(
     tool_id: UUID,
     from_date: date,
     to_date: date,
-    quantity: int = 1,
+    quantity: int = Query(1, ge=1),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -176,7 +175,7 @@ def check_requisition_availability(
         raise HTTPException(400, "Required From date cannot be after Required To date")
     period = _period_availability(db, tool, from_date, to_date)
     period["requested_quantity"] = quantity
-    period["request_available"] = period["overlapping_issued_quantity"] == 0 and period["available_quantity"] >= quantity
+    period["request_available"] = period["available_quantity"] >= quantity
     period["message"] = (
         "Available for the selected time period."
         if period["request_available"]

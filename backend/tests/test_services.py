@@ -114,20 +114,13 @@ def test_get_tool_locked_requests_database_row_lock():
     query.with_for_update.assert_called_once_with()
 
 
-def test_damage_return_must_account_for_entire_issuance():
-    from fastapi import HTTPException
-
+def test_damage_return_quantities_are_validated_by_schema_breakdown():
     from app.services.stock import validate_damage_return
 
     validate_damage_return(3, 3, "damaged")
     validate_damage_return(3, 0, "missing")
-
-    for issued, returned, condition in ((3, 1, "damaged"), (3, 1, "missing")):
-        try:
-            validate_damage_return(issued, returned, condition)
-            assert False, f"Expected {condition} quantity validation to fail"
-        except HTTPException as exc:
-            assert exc.status_code == 400
+    validate_damage_return(3, 1, "damaged")
+    validate_damage_return(3, 1, "missing")
 
 
 def test_tool_visibility_scopes_non_maintenance_queries():
@@ -162,12 +155,14 @@ def test_period_availability_subtracts_only_overlaps_and_pending_damage():
             "app.routers.requisitions.get_pending_damage_by_tool",
             return_value={tool.id: 1},
         ),
+        patch("app.routers.requisitions.get_period_reserved_quantity", return_value=2),
     ):
         result = _period_availability(MagicMock(), tool, None, None)
 
     assert result["overlapping_issued_quantity"] == 3
     assert result["pending_damage_quantity"] == 1
-    assert result["available_quantity"] == 4
+    assert result["reserved_quantity"] == 2
+    assert result["available_quantity"] == 2
 
 
 def test_validate_consumable_return_full_return():

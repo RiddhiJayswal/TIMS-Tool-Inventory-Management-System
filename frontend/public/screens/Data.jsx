@@ -2,6 +2,32 @@
    Populates window.MOCK from backend endpoints so every screen reads one source. */
 
 const API_BASE = '/api';
+const REQUEST_TIMEOUT_MS = 8000;
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function friendlyErrorMessage(err, fallback = 'Something went wrong. Please try again.') {
+  const raw = typeof err === 'string' ? err : (err && err.message) || '';
+  if (!raw) return fallback;
+  if (/failed to fetch|networkerror|load failed|server unavailable/i.test(raw)) {
+    return 'Server unavailable. Please check your connection or try again in a moment.';
+  }
+  if (/unexpected token|babel|syntaxerror|<<<<<<<|>>>>>>>|stack|trace/i.test(raw)) {
+    return 'The application files could not be loaded correctly. Please reload the page.';
+  }
+  if (/invalid json|json/i.test(raw)) {
+    return 'The server returned an unexpected response. Please try again.';
+  }
+  return raw;
+}
 
 function getToken() {
   return localStorage.getItem('tims_token');
@@ -11,16 +37,21 @@ async function apiFetch(path, options = {}) {
   const token = getToken();
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(API_BASE + path, { ...options, headers });
+  let res;
+  try {
+    res = await fetchWithTimeout(API_BASE + path, { ...options, headers });
+  } catch (err) {
+    throw new Error(friendlyErrorMessage(err, 'Server unavailable. Please try again in a moment.'));
+  }
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    const err = await res.json().catch(() => ({ detail: res.status >= 500 ? 'Server error. Please try again in a moment.' : res.statusText }));
     const detail = err.detail;
     const message = Array.isArray(detail)
       ? detail.map(d => `${(d.loc || []).slice(1).join('.') || 'field'}: ${d.msg}`).join('; ')
       : detail && typeof detail === 'object'
         ? JSON.stringify(detail)
         : detail;
-    const error = new Error(message || `HTTP ${res.status}`);
+    const error = new Error(friendlyErrorMessage(message || `HTTP ${res.status}`));
     if (token) {
       window.dispatchEvent(new CustomEvent('tims:api-error', {
         detail: { message: error.message, path, status: res.status },
@@ -229,16 +260,29 @@ function buildDamageHistory(assessments) {
 const API = {
   login: async (employeeId, password) => {
     const form = new URLSearchParams({ username: employeeId, password });
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: form,
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Login failed' }));
-      throw new Error(err.detail || 'Login failed');
+    let res;
+    try {
+      res = await fetchWithTimeout(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form,
+      });
+    } catch (err) {
+      throw new Error('Server unavailable. Please check your connection or try again in a moment.');
     }
-    const data = await res.json();
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.status >= 500 ? 'Server error. Please try again in a moment.' : 'Invalid employee ID or password.' }));
+      const detail = Array.isArray(err.detail)
+        ? err.detail.map(e => e.msg || String(e)).join('. ')
+        : err.detail;
+      throw new Error(res.status === 401 ? 'Invalid employee ID or password.' : friendlyErrorMessage(detail || 'Login failed.'));
+    }
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      throw new Error('The server returned an unexpected response. Please try again.');
+    }
     localStorage.setItem('tims_token', data.access_token);
     localStorage.setItem('tims_user', JSON.stringify(data.user));
     window.MOCK.USER = {
@@ -667,6 +711,7 @@ Object.assign(window, {
   API,
   inr: (n) => 'Rs. ' + Number(n || 0).toLocaleString('en-IN'),
   sumIssuedUnits,
+  timsFriendlyError: friendlyErrorMessage,
   SELECTORS: {
     getToolById: (id) => (window.MOCK.TOOLS || []).find(t => t.id === id) || null,
     getUserById: (id) => (window.MOCK.USERS || []).find(u => u.id === id) || null,

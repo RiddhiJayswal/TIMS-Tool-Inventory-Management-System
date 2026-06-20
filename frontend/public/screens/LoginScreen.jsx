@@ -103,11 +103,17 @@ function LoginScreen({ onLogin }) {
       await onLogin();
     } catch (err) {
       window.API?.logout?.();
-      let msg = 'Login failed. Check your credentials.';
+      let msg = 'Invalid employee ID or password.';
       if (typeof err.message === 'string' && err.message) {
         msg = err.message;
       } else if (Array.isArray(err.message)) {
         msg = err.message.map(e => e.msg || String(e)).filter(Boolean).join('. ') || msg;
+      }
+      msg = window.timsFriendlyError
+        ? window.timsFriendlyError(msg, 'Login failed. Please try again.')
+        : msg;
+      if (!/invalid employee id or password|incorrect employee id or password/i.test(msg)) {
+        console.error('Login flow failed:', err);
       }
       setLoginError(msg);
       setLoading(false);

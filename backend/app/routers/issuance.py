@@ -91,8 +91,6 @@ def issue_tool(
             raise HTTPException(400, f"Cannot issue before requested from date ({req.from_date.isoformat()})")
         if today > req.to_date:
             raise HTTPException(400, f"Cannot issue after requested to date ({req.to_date.isoformat()})")
-        if req.to_date < today:
-            raise HTTPException(400, "Cannot issue with an already overdue expected return date")
 
         # Fetch tool with row lock
         tool = get_tool_locked(db, str(req.tool_id))

@@ -72,6 +72,8 @@ def process_return(
         remaining_quantity = max(int(log.quantity_issued or 0) - previous_returned, 0)
         if log.actual_return_date is not None or remaining_quantity <= 0:
             raise HTTPException(400, "Tool already returned")
+        if log.return_condition == "consumed":
+            raise HTTPException(400, "Cannot process a return for a consumed item")
         if current_user.role not in ("maintenance_admin", "maintenance_staff") and log.issued_to != current_user.id:
             raise HTTPException(403, "You can only return tools issued to you")
 
@@ -93,6 +95,12 @@ def process_return(
             raise HTTPException(400, "Condition quantities must add up to quantity_returned")
         if any(condition_quantities[k] for k in ("damaged", "missing")) and not (payload.notes or "").strip():
             raise HTTPException(400, "Notes are required for damaged or missing returns")
+        if (
+            current_user.role == "maintenance_staff"
+            and log.issued_to != current_user.id
+            and (condition_quantities["damaged"] > 0 or condition_quantities["missing"] > 0)
+        ):
+            raise HTTPException(403, "Only maintenance admin can record damaged or missing quantities for tools not issued to you")
         validate_damage_return(
             log.quantity_issued,
             payload.quantity_returned,

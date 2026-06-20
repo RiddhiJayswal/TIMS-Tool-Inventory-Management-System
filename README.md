@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="frontend/public/assets/ultratech-logo.png" height="110" alt="Aditya Birla UltraTech" />
-<img src="docs/cross.svg" height="90" alt="×" />
-<img src="docs/tims-logo.svg" height="110" alt="TIMS Logo" />
+<img src="docs/AB_TIMS_logo.png" alt="Aditya Birla × TIMS" />
 <br/>
 <br/>
 

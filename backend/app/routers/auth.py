@@ -349,6 +349,8 @@ def verify_access_otp(payload: AccessOtpVerifyRequest, db: Session = Depends(get
         raise HTTPException(status_code=400, detail="Invalid OTP")
 
     access_request.otp_verified_at = datetime.utcnow()
+    access_request.otp_hash = None
+    access_request.otp_attempt_count = 0
     db.commit()
     db.refresh(access_request)
     return {"message": "Mobile number verified", "request": _access_request_out(access_request)}

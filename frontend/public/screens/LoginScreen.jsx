@@ -367,7 +367,10 @@ function LoginScreen({ onLogin }) {
 
         {ready && <div>
           <div className="lgn-left" style={{ animationDelay:'0s', marginBottom:44 }}>
-            <img src="/assets/AB_TIMS_logo.svg" alt="Aditya Birla × TIMS" style={{ height:80, maxWidth:'100%' }} />
+            <Logo variant="login" logoSrc="/assets/ultratech-logo.png" />
+          </div>
+          <div className="lgn-left" style={{ animationDelay:'0.08s', marginBottom:36 }}>
+            <div style={{ fontSize:11.5, fontWeight:700, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--brand-yellow)' }}>Inventory Management System</div>
           </div>
           <div className="lgn-left" style={{ animationDelay:'0.16s', display:'flex', flexDirection:'column', gap:14 }}>
             {features.map(f => (

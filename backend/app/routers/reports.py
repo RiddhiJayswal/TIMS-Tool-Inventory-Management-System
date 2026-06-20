@@ -197,7 +197,7 @@ def report_issuance_history(
     if from_date:
         query = query.filter(IssuanceLog.issued_at >= from_date)
     if to_date:
-        query = query.filter(IssuanceLog.issued_at <= to_date)
+        query = query.filter(IssuanceLog.issued_at < to_date + timedelta(days=1))
     if status == "open":
         query = query.filter(IssuanceLog.actual_return_date == None)
     elif status == "closed":
@@ -387,10 +387,11 @@ def report_utilization(
         from_date = today - timedelta(days=30)
     if not to_date:
         to_date = today
+    to_date_exclusive = to_date + timedelta(days=1)
 
     departments = (
         db.query(Requisition.requester_dept)
-        .filter(Requisition.created_at >= from_date, Requisition.created_at <= to_date)
+        .filter(Requisition.created_at >= from_date, Requisition.created_at < to_date_exclusive)
         .distinct()
         .all()
     )
@@ -400,7 +401,7 @@ def report_utilization(
         base_req = db.query(Requisition).filter(
             Requisition.requester_dept == dept,
             Requisition.created_at >= from_date,
-            Requisition.created_at <= to_date,
+            Requisition.created_at < to_date_exclusive,
         )
         total_requests = base_req.count()
         approved_requests = base_req.filter(
@@ -408,15 +409,16 @@ def report_utilization(
         ).count()
 
         total_issued = (
-            db.query(IssuanceLog)
+            db.query(func.coalesce(func.sum(IssuanceLog.quantity_issued), 0))
             .join(Requisition, IssuanceLog.requisition_id == Requisition.id)
             .filter(
                 Requisition.requester_dept == dept,
                 IssuanceLog.issued_at >= from_date,
-                IssuanceLog.issued_at <= to_date,
+                IssuanceLog.issued_at < to_date_exclusive,
             )
-            .count()
+            .scalar()
         )
+        total_issued = int(total_issued or 0)
 
         overdue_count = (
             db.query(IssuanceLog)
@@ -440,16 +442,16 @@ def report_utilization(
         rejected_requests = base_req.filter(Requisition.status == "rejected").count()
 
         most_borrowed = (
-            db.query(Tool.name, func.count(IssuanceLog.id).label("cnt"))
+            db.query(Tool.name, func.sum(IssuanceLog.quantity_issued).label("qty"))
             .join(IssuanceLog, Tool.id == IssuanceLog.tool_id)
             .join(Requisition, IssuanceLog.requisition_id == Requisition.id)
             .filter(
                 Requisition.requester_dept == dept,
                 IssuanceLog.issued_at >= from_date,
-                IssuanceLog.issued_at <= to_date,
+                IssuanceLog.issued_at < to_date_exclusive,
             )
             .group_by(Tool.name)
-            .order_by(func.count(IssuanceLog.id).desc())
+            .order_by(func.sum(IssuanceLog.quantity_issued).desc())
             .first()
         )
 

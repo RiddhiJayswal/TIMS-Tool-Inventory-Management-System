@@ -274,6 +274,7 @@ function RequisitionsScreen() {
   const [message, setMessage] = React.useState(null);
 
   const all = window.MOCK.MY_REQUESTS || [];
+  const canProcessReturns = ['maintenance_admin', 'maintenance_staff'].includes((window.MOCK.USER || {}).role);
   const q = search.trim().toLowerCase();
   const rows = (tab === 'all' ? all : all.filter(r => r.status === tab)).filter(r => {
     if (!q) return true;
@@ -386,7 +387,7 @@ function RequisitionsScreen() {
               <div style={{ display:'flex',gap:6 }} onClick={e => e.stopPropagation()}>
                 <Button size="sm" variant="secondary" onClick={() => setView(r)}>Details</Button>
                 {r.status === 'pending' && <Button size="sm" variant="secondary" disabled={busyId === r.id} onClick={() => cancelRequest(r)}>{busyId === r.id ? 'Cancelling...' : 'Cancel'}</Button>}
-                {r.status === 'issued' && findActiveIssue(r) && <Button size="sm" onClick={() => returnRequestTool(r)}>Return Tool</Button>}
+                {canProcessReturns && r.status === 'issued' && findActiveIssue(r) && <Button size="sm" onClick={() => returnRequestTool(r)}>Return Tool</Button>}
               </div>
             )},
           ]}

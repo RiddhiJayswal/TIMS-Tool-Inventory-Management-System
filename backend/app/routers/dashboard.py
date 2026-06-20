@@ -49,7 +49,7 @@ def get_dashboard_summary(
 
     if role not in ("maintenance_admin", "maintenance_staff"):
         visible_stock_rows = [
-            row for row in get_tool_stock_snapshot(db, include_written_off=True)
+            row for row in get_tool_stock_snapshot(db)
             if not row["tool"].department_access or row["tool"].department_access == dept
         ]
         stock = {

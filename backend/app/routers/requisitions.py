@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -210,7 +210,7 @@ def list_requisitions(
     if from_date:
         query = query.filter(Requisition.created_at >= from_date)
     if to_date:
-        query = query.filter(Requisition.created_at <= to_date)
+        query = query.filter(Requisition.created_at < to_date + timedelta(days=1))
 
     reqs = query.order_by(Requisition.created_at.desc()).all()
     return [_req_to_dict(r, db) for r in reqs]

@@ -355,6 +355,28 @@ class TestHappyPath:
 
 class TestBlockScenarios:
 
+    def test_requester_cannot_process_return(self, client, db):
+        tool = make_tool(db, quantity=1)
+        usr_token = get_token(client, "USR001", "User@123")
+        hd_token = get_token(client, "HD001", "Head@123")
+        stf_token = get_token(client, "STF001", "Staff@123")
+
+        req = raise_req(client, usr_token, tool.id)
+        approve_req(client, hd_token, req["id"])
+        issued = issue_tool(client, stf_token, req["id"])
+
+        response = client.post(
+            f"/api/returns/{issued['id']}",
+            json={"quantity_returned": 1, "return_condition": "good"},
+            headers=auth(usr_token),
+        )
+        assert response.status_code == 403
+
+        db.refresh(tool)
+        assert tool.available_quantity == 0
+
+        return_tool(client, stf_token, issued["id"], qty_returned=1, condition="good")
+
     def test_self_approval_blocked(self, client, db):
         """
         maintenance_admin raises a requisition, then tries to approve their own
@@ -654,6 +676,59 @@ REPORT_ENDPOINTS = [
 
 class TestReports:
 
+    def test_end_date_includes_records_created_later_that_day(self, client, db):
+        tool = make_tool(db, quantity=1)
+        usr_token = get_token(client, "USR001", "User@123")
+        hd_token = get_token(client, "HD001", "Head@123")
+        stf_token = get_token(client, "STF001", "Staff@123")
+        adm_token = get_token(client, "ADM001", "Admin@123")
+
+        req = raise_req(client, usr_token, tool.id)
+        approve_req(client, hd_token, req["id"])
+        issued = issue_tool(client, stf_token, req["id"])
+        today = date.today().isoformat()
+
+        requisitions = client.get(
+            "/api/requisitions",
+            params={"from_date": today, "to_date": today},
+            headers=auth(usr_token),
+        )
+        assert requisitions.status_code == 200
+        assert req["id"] in {row["id"] for row in requisitions.json()}
+
+        issuance_report = client.get(
+            "/api/reports/issuance-history",
+            params={"from_date": today, "to_date": today},
+            headers=auth(adm_token),
+        )
+        assert issuance_report.status_code == 200
+        assert issued["id"] in {row["issuance_id"] for row in issuance_report.json()}
+
+    def test_utilization_sums_issued_quantities(self, client, db):
+        today = date.today().isoformat()
+        adm_token = get_token(client, "ADM001", "Admin@123")
+
+        def issued_total():
+            response = client.get(
+                "/api/reports/utilization",
+                params={"from_date": today, "to_date": today},
+                headers=auth(adm_token),
+            )
+            assert response.status_code == 200
+            row = next((item for item in response.json() if item["department"] == "E&I"), None)
+            return row["total_issued"] if row else 0
+
+        before = issued_total()
+        tool = make_tool(db, quantity=3)
+        usr_token = get_token(client, "USR001", "User@123")
+        hd_token = get_token(client, "HD001", "Head@123")
+        stf_token = get_token(client, "STF001", "Staff@123")
+        req = raise_req(client, usr_token, tool.id, qty=3)
+        approve_req(client, hd_token, req["id"])
+        issue_tool(client, stf_token, req["id"])
+
+        assert issued_total() == before + 3
+
     def test_reports_accessible_to_maintenance_staff(self, client):
         """All 7 report endpoints return 200 for maintenance_staff."""
         token = get_token(client, "STF001", "Staff@123")
@@ -807,6 +882,24 @@ class TestCalibration:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class TestDashboard:
+
+    def test_requester_dashboard_excludes_written_off_stock(self, client, db):
+        requester_token = get_token(client, "USR001", "User@123")
+        before = client.get(
+            "/api/dashboard/summary",
+            headers=auth(requester_token),
+        ).json()
+
+        tool = make_tool(db, quantity=4)
+        tool.status = "written_off"
+        db.commit()
+
+        after = client.get(
+            "/api/dashboard/summary",
+            headers=auth(requester_token),
+        ).json()
+        assert after["total_tools"] == before["total_tools"]
+        assert after["available_tools"] == before["available_tools"]
 
     def test_dashboard_summary_all_roles(self, client):
         """GET /dashboard/summary returns 200 for all 4 roles."""

@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.auth.roles import get_current_user
+from app.auth.roles import RequireMaintenance
 from app.database import get_db
 from app.models.master import Tool
 from app.models.transaction import IssuanceLog, Requisition, User
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/returns", tags=["returns"])
 def process_return(
     issuance_id: UUID,
     payload: ReturnCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(RequireMaintenance),
     db: Session = Depends(get_db),
 ):
     try:
@@ -36,9 +36,6 @@ def process_return(
             raise HTTPException(404, "Issuance log not found")
         if log.actual_return_date is not None:
             raise HTTPException(400, "Tool already returned")
-        if current_user.role not in ("maintenance_admin", "maintenance_staff") and log.issued_to != current_user.id:
-            raise HTTPException(403, "You can only return tools issued to you")
-
         if payload.quantity_returned > log.quantity_issued:
             raise HTTPException(
                 400,

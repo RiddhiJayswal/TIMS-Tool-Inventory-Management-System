@@ -243,11 +243,6 @@ function DashboardScreen({ onNavigate }) {
     setFType(''); setFStatus(''); setFDept(''); setFState('');
   };
 
-  const returnOwnTool = () => {
-    setMessage({ tone: 'success', text: 'Open My Requests and use Return Tool to confirm quantity and condition.' });
-    onNavigate('requisitions');
-  };
-
   /* ── Filtered rows ─────────────────────────────────────────────── */
   const totalRows = window.MOCK.TOOLS.filter(t => {
     if (search && !(`${t.name} ${t.tool_code}`).toLowerCase().includes(search.toLowerCase())) return false;
@@ -429,14 +424,6 @@ function DashboardScreen({ onNavigate }) {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 'var(--radius-pill)', background: i.overdue ? '#fff' : 'var(--success-bg)', color: i.overdue ? 'var(--danger-text)' : 'var(--success-text)' }}>{i.days}</span>
-                  {!seesOperationalIssuances && (
-                    <button
-                      onClick={e => { e.stopPropagation(); returnOwnTool(i); }}
-                      style={{ padding: '5px 11px', border: 'none', borderRadius: 'var(--radius-sm)', background: 'var(--brand-black)', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
-                    >
-                      Return Tool
-                    </button>
-                  )}
                 </div>
               </div>
             ))}

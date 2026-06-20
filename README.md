@@ -1,9 +1,9 @@
 <div align="center">
 
 <img src="frontend/public/assets/ultratech-logo.png" height="110" alt="Aditya Birla UltraTech" />
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>×</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<img src="docs/cross.svg" height="110" alt="×" />
 <img src="docs/tims-logo.svg" height="110" alt="TIMS Logo" />
-
+<br/>
 <br/>
 
 ![Release](https://img.shields.io/badge/release-v1.0.0-black?style=flat-square)

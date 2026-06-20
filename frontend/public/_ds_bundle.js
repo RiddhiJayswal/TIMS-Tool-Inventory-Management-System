@@ -7412,7 +7412,13 @@ Object.assign(window, {
 // ui_kits/mtrs/ReportsScreen.jsx
 try { (() => {
 const NS_REP = window.MTRSDesignSystemUltraTechCement_660dc9;
-const LAST_UPDATED = '14 Jun 2026, 09:41 AM';
+const LAST_UPDATED = new Date().toLocaleString('en-GB', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+});
 const SEARCH_HINTS = {
   stock: 'Tool code, name, type or status…',
   issuance: 'Tool name, code, borrower or dept…',

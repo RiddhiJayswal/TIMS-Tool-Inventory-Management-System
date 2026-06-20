@@ -9,7 +9,7 @@ const ROLE_TONES_U = {
 };
 
 
-/* â"€â"€ Shared form shell â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */
+/* Shared form shell */
 function EmployeeForm({ title, subtitle, initial = {}, onClose, onSubmit, submitLabel }) {
   const { SlideOver, Button, Input, Select } = NS_USERS;
   const [form, setForm] = React.useState({
@@ -85,7 +85,7 @@ function EmployeeForm({ title, subtitle, initial = {}, onClose, onSubmit, submit
   );
 }
 
-/* â"€â"€ Status dropdown â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */
+/* Status dropdown */
 function StatusCell({ emp, onToggle }) {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const isActive = emp.status === 'active';
@@ -129,7 +129,7 @@ function StatusCell({ emp, onToggle }) {
   );
 }
 
-/* â"€â"€ Access request card â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */
+/* Access request card */
 function AccessRequestCard({ req, onDecide }) {
   const FIELDS = [
     { key: 'full_name',   label: 'Full Name' },
@@ -217,7 +217,7 @@ function AccessRequestCard({ req, onDecide }) {
   );
 }
 
-/* â"€â"€ Remove confirmation panel â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */
+/* Remove confirmation panel */
 function RemoveConfirmPanel({ emp, onClose, onConfirm }) {
   const FIELDS = [
     { key: 'full_name',  label: 'Full Name' },
@@ -281,7 +281,7 @@ function RemoveConfirmPanel({ emp, onClose, onConfirm }) {
   );
 }
 
-/* â"€â"€ Main screen â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */
+/* Main screen */
 function UsersScreen() {
   const { Button } = NS_USERS;
   const [search, setSearch] = React.useState('');
@@ -475,7 +475,7 @@ function UsersScreen() {
         </table>
       </div>
 
-      {/* â"€â"€ Access Requests section â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
+      {/* Access Requests section */}
       <div style={{ marginTop: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--text-strong)' }}>Access Requests</h2>

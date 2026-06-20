@@ -1,6 +1,11 @@
 const NS_REP = window.MTRSDesignSystemUltraTechCement_660dc9;
 
-const LAST_UPDATED = '14 Jun 2026, 09:41 AM';
+function formatReportTimestamp(value) {
+  return value.toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
 
 const SEARCH_HINTS = {
   stock:        'Tool code, name, type or status…',
@@ -329,6 +334,7 @@ function ReportsScreen() {
   const { PageHeader, Button, EmptyState, Input } = NS_REP;
   const [tab, setTab] = React.useState('stock');
   const [search, setSearch] = React.useState('');
+  const [reportUpdatedAt] = React.useState(() => new Date());
 
   const tabInfo = REPORT_TABS.find(t => t.value === tab);
   const config = getReportConfig(tab, search);
@@ -422,7 +428,7 @@ function ReportsScreen() {
           <div style={{ width: 220 }}>
             <Input icon={<Icon name="search" size={14} />} value={search} onChange={e => setSearch(e.target.value)} placeholder={SEARCH_HINTS[tab] || 'Filter this report…'} />
           </div>
-          <span style={{ fontSize: 11.5, color: 'var(--text-subtle)', whiteSpace: 'nowrap' }}>Updated {LAST_UPDATED}</span>
+          <span style={{ fontSize: 11.5, color: 'var(--text-subtle)', whiteSpace: 'nowrap' }}>Updated {formatReportTimestamp(reportUpdatedAt)}</span>
         </div>
       </div>
 

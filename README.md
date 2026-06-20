@@ -1,9 +1,6 @@
-<<<<<<< HEAD
-# Tools Inventory Management System(TIMS)
-## UltraTech Cement · Maintenance Department
-=======
 # TIMS - Tools Inventory Management System
->>>>>>> cd5087e (Fix TIMS responsive UI and add full workflow testing improvements)
+
+## UltraTech Cement · Maintenance Department
 
 TIMS is a role-based maintenance tool inventory system for plant teams. It tracks tool stock, requisitions, approvals, issue/return activity, calibration, storage bins, damage assessment, users, reports, notifications, and audit/activity exports.
 
@@ -21,8 +18,11 @@ TIMS is a role-based maintenance tool inventory system for plant teams. It track
 ## Quick Start
 
 ```powershell
-docker compose up -d --force-recreate backend frontend
+Copy-Item .env.example .env
+docker compose up -d --build
 ```
+
+The first command creates the local environment file used by Docker Compose. Change its credentials and `SECRET_KEY` before deploying outside local development.
 
 Open:
 
@@ -64,14 +64,15 @@ Some test fixtures use strong passwords such as `Admin@123`, `Staff@123`, `Head@
 | Request access | Public form | Public form | Public form | Public form |
 | Approve access requests | Yes | No | No | No |
 | View tools | Yes | Yes | Yes | Yes |
-| Add/edit/write off tools | Yes | No | No | No |
+| Add/edit/write off tools | Yes | Yes | No | No |
 | Request tools | Yes | Yes | Yes | Yes |
 | Approve tool requests | Yes | No | Own department | No |
 | Issue tools | Yes | Yes | No | No |
-| Process returns | Yes | Yes | Own issue/request flow only | Own issue/request flow only |
+| Process returns | Yes | Yes | No | No |
 | Manage users | Yes | No | No | No |
-| Manage storage bins | Yes | No | No | No |
-| Calibration management | Yes | Limited by API | No | No |
+| Manage storage bins | Yes | Yes | No | No |
+| View calibration schedule/history | Yes | Yes | No | No |
+| Record calibration | Yes | No | No | No |
 | Reports and downloads | Yes | Yes | No | No |
 
 Restricted routes are hidden in the UI and protected by backend role guards. Forced frontend route access shows an Access Denied fallback.

@@ -471,7 +471,6 @@ class TestBlockScenarios:
         db.refresh(tool)
         assert tool.available_quantity == 0, f"available_quantity must be 0, got {tool.available_quantity}"
 
-<<<<<<< HEAD
     def test_overlapping_request_uses_remaining_quantity(self, client, db):
         tool = make_tool(db, quantity=5)
         usr_token = get_token(client, "USR001", "User@123")
@@ -526,13 +525,9 @@ class TestBlockScenarios:
         )
         assert response.status_code == 201, response.text
 
-    def test_partial_return_blocked_for_non_consumable(self, client, db):
-=======
     def test_partial_return_allowed_for_non_consumable(self, client, db):
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
         """
-        A non-consumable tool must return all units in good condition.
-        Returning fewer (condition=good) must be rejected.
+        A non-consumable tool can be returned over multiple good-condition returns.
         """
         tool = make_tool(db, quantity=2, is_consumable=False)
 
@@ -1207,7 +1202,9 @@ class TestWorkflowFixRegressions:
         req = raise_req(client, usr_token, tool.id, qty=3)
         approve_req(client, hd_token, req["id"])
         issued = issue_tool(client, stf_token, req["id"])
-        return_tool(client, stf_token, issued["id"], qty_returned=3, condition="good")
+        assert issued["actual_return_date"] is not None
+        assert issued["return_condition"] == "consumed"
+        assert issued["quantity_consumed"] == 3
 
         util = client.get("/api/reports/utilization", headers=auth(stf_token))
         assert util.status_code == 200
@@ -1215,6 +1212,6 @@ class TestWorkflowFixRegressions:
 
         activity = client.get("/api/reports/activity-logs", headers=auth(stf_token))
         assert activity.status_code == 200
-        issue_rows = [r for r in activity.json() if r["action_type"] == "TOOL_ISSUED" and r["entity_id"] == issued["id"]]
+        issue_rows = [r for r in activity.json() if r["action_type"] == "CONSUMABLE_ISSUED" and r["entity_id"] == issued["id"]]
         assert issue_rows
         assert issue_rows[0]["quantity"] == 3

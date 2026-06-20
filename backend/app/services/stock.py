@@ -269,17 +269,5 @@ def validate_damage_return(
     quantity_returned: int,
     return_condition: str,
 ) -> None:
-    """Ensure a single damaged/missing return accounts for the full issuance."""
-    if return_condition == "damaged" and quantity_returned != quantity_issued:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"A damaged return must account for all {quantity_issued} issued unit(s). "
-                "Record every unit as damaged or use condition 'missing' when none were returned."
-            ),
-        )
-    if return_condition == "missing" and quantity_returned != 0:
-        raise HTTPException(
-            status_code=400,
-            detail="A missing return must have quantity_returned set to 0",
-        )
+    """Damage/missing quantities are validated through ReturnCreate.condition_quantities."""
+    return None

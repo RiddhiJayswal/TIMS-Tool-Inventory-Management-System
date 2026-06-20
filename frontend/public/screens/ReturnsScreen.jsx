@@ -317,12 +317,6 @@ function ProcessReturnModal({ item, onClose, onConfirm }) {
     setBusy(true);
     setErr('');
     try {
-<<<<<<< HEAD
-      const returnedQty = condition === 'missing' ? 0 : Number(qtyReturned || 0);
-      const issuedQty = Number(item.qty || 0);
-      if (returnedQty < 0 || returnedQty > issuedQty) throw new Error('Returned quantity must be between 0 and issued quantity');
-      if (condition === 'damaged' && returnedQty !== issuedQty) throw new Error(`A damaged return must account for all ${issuedQty} issued unit(s)`);
-=======
       const returnedQty = Number(qtyReturned || 0);
       const conditionQuantities = {
         good: Number(split.good || 0),
@@ -331,7 +325,6 @@ function ProcessReturnModal({ item, onClose, onConfirm }) {
       };
       if (returnedQty < 0 || returnedQty > remaining) throw new Error(`Returned quantity must be between 0 and ${remaining}`);
       if (conditionQuantities.good + conditionQuantities.damaged + conditionQuantities.missing !== returnedQty) throw new Error('Good, damaged, and missing quantities must add up to the returned quantity');
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
       if (warn && !notes.trim()) throw new Error('Notes are required for damaged or missing returns');
       await window.API.processReturn(item.id, {
         quantity_returned: returnedQty,
@@ -355,11 +348,7 @@ function ProcessReturnModal({ item, onClose, onConfirm }) {
         <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'monospace' }}>{item.tool_code} - issued to {item.issued_to} - remaining {remaining}</div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-<<<<<<< HEAD
-        <Input label="Quantity returned" required type="number" value={condition === 'missing' ? 0 : qtyReturned} onChange={(e) => setQtyReturned(e.target.value)} min="0" max={item.qty} disabled={condition === 'missing'} />
-=======
         <Input label="Quantity returned" required type="number" value={qtyReturned} onChange={(e) => setQtyReturned(e.target.value)} min="0" max={remaining} />
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
         <Select label="Condition" required value={condition} onChange={(e) => setCondition(e.target.value)}>
           <option value="good">Good</option>
           <option value="partial">Partial - return some units now</option>

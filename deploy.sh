@@ -11,6 +11,12 @@ COMPOSE="docker compose -f docker-compose.prod.yml"
 echo "==> Pulling latest code..."
 git pull
 
+echo "==> Checking for unresolved merge conflict markers..."
+if git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' -- ':!frontend/public/vendor/**'; then
+  echo "ERROR: unresolved merge conflict markers found. Resolve them before deployment."
+  exit 1
+fi
+
 echo "==> Building images (no cache on first deploy, cached on updates)..."
 $COMPOSE build
 

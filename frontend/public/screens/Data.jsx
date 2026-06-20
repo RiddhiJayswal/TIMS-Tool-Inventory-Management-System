@@ -16,11 +16,12 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_M
 
 function friendlyErrorMessage(err, fallback = 'Something went wrong. Please try again.') {
   const raw = typeof err === 'string' ? err : (err && err.message) || '';
+  const hasConflictMarker = raw.includes('<'.repeat(7)) || raw.includes('>'.repeat(7));
   if (!raw) return fallback;
   if (/failed to fetch|networkerror|load failed|server unavailable/i.test(raw)) {
     return 'Server unavailable. Please check your connection or try again in a moment.';
   }
-  if (/unexpected token|babel|syntaxerror|<<<<<<<|>>>>>>>|stack|trace/i.test(raw)) {
+  if (hasConflictMarker || /unexpected token|babel|syntaxerror|stack|trace/i.test(raw)) {
     return 'The application files could not be loaded correctly. Please reload the page.';
   }
   if (/invalid json|json/i.test(raw)) {

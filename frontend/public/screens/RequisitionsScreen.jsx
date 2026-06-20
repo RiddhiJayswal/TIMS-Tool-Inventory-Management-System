@@ -204,25 +204,41 @@ function NewRequisitionModal({ onClose }) {
 
 function ReturnRequestModal({ req, issuance, onClose, onReturned }) {
   const { Modal, Button, Input, Select, Textarea } = NS_REQ;
+  const issuedQty = Number(issuance.quantity_issued || issuance.qty || req.qty || 1);
+  const alreadyReturned = Number(issuance.quantity_returned || 0);
+  const remaining = Number(issuance.remaining_quantity ?? Math.max(issuedQty - alreadyReturned, 0));
   const [condition, setCondition] = React.useState('good');
-  const [qty, setQty] = React.useState(issuance.quantity_issued || issuance.qty || req.qty || 1);
+  const [qty, setQty] = React.useState(remaining);
+  const [split, setSplit] = React.useState({ good: remaining, damaged: 0, missing: 0 });
   const [notes, setNotes] = React.useState('');
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
   const warn = condition === 'damaged' || condition === 'missing';
 
+  React.useEffect(() => {
+    const qtyNum = Number(qty || 0);
+    if (condition === 'damaged') setSplit({ good: 0, damaged: qtyNum, missing: 0 });
+    else if (condition === 'missing') setSplit({ good: 0, damaged: 0, missing: qtyNum });
+    else setSplit({ good: qtyNum, damaged: 0, missing: 0 });
+  }, [condition, qty]);
+
   const submit = async () => {
     setSaving(true);
     setError('');
     try {
-      const returnedQty = condition === 'missing' ? 0 : Number(qty || 0);
-      const issuedQty = Number(issuance.quantity_issued || issuance.qty || req.qty || 1);
-      if (returnedQty < 0 || returnedQty > issuedQty) throw new Error('Returned quantity must be between 0 and issued quantity');
-      if (condition === 'damaged' && returnedQty !== issuedQty) throw new Error(`A damaged return must account for all ${issuedQty} issued unit(s)`);
+      const returnedQty = Number(qty || 0);
+      const conditionQuantities = {
+        good: Number(split.good || 0),
+        damaged: Number(split.damaged || 0),
+        missing: Number(split.missing || 0),
+      };
+      if (returnedQty < 0 || returnedQty > remaining) throw new Error(`Returned quantity must be between 0 and ${remaining}`);
+      if (conditionQuantities.good + conditionQuantities.damaged + conditionQuantities.missing !== returnedQty) throw new Error('Good, damaged, and missing quantities must add up to the returned quantity');
       if (warn && !notes.trim()) throw new Error('Notes are required for damaged or missing returns');
       await window.API.processReturn(issuance.id, {
         quantity_returned: returnedQty,
         return_condition: condition,
+        condition_quantities: conditionQuantities,
         notes: notes.trim() || null,
       });
       await Promise.all([window.API.loadDashboard(), window.API.loadRequisitions(), window.API.loadIssuances(), window.API.loadReports().catch(() => [])]);
@@ -239,10 +255,10 @@ function ReturnRequestModal({ req, issuance, onClose, onReturned }) {
       footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button variant={warn ? 'danger' : 'primary'} loading={saving} onClick={submit}>Confirm Return</Button></>}>
       <div style={{ padding:'11px 14px', background:'var(--surface-sunken)', borderRadius:'var(--radius-md)', marginBottom:16 }}>
         <div style={{ fontSize:13.5, fontWeight:600, color:'var(--text-strong)' }}>{req.tool_name}</div>
-        <div style={{ fontSize:11.5, color:'var(--text-muted)', marginTop:2, fontFamily:'monospace' }}>{req.requisition_number}</div>
+        <div style={{ fontSize:11.5, color:'var(--text-muted)', marginTop:2, fontFamily:'monospace' }}>{req.requisition_number} - remaining {remaining}</div>
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
-        <Input label="Quantity returned" required type="number" value={condition === 'missing' ? 0 : qty} min="0" max={issuance.quantity_issued || issuance.qty || req.qty || 1} onChange={e => setQty(e.target.value)} disabled={condition === 'missing'} />
+        <Input label="Quantity returned" required type="number" value={qty} min="0" max={remaining} onChange={e => setQty(e.target.value)} />
         <Select label="Condition" required value={condition} onChange={e => setCondition(e.target.value)}>
           <option value="good">Good</option>
           <option value="partial">Partial</option>
@@ -250,6 +266,13 @@ function ReturnRequestModal({ req, issuance, onClose, onReturned }) {
           <option value="missing">Missing</option>
         </Select>
       </div>
+      {warn && (
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginTop:14 }}>
+          {['good', 'damaged', 'missing'].map(key => (
+            <Input key={key} label={key.charAt(0).toUpperCase() + key.slice(1)} type="number" min="0" max={remaining} value={split[key]} onChange={e => setSplit(prev => ({ ...prev, [key]: e.target.value }))} />
+          ))}
+        </div>
+      )}
       <div style={{ marginTop:14 }}><Textarea label="Notes" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any observations on the returned tool..." /></div>
       {warn && (
         <div style={{ display:'flex', gap:9, marginTop:14, padding:'11px 13px', background:'var(--danger-bg)', border:'1px solid var(--danger-border)', borderRadius:'var(--radius-md)' }}>

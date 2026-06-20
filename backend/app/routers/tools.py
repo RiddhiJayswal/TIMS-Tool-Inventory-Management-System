@@ -21,6 +21,37 @@ from app.services.tool_visibility import scope_tools_for_user, user_can_access_t
 router = APIRouter(prefix="/tools", tags=["tools"])
 
 
+def _calculate_calibration_due(last_date, frequency_days):
+    if not last_date or not frequency_days:
+        return None
+    try:
+        return last_date + timedelta(days=frequency_days)
+    except OverflowError as exc:
+        raise HTTPException(
+            422, "Calibration date and frequency produce an invalid due date"
+        ) from exc
+
+
+def _sync_calibration_fields(tool: Tool, changed_fields: set[str]) -> None:
+    calibration_fields = {
+        "requires_calibration",
+        "last_calibration_date",
+        "calibration_freq_days",
+    }
+    if not calibration_fields.intersection(changed_fields):
+        return
+    if not tool.requires_calibration:
+        tool.calibration_freq_days = None
+        tool.last_calibration_date = None
+        tool.next_calibration_due = None
+        if tool.status == "calibration_due":
+            tool.status = "active"
+    elif tool.last_calibration_date and tool.calibration_freq_days:
+        tool.next_calibration_due = _calculate_calibration_due(
+            tool.last_calibration_date, tool.calibration_freq_days
+        )
+
+
 def _notify_maintenance(db: Session, message: str) -> None:
     users = (
         db.query(User)
@@ -142,7 +173,9 @@ def create_tool(
 
     next_cal_due = None
     if payload.requires_calibration and payload.last_calibration_date and payload.calibration_freq_days:
-        next_cal_due = payload.last_calibration_date + timedelta(days=payload.calibration_freq_days)
+        next_cal_due = _calculate_calibration_due(
+            payload.last_calibration_date, payload.calibration_freq_days
+        )
 
     tool = Tool(
         id=uuid.uuid4(),
@@ -271,11 +304,7 @@ def update_tool(
     for field, value in update_data.items():
         setattr(tool, field, value)
 
-    if tool.requires_calibration and tool.last_calibration_date and tool.calibration_freq_days:
-        if "last_calibration_date" in update_data or "calibration_freq_days" in update_data:
-            tool.next_calibration_due = tool.last_calibration_date + timedelta(
-                days=tool.calibration_freq_days
-            )
+    _sync_calibration_fields(tool, set(update_data))
 
     log_action(db, str(current_user.id), "TOOL_UPDATED", "tools", str(tool.id), update_data)
     _notify_maintenance(db, f"Tool updated: {tool.tool_code} - {tool.name} was edited by {current_user.full_name}.")

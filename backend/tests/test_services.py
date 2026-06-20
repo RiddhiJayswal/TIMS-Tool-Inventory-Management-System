@@ -4,6 +4,8 @@ Run with: python -m pytest tests/test_services.py -v
 """
 from decimal import Decimal
 
+import pytest
+
 
 def test_depreciation_basic():
     from app.services.depreciation import calculate_current_value
@@ -203,3 +205,82 @@ def test_snapshot_value_at_issuance_matches_current_value():
     v1 = calculate_current_value(10000, purchase_date, 36)
     v2 = snapshot_value_at_issuance(10000, purchase_date, 36)
     assert v1 == v2
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("purchase_price", -1),
+        ("purchase_price", "10000000000.00"),
+        ("standard_life_months", 0),
+        ("calibration_freq_days", 0),
+        ("calibration_freq_days", 36501),
+    ],
+)
+def test_tool_create_rejects_invalid_financial_and_calibration_values(field, value):
+    from pydantic import ValidationError
+
+    from app.schemas.tool import ToolCreate
+
+    payload = {
+        "tool_code": "TL-VALIDATION",
+        "name": "Validation Tool",
+        "tool_type": "general",
+        "total_quantity": 1,
+        field: value,
+    }
+    with pytest.raises(ValidationError):
+        ToolCreate(**payload)
+
+
+def test_requisition_number_takes_postgres_transaction_lock():
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from app.services.requisition_number import generate_requisition_number
+
+    db = MagicMock()
+    db.get_bind.return_value = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
+    query = db.query.return_value
+    query.filter.return_value = query
+    query.order_by.return_value = query
+    query.first.return_value = None
+
+    number = generate_requisition_number(db)
+
+    assert number.endswith("-0001")
+    db.execute.assert_called_once()
+
+
+def test_calibration_due_rejects_date_overflow():
+    from datetime import date
+    from fastapi import HTTPException
+
+    from app.routers.tools import _calculate_calibration_due
+
+    with pytest.raises(HTTPException) as exc:
+        _calculate_calibration_due(date.max, 1)
+
+    assert exc.value.status_code == 422
+
+
+def test_disabling_calibration_clears_schedule_and_unblocks_tool():
+    from datetime import date
+    from types import SimpleNamespace
+
+    from app.routers.tools import _sync_calibration_fields
+
+    tool = SimpleNamespace(
+        requires_calibration=False,
+        calibration_freq_days=180,
+        last_calibration_date=date.today(),
+        next_calibration_due=date.today(),
+        status="calibration_due",
+    )
+
+    _sync_calibration_fields(tool, {"requires_calibration"})
+
+    assert tool.calibration_freq_days is None
+    assert tool.last_calibration_date is None
+    assert tool.next_calibration_due is None
+    assert tool.status == "active"

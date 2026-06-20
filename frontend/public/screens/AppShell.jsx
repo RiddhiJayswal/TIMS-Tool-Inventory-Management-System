@@ -307,6 +307,7 @@ function Navbar({ user, notifs = [], onLogout, onNavigate }) {
 
 function AppShell({ user, route, onNavigate, notifs, onLogout, children }) {
   const [collapsed, setCollapsed] = React.useState(false);
+  const [apiError, setApiError] = React.useState(null);
 
   React.useEffect(() => {
     const s = document.createElement('style');
@@ -314,6 +315,15 @@ function AppShell({ user, route, onNavigate, notifs, onLogout, children }) {
     s.textContent = 'main::-webkit-scrollbar{width:5px;height:5px}main::-webkit-scrollbar-track{background:transparent}main::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.12);border-radius:10px}main::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,0.22)}';
     if (!document.getElementById('tims-main-scroll')) document.head.appendChild(s);
     return () => { const el = document.getElementById('tims-main-scroll'); if (el) el.remove(); };
+  }, []);
+
+  React.useEffect(() => {
+    const showApiError = (event) => {
+      const detail = event.detail || {};
+      setApiError(detail.message || 'The requested data could not be loaded.');
+    };
+    window.addEventListener('tims:api-error', showApiError);
+    return () => window.removeEventListener('tims:api-error', showApiError);
   }, []);
 
   React.useEffect(() => {
@@ -330,6 +340,13 @@ function AppShell({ user, route, onNavigate, notifs, onLogout, children }) {
       <Sidebar route={route} onNavigate={onNavigate} collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} user={user} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         <Navbar user={user} notifs={notifs} onLogout={onLogout} onNavigate={onNavigate} />
+        {apiError && (
+          <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: 'var(--danger-bg)', color: 'var(--danger-text)', borderBottom: '1px solid var(--danger-border, var(--border-default))', fontSize: 12.5 }}>
+            <Icon name="alert_circle" size={16} />
+            <span style={{ flex: 1 }}>Could not complete the API request: {apiError}</span>
+            <button onClick={() => setApiError(null)} aria-label="Dismiss error" style={{ border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
+          </div>
+        )}
         <main className="tims-main" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '24px 26px', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.12) transparent' }}>{children}</main>
       </div>
     </div>

@@ -20,7 +20,13 @@ async function apiFetch(path, options = {}) {
       : detail && typeof detail === 'object'
         ? JSON.stringify(detail)
         : detail;
-    throw new Error(message || `HTTP ${res.status}`);
+    const error = new Error(message || `HTTP ${res.status}`);
+    if (token) {
+      window.dispatchEvent(new CustomEvent('tims:api-error', {
+        detail: { message: error.message, path, status: res.status },
+      }));
+    }
+    throw error;
   }
   return res.json();
 }
@@ -566,7 +572,7 @@ const API = {
       users: () => API.loadUsers(),
       reports: () => Promise.all([API.loadDashboard(), API.loadIssuances(), API.loadCalibration(), API.loadReports()]),
     };
-    if (actions[route]) await actions[route]().catch(e => console.warn('Data refresh failed:', e));
+    if (actions[route]) await actions[route]();
   },
 
   approveRequisition: (id) =>

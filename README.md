@@ -1,18 +1,6 @@
 <div align="center">
 
-<table border="0" cellspacing="0" cellpadding="0">
-  <tr>
-    <td align="center">
-      <img src="frontend/public/assets/ultratech-logo.png" height="110" alt="Aditya Birla UltraTech" />
-    </td>
-    <td align="center" width="80">
-      <h2>&nbsp;×&nbsp;</h2>
-    </td>
-    <td align="center">
-      <img src="docs/tims-logo.svg" height="110" alt="TIMS Logo" />
-    </td>
-  </tr>
-</table>
+<img src="frontend/public/assets/ultratech-logo.png" height="110" alt="Aditya Birla UltraTech" />&nbsp;&nbsp;&nbsp;&nbsp;<b>×</b>&nbsp;&nbsp;&nbsp;&nbsp;<img src="docs/tims-logo.svg" height="110" alt="TIMS Logo" />
 
 <br/>
 

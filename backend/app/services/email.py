@@ -67,6 +67,18 @@ You will receive another email after the admin activates your account. Please si
     return _send_email(to_email, "TIMS access request received", body)
 
 
+def send_access_otp_email(to_email: str, full_name: str, otp: str, expires_minutes: int) -> bool:
+    body = f"""Hello {full_name},
+
+Your TIMS access verification OTP is: {otp}
+
+This code expires in {expires_minutes} minutes. Do not share it with anyone.
+
+If you did not request TIMS access, please ignore this email.
+"""
+    return _send_email(to_email, "TIMS access verification OTP", body)
+
+
 def send_access_request_approved_email(to_email: str, full_name: str, employee_id: str) -> bool:
     body = f"""Hello {full_name},
 

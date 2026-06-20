@@ -15,6 +15,7 @@ from app.auth.roles import verify_password, create_access_token, get_current_use
 from app.config import settings
 from app.services.email import (
     is_email_configured,
+    send_access_otp_email,
     send_access_request_received_email,
     send_password_reset_email,
 )
@@ -61,7 +62,7 @@ class ForgotUsernameRequest(BaseModel):
 
 
 class AccessOtpSendRequest(SignupRequest):
-    pass
+    otp_channel: str = "mobile"  # "mobile" or "email"
 
 
 class AccessOtpVerifyRequest(BaseModel):
@@ -301,16 +302,35 @@ def send_access_otp(payload: AccessOtpSendRequest, db: Session = Depends(get_db)
     access_request.otp_verified_at = None
     access_request.otp_attempt_count = 0
 
-    if not send_access_otp_sms(mobile_number, otp, OTP_MINUTES):
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Could not send OTP to the mobile number. Please contact admin.",
-        )
+    channel = payload.otp_channel if payload.otp_channel in ("mobile", "email") else "mobile"
+    if channel == "email":
+        if not is_email_configured():
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Email delivery is not configured on this server. Use mobile OTP instead.",
+            )
+        sent = send_access_otp_email(email, access_request.full_name, otp, OTP_MINUTES)
+        if not sent:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Could not send OTP to the email address. Please try mobile OTP or contact admin.",
+            )
+        msg = "OTP sent to your email address."
+    else:
+        if not send_access_otp_sms(mobile_number, otp, OTP_MINUTES):
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Could not send OTP to the mobile number. Please contact admin.",
+            )
+        msg = "OTP sent to your mobile number."
 
     db.commit()
     return {
-        "message": "OTP sent to the mobile number.",
+        "message": msg,
+        "channel": channel,
         "expires_in_minutes": OTP_MINUTES,
         "request": _access_request_out(access_request),
     }

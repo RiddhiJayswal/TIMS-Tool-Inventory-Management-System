@@ -26,6 +26,7 @@ function LoginScreen({ onLogin }) {
   const [otpVerified, setOtpVerified] = React.useState(false);
   const [otp, setOtp] = React.useState('');
   const [otpCooldown, setOtpCooldown] = React.useState(0);
+  const [otpChannel, setOtpChannel] = React.useState('mobile');
   const [accessForm, setAccessForm] = React.useState({
     full_name: '',
     employee_id: '',
@@ -165,6 +166,14 @@ function LoginScreen({ onLogin }) {
     setAccessForm(prev => ({ ...prev, [key]: e && e.target ? e.target.value : e }));
   };
 
+  const switchOtpChannel = (ch) => {
+    setOtpChannel(ch);
+    setOtpSent(false);
+    setOtpVerified(false);
+    setOtp('');
+    setReqError('');
+  };
+
   const accessPayload = () => ({
     employee_id: accessForm.employee_id.trim(),
     full_name: accessForm.full_name.trim(),
@@ -195,7 +204,7 @@ function LoginScreen({ onLogin }) {
     setReqLoading(true);
     try {
       await ensureApi();
-      await window.API.sendAccessOtp(accessPayload());
+      await window.API.sendAccessOtp({ ...accessPayload(), otp_channel: otpChannel });
       setOtpSent(true);
       setOtpVerified(false);
       setOtpCooldown(30);
@@ -209,7 +218,7 @@ function LoginScreen({ onLogin }) {
   const verifyOtp = async () => {
     setReqError('');
     if (!otp.trim()) {
-      setReqError('Enter the OTP sent to your mobile number.');
+      setReqError(`Enter the OTP sent to your ${otpChannel === 'email' ? 'email address' : 'mobile number'}.`);
       return;
     }
     setReqLoading(true);
@@ -232,7 +241,7 @@ function LoginScreen({ onLogin }) {
       return;
     }
     if (!otpVerified) {
-      setReqError('Verify your mobile number before submitting the access request.');
+      setReqError(`Verify your ${otpChannel === 'email' ? 'email address' : 'mobile number'} before submitting the access request.`);
       return;
     }
     setReqLoading(true);
@@ -411,7 +420,7 @@ function LoginScreen({ onLogin }) {
               ) : (
                 <>
                   <h2 style={{ margin:'0 0 5px', fontSize:23, fontWeight:800, color:'var(--text-strong)', letterSpacing:'-0.02em' }}>Request access</h2>
-                  <p style={{ margin:'0 0 20px', fontSize:13.5, color:'var(--text-muted)' }}>Verify your mobile number, then admin approval activates the account.</p>
+                  <p style={{ margin:'0 0 20px', fontSize:13.5, color:'var(--text-muted)' }}>Verify via mobile or email OTP, then admin approval activates the account.</p>
                   <div style={{ display:'flex', flexDirection:'column', gap:11 }}>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                       <Input label="Full Name" required placeholder="e.g. Anil Kumar" value={accessForm.full_name} onChange={setAccess('full_name')} />
@@ -430,19 +439,30 @@ function LoginScreen({ onLogin }) {
                       <Input label="Password" type="password" required placeholder="Create a password" value={accessForm.password} onChange={setAccess('password')} />
                       <Input label="Confirm Password" type="password" required placeholder="Re-enter password" value={accessForm.confirm_password} onChange={setAccess('confirm_password')} />
                     </div>
-                    <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) auto auto', gap:10, alignItems:'end' }}>
-                      <Input label="Mobile OTP" value={otp} onChange={e => { setOtp(e.target.value); setReqError(''); }} placeholder={otpSent ? 'Enter OTP' : 'Send OTP first'} />
-                      <button type="button" disabled={reqLoading || otpCooldown > 0} onClick={sendOtp}
-                        style={{ height:38, padding:'0 12px', border:'1px solid var(--border-default)', borderRadius:'var(--radius-md)', background:'var(--surface-card)', color:'var(--text-default)', fontFamily:'var(--font-sans)', fontSize:12.5, fontWeight:700, cursor:reqLoading || otpCooldown > 0 ? 'default' : 'pointer', whiteSpace:'nowrap' }}>
-                        {otpCooldown > 0 ? `Resend ${otpCooldown}s` : otpSent ? 'Resend OTP' : 'Send OTP'}
-                      </button>
-                      <button type="button" disabled={reqLoading || !otpSent || otpVerified} onClick={verifyOtp}
-                        style={{ height:38, padding:'0 12px', border:'none', borderRadius:'var(--radius-md)', background:otpVerified ? 'var(--success-bg)' : 'var(--brand-black)', color:otpVerified ? 'var(--success-text)' : '#fff', fontFamily:'var(--font-sans)', fontSize:12.5, fontWeight:700, cursor:reqLoading || !otpSent || otpVerified ? 'default' : 'pointer', whiteSpace:'nowrap' }}>
-                        {otpVerified ? 'Verified' : 'Verify'}
-                      </button>
+                    <div>
+                      <div style={{ fontSize:12, fontWeight:600, color:'var(--text-default)', marginBottom:6 }}>Verify via</div>
+                      <div style={{ display:'flex', background:'#e8eaed', borderRadius:8, padding:3, gap:3, marginBottom:10 }}>
+                        {[['mobile','Mobile Number'],['email','Work Email']].map(([ch, lbl]) => (
+                          <button key={ch} type="button" onClick={() => switchOtpChannel(ch)}
+                            style={{ flex:1, padding:'7px 0', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'var(--font-sans)', fontSize:12.5, fontWeight:otpChannel===ch?700:400, color:otpChannel===ch?'#fff':'var(--text-muted)', background:otpChannel===ch?'var(--brand-black)':'transparent', transition:'all 0.18s' }}>
+                            {lbl}
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) auto auto', gap:10, alignItems:'end' }}>
+                        <Input label="OTP" value={otp} onChange={e => { setOtp(e.target.value); setReqError(''); }} placeholder={otpSent ? 'Enter OTP' : 'Send OTP first'} />
+                        <button type="button" disabled={reqLoading || otpCooldown > 0} onClick={sendOtp}
+                          style={{ height:38, padding:'0 12px', border:'1px solid var(--border-default)', borderRadius:'var(--radius-md)', background:'var(--surface-card)', color:'var(--text-default)', fontFamily:'var(--font-sans)', fontSize:12.5, fontWeight:700, cursor:reqLoading || otpCooldown > 0 ? 'default' : 'pointer', whiteSpace:'nowrap' }}>
+                          {otpCooldown > 0 ? `Resend ${otpCooldown}s` : otpSent ? 'Resend OTP' : 'Send OTP'}
+                        </button>
+                        <button type="button" disabled={reqLoading || !otpSent || otpVerified} onClick={verifyOtp}
+                          style={{ height:38, padding:'0 12px', border:'none', borderRadius:'var(--radius-md)', background:otpVerified ? 'var(--success-bg)' : 'var(--brand-black)', color:otpVerified ? 'var(--success-text)' : '#fff', fontFamily:'var(--font-sans)', fontSize:12.5, fontWeight:700, cursor:reqLoading || !otpSent || otpVerified ? 'default' : 'pointer', whiteSpace:'nowrap' }}>
+                          {otpVerified ? 'Verified' : 'Verify'}
+                        </button>
+                      </div>
                     </div>
-                    {otpSent && !otpVerified && <Notice tone="success">OTP sent to your mobile number.</Notice>}
-                    {otpVerified && <Notice tone="success">Mobile number verified.</Notice>}
+                    {otpSent && !otpVerified && <Notice tone="success">OTP sent to your {otpChannel === 'email' ? 'email address' : 'mobile number'}.</Notice>}
+                    {otpVerified && <Notice tone="success">{otpChannel === 'email' ? 'Email address' : 'Mobile number'} verified.</Notice>}
                     {reqError && <Notice>{reqError}</Notice>}
                     <Btn style={{ marginTop:4 }} disabled={reqLoading || !otpVerified} onClick={submitAccessRequest}>{reqLoading ? 'Working...' : 'Submit Request'}</Btn>
                   </div>

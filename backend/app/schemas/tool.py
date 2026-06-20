@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-from pydantic import BaseModel, Field, condecimal, model_validator
-=======
-from pydantic import BaseModel, ConfigDict, Field
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
+from pydantic import BaseModel, ConfigDict, Field, condecimal, model_validator
 from typing import Optional, Literal
 from datetime import date
 from uuid import UUID

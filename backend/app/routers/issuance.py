@@ -14,13 +14,14 @@ from app.schemas.issuance import IssuanceCreate
 from app.services.audit import log_action
 from app.services.calibration_status import is_calibration_blocked, sync_calibration_statuses
 from app.services.depreciation import snapshot_value_at_issuance
-<<<<<<< HEAD
 from app.services.notifications import notify_consumable_issued, notify_tool_issued
-from app.services.stock import consume_stock, get_tool_locked, reduce_stock
-=======
-from app.services.notifications import notify_tool_issued
-from app.services.stock import get_period_open_issued_quantity, get_period_reserved_quantity, get_tool_locked, reduce_stock
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
+from app.services.stock import (
+    consume_stock,
+    get_period_open_issued_quantity,
+    get_period_reserved_quantity,
+    get_tool_locked,
+    reduce_stock,
+)
 
 router = APIRouter(prefix="/issuance", tags=["issuance"])
 

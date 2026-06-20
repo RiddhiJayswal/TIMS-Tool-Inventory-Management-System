@@ -421,10 +421,6 @@ def report_utilization(
                 IssuanceLog.issued_at >= from_date,
                 IssuanceLog.issued_at < to_date_exclusive,
             )
-<<<<<<< HEAD
-=======
-            .with_entities(func.coalesce(func.sum(IssuanceLog.quantity_issued), 0))
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
             .scalar()
         )
         total_issued = int(total_issued or 0)
@@ -451,11 +447,7 @@ def report_utilization(
         rejected_requests = base_req.filter(Requisition.status == "rejected").count()
 
         most_borrowed = (
-<<<<<<< HEAD
             db.query(Tool.name, func.sum(IssuanceLog.quantity_issued).label("qty"))
-=======
-            db.query(Tool.name, func.coalesce(func.sum(IssuanceLog.quantity_issued), 0).label("cnt"))
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
             .join(IssuanceLog, Tool.id == IssuanceLog.tool_id)
             .join(Requisition, IssuanceLog.requisition_id == Requisition.id)
             .filter(
@@ -464,11 +456,7 @@ def report_utilization(
                 IssuanceLog.issued_at < to_date_exclusive,
             )
             .group_by(Tool.name)
-<<<<<<< HEAD
             .order_by(func.sum(IssuanceLog.quantity_issued).desc())
-=======
-            .order_by(func.coalesce(func.sum(IssuanceLog.quantity_issued), 0).desc())
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
             .first()
         )
 

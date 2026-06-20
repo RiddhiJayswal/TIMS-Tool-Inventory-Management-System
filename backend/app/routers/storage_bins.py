@@ -63,16 +63,11 @@ def list_bins(
     bins = db.query(StorageBin).all()
     result = []
     for b in bins:
-<<<<<<< HEAD
         count = scope_tools_for_user(
             db.query(Tool).filter(Tool.storage_bin_id == b.id),
             current_user,
         ).count()
-        result.append(_bin_to_dict(b, count))
-=======
-        count = db.query(Tool).filter(Tool.storage_bin_id == b.id).count()
         result.append(_bin_to_dict(b, count, _bin_used_units(db, b.id)))
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
     return result
 
 

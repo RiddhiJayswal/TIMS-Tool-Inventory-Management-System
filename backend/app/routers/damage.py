@@ -11,12 +11,8 @@ from app.models.transaction import IssuanceLog, Requisition, User
 from app.schemas.damage import DamageAssessment, WriteOffPayload
 from app.services.audit import log_action
 from app.services.depreciation import calculate_penalty
-<<<<<<< HEAD
-from app.services.stock import consume_stock, validate_writeoff_eligibility
-=======
-from app.services.stock import consume_stock, restore_stock
+from app.services.stock import consume_stock, restore_stock, validate_writeoff_eligibility
 from app.routers.returns import _split_notes
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
 
 router = APIRouter(prefix="/damage", tags=["damage"])
 
@@ -137,14 +133,6 @@ def record_damage(
     # no penalty, but it is still written off rather than restored to available stock.
     tool = db.query(Tool).filter(Tool.id == log.tool_id).first()
     if tool:
-<<<<<<< HEAD
-        affected_quantity = (
-            log.quantity_issued
-            if log.return_condition == "missing"
-            else (log.quantity_returned or log.quantity_issued)
-        )
-        consume_stock(db, str(tool.id), affected_quantity)
-=======
         breakdown, _ = _split_notes(log.notes)
         if log.return_condition == "missing":
             affected_quantity = breakdown.get("missing", 0) or log.quantity_issued
@@ -154,7 +142,6 @@ def record_damage(
             restore_stock(db, str(tool.id), affected_quantity)
         else:
             consume_stock(db, str(tool.id), affected_quantity)
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
 
     # Requisition for borrower name and department
     req = db.query(Requisition).filter(Requisition.id == log.requisition_id).first()

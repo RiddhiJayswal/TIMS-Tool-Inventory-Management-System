@@ -72,14 +72,10 @@ def process_return(
         remaining_quantity = max(int(log.quantity_issued or 0) - previous_returned, 0)
         if log.actual_return_date is not None or remaining_quantity <= 0:
             raise HTTPException(400, "Tool already returned")
-<<<<<<< HEAD
-        if payload.quantity_returned > log.quantity_issued:
-=======
         if current_user.role not in ("maintenance_admin", "maintenance_staff") and log.issued_to != current_user.id:
             raise HTTPException(403, "You can only return tools issued to you")
 
         if payload.quantity_returned > remaining_quantity:
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
             raise HTTPException(
                 400,
                 f"quantity_returned ({payload.quantity_returned}) cannot exceed remaining quantity ({remaining_quantity})",

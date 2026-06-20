@@ -2,12 +2,7 @@ from datetime import datetime, date, timedelta
 from typing import Optional
 from uuid import UUID
 
-<<<<<<< HEAD
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Date
-=======
-from fastapi import APIRouter, Depends, HTTPException
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
 from sqlalchemy.orm import Session
 
 from app.auth.roles import RequireAnyRole, RequireDeptHead, get_current_user
@@ -24,12 +19,14 @@ from app.services.notifications import (
     notify_user,
 )
 from app.services.requisition_number import generate_requisition_number
-<<<<<<< HEAD
 from app.services.stock import get_pending_damage_by_tool
 from app.services.tool_visibility import user_can_access_tool
-=======
-from app.services.stock import get_period_open_issued_quantity, get_period_reserved_quantity
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
+from app.services.stock import (
+    get_pending_damage_by_tool,
+    get_period_open_issued_quantity,
+    get_period_reserved_quantity,
+)
+from app.services.tool_visibility import user_can_access_tool
 
 router = APIRouter(prefix="/requisitions", tags=["requisitions"])
 
@@ -46,22 +43,15 @@ def _period_availability(
     exclude_requisition_id: UUID | None = None,
 ) -> dict:
     overlapping = _overlapping_issue_quantity(db, tool.id, from_date, to_date)
-<<<<<<< HEAD
     pending_damage = get_pending_damage_by_tool(db).get(tool.id, 0)
-    available = max(int(tool.total_quantity or 0) - overlapping - pending_damage, 0)
-=======
     reserved = get_period_reserved_quantity(db, tool.id, from_date, to_date, exclude_requisition_id)
-    available = max(int(tool.total_quantity or 0) - overlapping - reserved, 0)
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
+    available = max(int(tool.total_quantity or 0) - overlapping - pending_damage - reserved, 0)
     return {
         "tool_id": str(tool.id),
         "total_quantity": int(tool.total_quantity or 0),
         "overlapping_issued_quantity": overlapping,
-<<<<<<< HEAD
         "pending_damage_quantity": pending_damage,
-=======
         "reserved_quantity": reserved,
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
         "available_quantity": available,
         "available": available > 0,
     }
@@ -115,12 +105,8 @@ def create_requisition(
     if not user_can_access_tool(tool, current_user):
         raise HTTPException(403, "Your department does not have access to this tool")
 
-<<<<<<< HEAD
     # 3. Check availability for the requested period. Current availability is not
     # used here because an open issuance may end before a future request begins.
-=======
-    # 3. Check stock availability
->>>>>>> ef9062c (Fix TIMS workflow validation and mobile UI issues)
     period = _period_availability(db, tool, payload.from_date, payload.to_date)
     if period["available_quantity"] < payload.quantity_requested:
         raise HTTPException(

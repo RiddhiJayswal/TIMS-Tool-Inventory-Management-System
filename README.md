@@ -1,204 +1,390 @@
-# TIMS - Tools Inventory Management System
+<div align="center">
 
-## UltraTech Cement · Maintenance Department
+<table border="0" cellspacing="0" cellpadding="0">
+  <tr>
+    <td align="center">
+      <img src="frontend/public/assets/ultratech-logo.png" height="110" alt="Aditya Birla UltraTech" />
+    </td>
+    <td align="center" width="80">
+      <h2>&nbsp;×&nbsp;</h2>
+    </td>
+    <td align="center">
+      <img src="docs/tims-logo.svg" height="110" alt="TIMS Logo" />
+    </td>
+  </tr>
+</table>
 
-TIMS is a role-based maintenance tool inventory system for plant teams. It tracks tool stock, requisitions, approvals, issue/return activity, calibration, storage bins, damage assessment, users, reports, notifications, and audit/activity exports.
+<br/>
 
-## Current Stack
+![Release](https://img.shields.io/badge/release-v1.0.0-black?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+![Status](https://img.shields.io/badge/status-production-brightgreen?style=flat-square)
+![Backend](https://img.shields.io/badge/FastAPI-0.104+-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Database](https://img.shields.io/badge/PostgreSQL-15+-336791?style=flat-square&logo=postgresql&logoColor=white)
+![Auth](https://img.shields.io/badge/Auth-JWT-FAC400?style=flat-square)
+![Frontend](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)
+![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey?style=flat-square)
 
-| Area | Technology |
-| --- | --- |
-| Backend | FastAPI, SQLAlchemy, Alembic, APScheduler |
-| Database | PostgreSQL in Docker |
-| Auth | JWT bearer tokens, bcrypt password hashes |
-| Frontend | React 18 loaded by Vite/static runtime, TIMS design-system bundle |
-| Runtime | Docker Compose services for `backend`, `frontend`, and `db` |
-| Reports | JSON and CSV exports, activity backup CSV, daily activity log |
+<br/>
+
+> **TIMS** is a production-ready, role-based tool inventory management system built for the Maintenance Department at **UltraTech Cement (Aditya Birla Group)**. It replaces Excel-based manual tracking with a structured, real-time system for issuing, returning, calibrating, and auditing plant maintenance tools.
+
+<br/>
+
+🌐 **Live:** [tims.riddhijayswal.com](https://tims.riddhijayswal.com) &nbsp;|&nbsp; 📖 **API Docs:** [tims.riddhijayswal.com/docs](https://tims.riddhijayswal.com/docs)
+
+</div>
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [Default Logins](#default-logins)
+- [Roles & Permissions](#roles--permissions)
+- [Features](#features)
+- [Business Rules](#business-rules)
+- [Project Structure](#project-structure)
+- [Useful Commands](#useful-commands)
+- [Deployment](#deployment)
+
+---
+
+## Overview
+
+UltraTech Cement's Maintenance Department manages thousands of plant tools using paper registers and Excel. TIMS replaces this with a web-based, internet-accessible system that gives every role exactly what they need — nothing more, nothing less.
+
+| Problem | TIMS Solution |
+|---|---|
+| No real-time stock visibility | Live available/issued counts per tool |
+| Tools taken without authorisation | Mandatory requisition → approval → issue workflow |
+| Calibration due dates missed | Background scheduler with auto-blocking |
+| No damage or penalty tracking | Structured damage assessment with depreciated value |
+| Physical location unknown | Storage bin management with occupancy tracking |
+| No audit trail | Full audit log on every stock-modifying action |
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| Backend | FastAPI + SQLAlchemy + Alembic | REST API, ORM, schema migrations |
+| Database | PostgreSQL 15 (Docker) | ACID-compliant inventory transactions |
+| Auth | JWT bearer tokens + bcrypt | Role-based access, 8-hour session expiry |
+| Scheduler | APScheduler | Daily calibration checks, overdue reminders |
+| Frontend | React 18 (in-browser Babel) | SPA loaded via static file server |
+| Design System | TIMS DS bundle (`_ds_bundle.js`) | Shared UI components across all screens |
+| Containerisation | Docker Compose | Backend + Frontend + DB as unified stack |
+| CI/CD | GitHub Actions → SSH deploy | Auto-deploy to Hetzner on push to `main` |
+
+---
 
 ## Quick Start
 
-```powershell
-Copy-Item .env.example .env
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+- Git
+
+### Run locally
+
+```bash
+git clone https://github.com/RiddhiJayswal/TIMS-Tool-Inventory-Management-System.git
+cd TIMS-Tool-Inventory-Management-System
+
+# Create local environment file
+cp .env.example .env          # Linux / macOS
+Copy-Item .env.example .env   # Windows PowerShell
+
+# Build and start all services
 docker compose up -d --build
 ```
 
-The first command creates the local environment file used by Docker Compose. Change its credentials and `SECRET_KEY` before deploying outside local development.
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:8000 |
+| API Docs (Swagger) | http://localhost:8000/docs |
 
-Open:
+### Seed demo data
 
-```text
-http://localhost:3000
+```bash
+docker compose exec backend python seed.py
 ```
 
-Backend API docs:
+### Check containers
 
-```text
-http://localhost:8000/docs
-```
-
-Check containers:
-
-```powershell
+```bash
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 ```
 
-## Default Seed Logins
+---
 
-For the current Docker seed data, the demo users use:
+## Default Logins
 
-| Role | Employee ID | Password | Department |
-| --- | --- | --- | --- |
-| Maintenance Admin | `ADM001` | `password123` | Maintenance |
-| Maintenance Staff | `STF001` | `password123` | Maintenance |
-| Dept Head | `HD001` | `password123` | E&I |
-| Requester | `USR001` | `password123` | E&I |
+All seed accounts use `password123` unless noted otherwise.
 
-Some test fixtures use strong passwords such as `Admin@123`, `Staff@123`, `Head@123`, and `User@123`; the running Docker seed currently uses `password123`.
+| Role | Employee ID | Department | Access Level |
+|---|---|---|---|
+| `maintenance_admin` | `ADM001` | Maintenance | Full system access |
+| `maintenance_staff` | `STF001` | Maintenance | Issue, return, tools, bins, reports |
+| `dept_head` | `HD001` | E&I | Approve own department requisitions |
+| `requester` | `USR001` | E&I | Raise requests, view tools |
 
-## Roles And Permissions
+---
+
+## Roles & Permissions
 
 | Action | Admin | Staff | Dept Head | Requester |
-| --- | --- | --- | --- | --- |
-| Login / logout | Yes | Yes | Yes | Yes |
-| Forgot username/password | Yes | Yes | Yes | Yes |
-| Request access | Public form | Public form | Public form | Public form |
-| Approve access requests | Yes | No | No | No |
-| View tools | Yes | Yes | Yes | Yes |
-| Add/edit/write off tools | Yes | Yes | No | No |
-| Request tools | Yes | Yes | Yes | Yes |
-| Approve tool requests | Yes | No | Own department | No |
-| Issue tools | Yes | Yes | No | No |
-| Process returns | Yes | Yes | No | No |
-| Manage users | Yes | No | No | No |
-| Manage storage bins | Yes | Yes | No | No |
-| View calibration schedule/history | Yes | Yes | No | No |
-| Record calibration | Yes | No | No | No |
-| Reports and downloads | Yes | Yes | No | No |
+|---|---|---|---|---|
+| Login / logout | ✅ | ✅ | ✅ | ✅ |
+| Forgot username / password | ✅ | ✅ | ✅ | ✅ |
+| Request access (public) | ✅ | ✅ | ✅ | ✅ |
+| Approve / reject access requests | ✅ | — | — | — |
+| View tool catalogue | ✅ | ✅ | ✅ | ✅ |
+| Add / edit / write off tools | ✅ | ✅ | — | — |
+| Raise tool requisition | ✅ | ✅ | ✅ | ✅ |
+| Approve requisitions | ✅ | — | Own dept only | — |
+| Issue tools | ✅ | ✅ | — | — |
+| Process returns | ✅ | ✅ | — | — |
+| Damage assessment | ✅ | ✅ | — | — |
+| Manage storage bins | ✅ | ✅ | — | — |
+| Calibration schedule / history | ✅ | ✅ | — | — |
+| Record calibration completion | ✅ | — | — | — |
+| User management | ✅ | — | — | — |
+| Reports & CSV exports | ✅ | ✅ | — | — |
 
-Restricted routes are hidden in the UI and protected by backend role guards. Forced frontend route access shows an Access Denied fallback.
+> All role checks are enforced at the **API layer**. Frontend hides restricted routes, but backend returns HTTP 403 for any unauthorised attempt.
 
-## Main Features
+---
 
-- Authentication with inactive-user blocking.
-- Forgot username by registered email or employee ID.
-- Forgot password/reset token flow. If SMTP is not configured, the reset token is shown safely for local/demo testing.
-- Public access request form with admin approval/rejection.
-- Tool catalogue with department access, stock, value, calibration, and storage-bin details.
-- Tool details modal showing available units and issued units, including who has the issued tool.
-- Tool requisition workflow with date-period availability checks.
-- Dept-head/admin approval workflow.
-- Staff/admin issue workflow.
-- Return workflow with quantity and condition checks.
-- Damage/missing assessment and stock handling.
-- Calibration tracking and due/overdue blocking.
-- Storage bin management.
-- Notifications.
-- Reports, CSV export, activity backup, and daily log download.
-- Mobile responsive layout with left-side collapsible menu and mobile card views for data-heavy pages.
+## Features
 
-## Important Business Rules
+### Authentication & Access
+- JWT-based login with role enforcement
+- Inactive-user blocking at login
+- Forgot username by registered email or employee ID
+- Forgot password / reset token flow (token shown in UI when SMTP not configured)
+- Public access-request form with admin approval / rejection workflow
 
-| Rule | Enforcement |
-| --- | --- |
-| Requester cannot approve requests | Backend requisition role checks |
-| Dept head approves own department only | Backend requisition department checks |
-| Staff cannot approve access requests | Users/access APIs are admin-only |
-| Requester cannot download reports/logs | Reports APIs require maintenance role |
-| Calibration-due tools are blocked | Requisition/issue validation |
-| Stock cannot go negative | Stock service and router validation |
-| Issued stock is reduced only at issue time | Issuance workflow |
-| Good returns restore stock | Return workflow |
-| Damaged/missing stock waits for admin assessment | Return + damage workflow |
-| Overlapping issued dates block new requisition period | Requisition availability endpoint |
+### Tool Catalogue
+- Full tool master: code, name, category, type (General / Specialized), department access, make, model, serial number
+- Stock: total quantity, available quantity, currently issued, unavailable
+- Financial: purchase date, purchase price, standard life, live depreciated value
+- Calibration fields: frequency, last date, next due date, service partner
+- Storage bin assignment with physical location (row, rack, shelf level, floor)
+- Consumable vs durable classification
+- Tool status: Active / Calibration Due / Damaged / Written Off
+
+### Requisition Workflow
+```
+Requester raises requisition
+        ↓
+Dept Head reviews → Approve / Reject
+        ↓ (Approved)
+Appears in Maintenance issuance queue
+        ↓
+Staff issues tool physically
+        ↓
+Stock reduces in real-time; issuance log created
+```
+
+### Issuance & Returns
+- Issue only against an approved requisition
+- Available quantity reduces immediately and atomically on issue
+- Return captures: condition (Good / Damaged / Missing), quantity returned
+- Partial returns supported for consumables
+- Damage assessment: Theft / Mishandling / Wear & Tear with penalty calculation
+
+### Calibration & Scheduling
+- Background job checks calibration due dates daily
+- Alert sent 7 days before due date
+- Overdue calibration auto-blocks new issuances
+- Admin records completion; next due date recalculates automatically
+
+### Storage Bins
+- Create and manage physical bin locations (row, rack, shelf level, floor)
+- Live occupancy tracking: tools assigned vs capacity
+- Colour-coded status pills: Empty / Active / Near Full / Full
+- Unassign tools from bins directly from the bin detail view
+
+### Notifications
+- In-app notification bell with unread count badge
+- Clickable notifications route directly to the relevant screen
+- Mark individual or all notifications as read
+
+### Reports & Exports
+- Current stock report
+- Issuance history (filterable by tool, person, department, date range)
+- Overdue issuances
+- Calibration due report
+- Damage and penalty register
+- Department-wise utilisation summary
+- Tool depreciation and value summary
+- All reports exportable to CSV
+- Activity audit backup and daily activity log download
+
+### Dashboard
+- Role-aware stats: total tools, available tools, issued, overdue, calibration due
+- Sidebar badges showing live pending counts (updates after each completed action)
+- Overdue and low-stock alerts
+
+---
+
+## Business Rules
+
+| Rule | Enforcement Layer |
+|---|---|
+| Requester cannot approve their own requisition | Backend requisition role checks |
+| Dept head approves own department only | Backend department checks |
+| Calibration-due tools blocked from issuance | Requisition and issue validation |
+| Stock cannot go below 0 | Stock service + HTTP 400 guard |
+| Stock reduces only at issuance (not approval) | Issuance workflow |
+| Good returns restore stock fully | Return workflow |
+| Damaged / missing stock held pending assessment | Return + damage workflow |
+| Overlapping issue dates block new requisition | Availability endpoint check |
+| Mishandling penalty = depreciated value at issue time | Snapshotted at issuance |
+| Theft penalty = current market rate (admin-entered) | Damage assessment form |
+| Wear & tear = write off, no penalty | Damage assessment form |
+
+---
 
 ## Project Structure
 
-```text
-Maintenance Tool Recording System/
-  backend/
-    app/
-      auth/roles.py
-      models/
-      routers/
-      services/
-      main.py
-    tests/
-    seed.py
-  frontend/
-    index.html
-    public/
-      screens/
-      styles.css
-      assets/
-    take_screenshots.mjs
-  screenshots/
-  TIMS_FULL_TEST_CHECKLIST.md
-  README.md
 ```
+TIMS-Tool-Inventory-Management-System/
+├── backend/
+│   ├── app/
+│   │   ├── auth/
+│   │   │   └── roles.py              # JWT + role guards (RequireAdmin, RequireMaintenance, …)
+│   │   ├── models/
+│   │   │   ├── master.py             # Tool, StorageBin
+│   │   │   └── transaction.py        # Requisition, IssuanceLog, User, Notification, AuditLog
+│   │   ├── routers/
+│   │   │   ├── auth.py
+│   │   │   ├── tools.py
+│   │   │   ├── requisitions.py
+│   │   │   ├── issuance.py
+│   │   │   ├── returns.py
+│   │   │   ├── calibration.py
+│   │   │   ├── damage.py
+│   │   │   ├── storage_bins.py
+│   │   │   ├── users.py
+│   │   │   ├── reports.py
+│   │   │   └── dashboard.py
+│   │   ├── schemas/
+│   │   ├── services/
+│   │   │   ├── stock.py              # Real-time stock logic
+│   │   │   ├── depreciation.py       # Monthly value calculation
+│   │   │   ├── calibration_status.py
+│   │   │   └── notifications.py      # Calibration / overdue reminders
+│   │   └── main.py
+│   ├── tests/
+│   │   └── test_integration.py
+│   └── seed.py
+├── frontend/
+│   ├── index.html                    # App bootstrap, route guard, screen loader
+│   └── public/
+│       ├── screens/
+│       │   ├── AppShell.jsx          # Sidebar, Navbar, notification panel
+│       │   ├── Data.jsx              # window.API + window.MOCK data layer
+│       │   ├── DashboardScreen.jsx
+│       │   ├── ToolsScreen.jsx
+│       │   ├── RequisitionsScreen.jsx
+│       │   ├── ApprovalsScreen.jsx
+│       │   ├── IssuanceScreen.jsx
+│       │   ├── ReturnsScreen.jsx
+│       │   ├── CalibrationScreen.jsx
+│       │   ├── StorageBinsScreen.jsx
+│       │   ├── ReportsScreen.jsx
+│       │   ├── UsersScreen.jsx
+│       │   └── LoginScreen.jsx
+│       ├── _ds_bundle.js             # TIMS design-system component bundle
+│       ├── styles.css
+│       └── assets/
+│           └── ultratech-logo.png
+├── docs/
+│   ├── tims-logo.svg
+│   ├── spec.md
+│   ├── requirements.md
+│   └── CLAUDE.md
+├── .github/
+│   └── workflows/
+│       └── deploy.yml                # GitHub Actions → Hetzner SSH deploy
+├── docker-compose.yml
+├── docker-compose.prod.yml
+└── README.md
+```
+
+---
 
 ## Useful Commands
 
-Backend compile:
-
-```powershell
-cd backend
-python -m compileall app alembic
+**Seed / reset demo data**
+```bash
+docker compose exec backend python seed.py
 ```
 
-Frontend syntax/build:
-
-```powershell
-cd frontend
-Get-ChildItem public/screens -Filter *.jsx | ForEach-Object { Get-Content -Raw $_.FullName | & node_modules/.bin/esbuild.cmd --loader=jsx --format=iife --log-level=error | Out-Null; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }
-npm.cmd run build
-```
-
-Integration tests:
-
-```powershell
+**Run integration tests** *(requires `tims_test` PostgreSQL database)*
+```bash
 cd backend
 python -m pytest tests/test_integration.py -v --tb=short
 ```
 
-Note: the local pytest suite expects a PostgreSQL database named `tims_test`. If it does not exist, pytest setup fails before tests run.
-
-Seed/reset demo data:
-
-```powershell
-docker compose exec backend python seed.py
+**Backend syntax check**
+```bash
+cd backend
+python -m compileall app alembic
 ```
 
-Capture screenshots:
-
+**Frontend JSX syntax check**
 ```powershell
+cd frontend
+Get-ChildItem public/screens -Filter *.jsx | ForEach-Object {
+  Get-Content -Raw $_.FullName |
+  & node_modules/.bin/esbuild.cmd --loader=jsx --format=iife --log-level=error | Out-Null
+}
+```
+
+**Capture screenshots**
+```bash
 cd frontend
 node take_screenshots.mjs
 ```
 
-## Screenshots
+---
 
-Fresh screenshots are stored in:
+## Deployment
 
-```text
-screenshots/
+The project deploys automatically to a **Hetzner VPS** via GitHub Actions on every push to `main`.
+
+```
+git push origin main
+    ↓
+GitHub Actions: deploy.yml
+    ↓
+SSH into Hetzner server
+    ↓
+git pull → docker compose build --no-cache → docker compose up -d
 ```
 
-The screenshot set includes desktop and mobile views after the latest responsive fixes.
+**Required GitHub Secrets:**
 
-## Recent Responsive Fixes
+| Secret | Description |
+|---|---|
+| `SERVER_HOST` | Hetzner server IP or hostname |
+| `SERVER_USER` | SSH username |
+| `SERVER_SSH_KEY` | Private SSH key (PEM format) |
 
-- Mobile menu remains a left-side collapsible rail, not a top menu.
-- Mobile Users page becomes labeled cards instead of a cut desktop table.
-- Mobile Reports page uses vertical actions, vertical report tabs, and card-style report rows.
-- Mobile tab controls stack vertically across feature pages.
-- Generic mobile tables wrap instead of forcing long horizontal scrollbars.
-- Desktop layout is preserved.
+---
 
-## Activity And Audit Exports
+<div align="center">
 
-Maintenance staff and admins can download:
+Built for **UltraTech Cement · Aditya Birla Group** · Maintenance Department
 
-- Activity backup CSV: `/api/reports/activity-logs?format=csv`
-- Daily activity log: `/api/reports/activity-logs/daily`
-
-These downloads are also exposed as buttons in the Reports screen.
+</div>

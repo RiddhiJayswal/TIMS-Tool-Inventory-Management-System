@@ -305,3 +305,68 @@ def test_depleted_consumable_becomes_out_of_stock_not_written_off():
     assert tool.total_quantity == 0
     assert tool.available_quantity == 0
     assert tool.status == "out_of_stock"
+
+
+def test_writeoff_requires_damaged_durable_tool():
+    from types import SimpleNamespace
+    from fastapi import HTTPException
+
+    from app.services.stock import validate_writeoff_eligibility
+
+    validate_writeoff_eligibility(SimpleNamespace(is_consumable=False, status="damaged"))
+
+    for tool in (
+        SimpleNamespace(is_consumable=True, status="damaged"),
+        SimpleNamespace(is_consumable=False, status="active"),
+    ):
+        with pytest.raises(HTTPException) as exc:
+            validate_writeoff_eligibility(tool)
+        assert exc.value.status_code == 400
+
+
+def test_tool_update_cannot_override_derived_lifecycle_fields():
+    from pydantic import ValidationError
+
+    from app.schemas.tool import ToolUpdate
+
+    with pytest.raises(ValidationError):
+        ToolUpdate(status="active", name="Renamed")
+    with pytest.raises(ValidationError):
+        ToolUpdate(next_calibration_due="2099-01-01", name="Renamed")
+
+
+def test_scheduler_does_not_change_terminal_tool_statuses(monkeypatch):
+    from datetime import date, timedelta
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from app import scheduler as scheduler_module
+    from app.models.master import Tool
+
+    terminal_tools = [
+        SimpleNamespace(
+            status=status,
+            requires_calibration=True,
+            next_calibration_due=date.today() - timedelta(days=1),
+        )
+        for status in ("damaged", "written_off", "blocked", "out_of_stock")
+    ]
+    db = MagicMock()
+
+    def query(model):
+        result = MagicMock()
+        result.filter.return_value = result
+        result.all.return_value = terminal_tools if model is Tool else []
+        return result
+
+    db.query.side_effect = query
+    monkeypatch.setattr(scheduler_module, "SessionLocal", lambda: db)
+
+    scheduler_module.run_calibration_check()
+
+    assert [tool.status for tool in terminal_tools] == [
+        "damaged",
+        "written_off",
+        "blocked",
+        "out_of_stock",
+    ]

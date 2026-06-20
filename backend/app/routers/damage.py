@@ -11,7 +11,7 @@ from app.models.transaction import IssuanceLog, Requisition, User
 from app.schemas.damage import DamageAssessment, WriteOffPayload
 from app.services.audit import log_action
 from app.services.depreciation import calculate_penalty
-from app.services.stock import consume_stock
+from app.services.stock import consume_stock, validate_writeoff_eligibility
 
 router = APIRouter(prefix="/damage", tags=["damage"])
 
@@ -28,6 +28,8 @@ def manual_writeoff(
     tool = db.query(Tool).filter(Tool.id == tool_id).first()
     if not tool:
         raise HTTPException(404, "Tool not found")
+
+    validate_writeoff_eligibility(tool)
 
     if payload.quantity > tool.total_quantity:
         raise HTTPException(

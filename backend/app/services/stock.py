@@ -10,6 +10,20 @@ from app.models.master import Tool
 from app.models.transaction import IssuanceLog
 
 
+def validate_writeoff_eligibility(tool: Tool) -> None:
+    """Only damaged, durable inventory may enter the write-off workflow."""
+    if tool.is_consumable:
+        raise HTTPException(
+            status_code=400,
+            detail="Consumable tools are consumed through issuance and cannot be written off",
+        )
+    if tool.status != "damaged":
+        raise HTTPException(
+            status_code=400,
+            detail="Only tools marked as damaged can be written off",
+        )
+
+
 def get_tool_locked(db: Session, tool_id: str) -> Tool:
     """
     Fetch and lock a tool row for stock modification.

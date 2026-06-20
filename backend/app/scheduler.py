@@ -30,13 +30,20 @@ def run_calibration_check():
         today = date.today()
         warn_threshold = today + timedelta(days=7)
 
-        tools = db.query(Tool).filter(Tool.requires_calibration == True).all()
+        tools = db.query(Tool).filter(
+            Tool.requires_calibration == True,
+            Tool.status.in_(("active", "calibration_due")),
+        ).all()
         admin_users = db.query(User).filter(
             User.role == "maintenance_admin",
             User.is_active == True
         ).all()
 
         for tool in tools:
+            # Terminal/inventory workflow states must never be replaced by a
+            # derived calibration status, even if a stale query returns them.
+            if tool.status not in ("active", "calibration_due"):
+                continue
             if not tool.next_calibration_due:
                 continue
             if tool.next_calibration_due <= today:

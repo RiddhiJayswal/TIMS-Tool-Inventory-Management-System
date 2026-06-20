@@ -15,7 +15,11 @@ from app.schemas.tool import ToolCreate, ToolUpdate
 from app.services.calibration_status import sync_calibration_statuses
 from app.services.audit import log_action
 from app.services.depreciation import calculate_current_value
-from app.services.stock import get_open_issued_by_tool, get_tool_stock_snapshot
+from app.services.stock import (
+    get_open_issued_by_tool,
+    get_tool_stock_snapshot,
+    validate_writeoff_eligibility,
+)
 from app.services.tool_visibility import scope_tools_for_user, user_can_access_tool
 
 router = APIRouter(prefix="/tools", tags=["tools"])
@@ -327,12 +331,14 @@ def update_tool(
 @router.delete("/{tool_id}")
 def write_off_tool(
     tool_id: UUID,
-    current_user: User = Depends(RequireMaintenance),
+    current_user: User = Depends(RequireAdmin),
     db: Session = Depends(get_db),
 ):
     tool = db.query(Tool).filter(Tool.id == tool_id).first()
     if not tool:
         raise HTTPException(404, "Tool not found")
+
+    validate_writeoff_eligibility(tool)
 
     open_count = (
         db.query(IssuanceLog)
@@ -342,10 +348,14 @@ def write_off_tool(
     if open_count > 0:
         raise HTTPException(400, f"Cannot write off tool with {open_count} open issuance(s)")
 
+    written_off_quantity = tool.total_quantity
+    tool.total_quantity = 0
+    tool.available_quantity = 0
     tool.status = "written_off"
     log_action(db, str(current_user.id), "TOOL_WRITTEN_OFF", "tools", str(tool.id), {
         "tool_code": tool.tool_code,
         "name": tool.name,
+        "quantity_written_off": written_off_quantity,
     })
     db.commit()
     return {"message": f"Tool '{tool.name}' written off successfully"}

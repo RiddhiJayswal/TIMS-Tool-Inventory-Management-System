@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, condecimal
+from pydantic import BaseModel, Field, condecimal, model_validator
 from typing import Optional, Literal
 from datetime import date
 from uuid import UUID
@@ -43,6 +43,13 @@ class ToolUpdate(BaseModel):
     requires_calibration: Optional[bool] = None
     calibration_freq_days: Optional[int] = Field(default=None, gt=0, le=36500)
     last_calibration_date: Optional[date] = None
-    next_calibration_due: Optional[date] = None
     service_partner: Optional[str] = None
-    status: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_derived_lifecycle_fields(cls, values):
+        protected = {"status", "next_calibration_due"}.intersection(values or {})
+        if protected:
+            fields = ", ".join(sorted(protected))
+            raise ValueError(f"Derived lifecycle field(s) cannot be updated directly: {fields}")
+        return values

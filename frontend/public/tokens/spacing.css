@@ -1,8 +1,8 @@
-/* ============================================================
+/* ------------------------------------------------------------
    MTRS SPACING, RADIUS, ELEVATION & MOTION
    4px base grid. Modest, consistent radii (tighter than the
    old rounded-xl) for a more engineered feel. Two elevations max.
-   ============================================================ */
+   ------------------------------------------------------------ */
 
 :root {
   /* ---- Spacing scale (4px base) ---------------------------- */

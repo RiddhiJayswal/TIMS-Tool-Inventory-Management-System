@@ -336,9 +336,9 @@ function AppShell({ user, route, onNavigate, notifs, onLogout, children }) {
   }, []);
 
   return (
-    <div className="tims-shell" style={{ display: 'flex', height: '100%', overflow: 'hidden', background: 'var(--surface-page)' }}>
+    <div className="tims-shell" style={{ display: 'flex', height: '100dvh', minHeight: 0, overflow: 'hidden', background: 'var(--surface-page)' }}>
       <Sidebar route={route} onNavigate={onNavigate} collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} user={user} />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
         <Navbar user={user} notifs={notifs} onLogout={onLogout} onNavigate={onNavigate} />
         {apiError && (
           <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: 'var(--danger-bg)', color: 'var(--danger-text)', borderBottom: '1px solid var(--danger-border, var(--border-default))', fontSize: 12.5 }}>
@@ -347,7 +347,7 @@ function AppShell({ user, route, onNavigate, notifs, onLogout, children }) {
             <button onClick={() => setApiError(null)} aria-label="Dismiss error" style={{ border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
           </div>
         )}
-        <main className="tims-main" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '24px 26px', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.12) transparent' }}>{children}</main>
+        <main className="tims-main" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '24px 26px 48px', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.12) transparent' }}>{children}</main>
       </div>
     </div>
   );

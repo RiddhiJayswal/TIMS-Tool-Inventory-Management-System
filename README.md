@@ -159,8 +159,33 @@ All seed accounts use `password123` unless noted otherwise.
 - JWT-based login with role enforcement
 - Inactive-user blocking at login
 - Forgot username by registered email or employee ID
-- Forgot password / reset token flow (token shown in UI when SMTP not configured)
-- Public access-request form with admin approval / rejection workflow
+- Forgot password by registered email, with one-time reset links delivered by SMTP
+- Public access-request form with mobile OTP verification and admin approval / rejection workflow
+- Access request received / approved emails when SMTP is configured
+
+### Email and SMS Delivery
+
+Password reset links and access request emails are sent only when SMTP is configured. For Gmail or Google Workspace, create a Google App Password and set:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-16-character-google-app-password
+SMTP_FROM_EMAIL=your-email@gmail.com
+SMTP_USE_TLS=true
+FRONTEND_BASE_URL=http://localhost:3000
+```
+
+Mobile OTPs require a real SMS gateway. Set:
+
+```env
+SMS_API_URL=https://your-sms-provider.example/send
+SMS_API_KEY=your-sms-provider-api-key
+SMS_FROM=TIMS
+```
+
+The default SMS adapter posts JSON with `to`, `message`, and optional `from`. If your provider uses a different contract, update `backend/app/services/sms.py`. Most Indian production SMS vendors require DLT sender/template approval before OTP delivery works.
 
 ### Tool Catalogue
 - Full tool master: code, name, category, type (General / Specialized), department access, make, model, serial number

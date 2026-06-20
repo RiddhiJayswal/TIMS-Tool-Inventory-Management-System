@@ -7,40 +7,74 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-def send_password_reset_email(to_email: str, full_name: str, reset_token: str, expires_minutes: int) -> bool:
-    reset_url = f"{settings.FRONTEND_BASE_URL}/login"
-    subject = "TIMS password reset"
-    body = f"""Hello {full_name},
+def is_email_configured() -> bool:
+    return bool(settings.SMTP_HOST and (settings.SMTP_FROM_EMAIL or settings.SMTP_FROM))
 
-We received a request to reset your TIMS password.
 
-Reset token:
-{reset_token}
-
-Open {reset_url}, choose Forgot, paste this token, and set a new password.
-
-This token expires in {expires_minutes} minutes. If you did not request this reset, ignore this email.
-"""
-
-    if not settings.SMTP_HOST or not settings.SMTP_FROM_EMAIL:
-        logger.warning(
-            "SMTP is not configured. Password reset token for %s: %s",
-            to_email,
-            reset_token,
-        )
+def _send_email(to_email: str, subject: str, body: str) -> bool:
+    from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_FROM
+    if not is_email_configured():
+        logger.warning("SMTP is not configured. Email not sent to %s for subject %s", to_email, subject)
         return False
 
     message = EmailMessage()
     message["Subject"] = subject
-    message["From"] = settings.SMTP_FROM_EMAIL
+    message["From"] = from_email
     message["To"] = to_email
     message.set_content(body)
 
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as smtp:
-        if settings.SMTP_USE_TLS:
-            smtp.starttls()
-        if settings.SMTP_USER and settings.SMTP_PASSWORD:
-            smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-        smtp.send_message(message)
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as smtp:
+            if settings.SMTP_USE_TLS:
+                smtp.starttls()
+            if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            smtp.send_message(message)
+    except Exception:
+        logger.exception("Failed to send email to %s for subject %s", to_email, subject)
+        return False
 
     return True
+
+
+def send_password_reset_email(to_email: str, full_name: str, employee_id: str, reset_token: str, expires_minutes: int) -> bool:
+    reset_url = f"{settings.FRONTEND_BASE_URL}/login?reset_token={reset_token}"
+    body = f"""Hello {full_name},
+
+We received a request to reset your TIMS password.
+
+Open this link to set a new password:
+{reset_url}
+
+Your employee ID is included here for your reference only:
+{employee_id}
+
+This token expires in {expires_minutes} minutes. If you did not request this reset, ignore this email.
+"""
+    return _send_email(to_email, "TIMS password reset", body)
+
+
+def send_access_request_received_email(to_email: str, full_name: str, employee_id: str, requested_role: str) -> bool:
+    role_label = requested_role.replace("_", " ")
+    body = f"""Hello {full_name},
+
+Thank you for creating your TIMS access request.
+
+Your request for employee ID {employee_id} with {role_label} access has been sent to the admin team for approval.
+
+You will receive another email after the admin activates your account. Please sign in only after approval.
+"""
+    return _send_email(to_email, "TIMS access request received", body)
+
+
+def send_access_request_approved_email(to_email: str, full_name: str, employee_id: str) -> bool:
+    body = f"""Hello {full_name},
+
+Your TIMS account has been approved and activated.
+
+Employee ID:
+{employee_id}
+
+Please return to the TIMS sign in page and log in with the password you created during the access request.
+"""
+    return _send_email(to_email, "TIMS account approved", body)

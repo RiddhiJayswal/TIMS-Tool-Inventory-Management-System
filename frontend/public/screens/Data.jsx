@@ -1,7 +1,11 @@
 /* Data.jsx - live API adapter for TIMS runtime screens.
    Populates window.MOCK from backend endpoints so every screen reads one source. */
 
-const API_BASE = '/api';
+const configuredApiBase =
+  window.TIMS_API_BASE ||
+  document.querySelector('meta[name="tims-api-base"]')?.getAttribute('content') ||
+  '/api';
+const API_BASE = configuredApiBase.replace(/\/$/, '');
 const REQUEST_TIMEOUT_MS = 8000;
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
@@ -19,7 +23,7 @@ function friendlyErrorMessage(err, fallback = 'Something went wrong. Please try 
   const hasConflictMarker = raw.includes('<'.repeat(7)) || raw.includes('>'.repeat(7));
   if (!raw) return fallback;
   if (/failed to fetch|networkerror|load failed|server unavailable/i.test(raw)) {
-    return 'Server unavailable. Please check your connection or try again in a moment.';
+    return 'Backend API is unreachable. Please check the live /api proxy or server DNS.';
   }
   if (hasConflictMarker || /unexpected token|babel|syntaxerror|stack|trace/i.test(raw)) {
     return 'The application files could not be loaded correctly. Please reload the page.';
@@ -53,7 +57,7 @@ async function apiFetch(path, options = {}) {
         ? JSON.stringify(detail)
         : detail;
     const error = new Error(friendlyErrorMessage(message || `HTTP ${res.status}`));
-    if (token) {
+    if (token && res.status !== 403) {
       window.dispatchEvent(new CustomEvent('tims:api-error', {
         detail: { message: error.message, path, status: res.status },
       }));
@@ -269,7 +273,7 @@ const API = {
         body: form,
       });
     } catch (err) {
-      throw new Error('Server unavailable. Please check your connection or try again in a moment.');
+      throw new Error('Backend API is unreachable. Please check the live /api proxy or server DNS.');
     }
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.status >= 500 ? 'Server error. Please try again in a moment.' : 'Invalid employee ID or password.' }));
@@ -306,10 +310,10 @@ const API = {
   forgotUsername: (identifier) =>
     apiFetch('/auth/forgot-username', { method: 'POST', body: JSON.stringify({ identifier }) }),
 
-  forgotPassword: (employeeId, email = '') =>
+  forgotPassword: (email) =>
     apiFetch('/auth/forgot-password', {
       method: 'POST',
-      body: JSON.stringify({ employee_id: employeeId, email: email || null }),
+      body: JSON.stringify({ email }),
     }),
 
   resetPassword: (token, newPassword) =>
@@ -666,6 +670,13 @@ const API = {
     apiFetch(`/users/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   toggleUserActive: (id) =>
     apiFetch(`/users/${id}/toggle-active`, { method: 'PUT' }),
+  sendAccessOtp: (payload) =>
+    apiFetch('/auth/access-otp/send', { method: 'POST', body: JSON.stringify(payload) }),
+  verifyAccessOtp: (email, mobileNumber, otp) =>
+    apiFetch('/auth/access-otp/verify', {
+      method: 'POST',
+      body: JSON.stringify({ email, mobile_number: mobileNumber, otp }),
+    }),
   submitAccessRequest: (payload) =>
     apiFetch('/auth/signup', { method: 'POST', body: JSON.stringify(payload) }),
   approveAccessRequest: (id) =>

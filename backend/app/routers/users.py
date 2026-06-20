@@ -9,6 +9,7 @@ from typing import Optional
 from app.database import get_db
 from app.models.transaction import AccessRequest, Notification, User
 from app.auth.roles import RequireAdmin, get_current_user, hash_password
+from app.services.email import send_access_request_approved_email
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -57,6 +58,7 @@ def _access_request_out(req: AccessRequest) -> dict:
         "name": req.full_name,
         "full_name": req.full_name,
         "email": req.email,
+        "mobile_number": req.mobile_number,
         "username": req.email,
         "employeeId": req.employee_id,
         "employee_id": req.employee_id,
@@ -67,6 +69,7 @@ def _access_request_out(req: AccessRequest) -> dict:
         "reason": req.reason,
         "notes": req.reason,
         "status": req.status,
+        "otp_verified": bool(req.otp_verified_at),
         "createdAt": req.created_at,
         "created_at": req.created_at,
         "approvedBy": str(req.approved_by) if req.approved_by else None,
@@ -183,6 +186,7 @@ def approve_access_request(
     db.commit()
     db.refresh(req)
     db.refresh(user)
+    send_access_request_approved_email(user.email, user.full_name, user.employee_id)
     return {"request": _access_request_out(req), "user": _user_out(user)}
 
 

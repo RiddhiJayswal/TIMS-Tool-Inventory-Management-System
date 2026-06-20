@@ -98,13 +98,29 @@ class AccessRequest(Base):
     request_id = Column(String(50), unique=True, nullable=False)
     full_name = Column(String(200), nullable=False)
     email = Column(String(200), nullable=False)
+    mobile_number = Column(String(30), nullable=True)
     employee_id = Column(String(50), nullable=True)
     department = Column(String(100), nullable=False)
     requested_role = Column(String(30), nullable=False)
     reason = Column(Text, nullable=True)
     hashed_password = Column(String(255), nullable=False)
+    otp_hash = Column(String(255), nullable=True)
+    otp_expires_at = Column(DateTime, nullable=True)
+    otp_verified_at = Column(DateTime, nullable=True)
+    otp_attempt_count = Column(Integer, default=0)
     status = Column(String(30), default="pending")
     approved_by = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
     approved_at = Column(DateTime, nullable=True)
     rejection_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    token_hash = Column(String(255), unique=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

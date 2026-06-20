@@ -30,6 +30,9 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
       SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      SMS_API_URL: ${SMS_API_URL:-}
+      SMS_API_KEY: ${SMS_API_KEY:-}
+      SMS_FROM: ${SMS_FROM:-}
     depends_on:
       db:
         condition: service_healthy

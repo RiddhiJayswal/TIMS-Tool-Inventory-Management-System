@@ -11,8 +11,12 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str | None = None
     SMTP_PASSWORD: str | None = None
+    SMTP_FROM: str | None = None
     SMTP_FROM_EMAIL: str | None = None
     SMTP_USE_TLS: bool = True
+    SMS_API_URL: str | None = None
+    SMS_API_KEY: str | None = None
+    SMS_FROM: str | None = None
 
     class Config:
         env_file = ".env"

@@ -24,7 +24,12 @@ async def lifespan(app: FastAPI):
         )
     if not settings.SMTP_HOST:
         warnings.warn(
-            "WARNING: SMTP is not configured. Password reset tokens will only be written to logs.",
+            "WARNING: SMTP is not configured. Password reset and access request emails will not be delivered.",
+            stacklevel=1,
+        )
+    if not settings.SMS_API_URL:
+        warnings.warn(
+            "WARNING: SMS_API_URL is not configured. Mobile OTP delivery will fail until an SMS provider is configured.",
             stacklevel=1,
         )
     start_scheduler()

@@ -4,8 +4,9 @@ Requires a running PostgreSQL test database at DATABASE_URL.
 
 Run: cd backend && python -m pytest tests/test_integration.py -v --tb=short
 """
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
+import hashlib
 
 import pytest
 
@@ -184,30 +185,133 @@ class TestAuth:
         assert str(other_department.id) in {row["id"] for row in admin_tools}
 
     def test_forgot_username_success_and_not_found(self, client):
-        res = client.post("/api/auth/forgot-username", json={"identifier": "user@tims.test"})
+        res = client.post("/api/auth/forgot-username", json={"identifier": "user@tims.example.com"})
         assert res.status_code == 200
         assert res.json()["employee_id"] == "USR001"
 
-        missing = client.post("/api/auth/forgot-username", json={"identifier": "missing@tims.test"})
+        missing = client.post("/api/auth/forgot-username", json={"identifier": "missing@tims.example.com"})
         assert missing.status_code == 404
 
-    def test_forgot_and_reset_password_demo_token(self, client):
-        reset = client.post("/api/auth/forgot-password", json={"employee_id": "USR001"})
+    def test_forgot_and_reset_password_email_token_lifecycle(self, client, monkeypatch):
+        captured = {}
+
+        def fake_reset_email(to_email, full_name, employee_id, reset_token, expires_minutes):
+            captured["token"] = reset_token
+            return True
+
+        monkeypatch.setattr("app.routers.auth.is_email_configured", lambda: True)
+        monkeypatch.setattr("app.routers.auth.send_password_reset_email", fake_reset_email)
+        reset = client.post("/api/auth/forgot-password", json={"email": "user@tims.example.com"})
         assert reset.status_code == 200
-        token = reset.json().get("reset_token")
-        assert token, "Test config has no SMTP, so API should return a demo reset token"
+        assert reset.json()["message"] == "If this email is registered, reset instructions have been sent."
+        assert reset.json()["delivery_configured"] is True
+        assert "reset_token" not in reset.json()
+        token = captured["token"]
 
         changed = client.post("/api/auth/reset-password", json={"token": token, "new_password": "NewUser@123"})
         assert changed.status_code == 200
 
+        reused = client.post("/api/auth/reset-password", json={"token": token, "new_password": "OtherUser@123"})
+        assert reused.status_code == 400
+
         login = client.post("/api/auth/login", data={"username": "USR001", "password": "NewUser@123"})
         assert login.status_code == 200
 
-        restore = client.post("/api/auth/forgot-password", json={"employee_id": "USR001"})
-        restore_token = restore.json().get("reset_token")
-        assert restore_token
+        old_login = client.post("/api/auth/login", data={"username": "USR001", "password": "User@123"})
+        assert old_login.status_code == 401
+
+        restore = client.post("/api/auth/forgot-password", json={"email": "user@tims.example.com"})
+        restore_token = captured["token"]
         restored = client.post("/api/auth/reset-password", json={"token": restore_token, "new_password": "User@123"})
         assert restored.status_code == 200
+
+    def test_forgot_password_unregistered_email_is_generic(self, client):
+        res = client.post("/api/auth/forgot-password", json={"email": "missing@tims.example.com"})
+        assert res.status_code == 200
+        assert res.json()["message"] == "Email delivery is not configured. Please contact admin."
+        assert res.json()["delivery_configured"] is False
+        assert "reset_token" not in res.json()
+
+    def test_reset_password_expired_token_fails_cleanly(self, client, db):
+        from app.models.transaction import PasswordResetToken, User
+
+        user = db.query(User).filter(User.employee_id == "USR001").first()
+        token = "expired-reset-token"
+        db.add(PasswordResetToken(
+            user_id=user.id,
+            token_hash=hashlib.sha256(token.encode("utf-8")).hexdigest(),
+            expires_at=datetime.utcnow() - timedelta(minutes=1),
+        ))
+        db.commit()
+        res = client.post("/api/auth/reset-password", json={"token": token, "new_password": "NewUser@123"})
+        assert res.status_code == 400
+        assert "expired" in res.json()["detail"].lower() or "invalid" in res.json()["detail"].lower()
+
+    def test_request_access_role_mobile_otp_and_admin_approval(self, client, db, monkeypatch):
+        from app.models.transaction import AccessRequest, User
+
+        captured = {}
+
+        def fake_sms(mobile_number, otp, expires_minutes):
+            captured["otp"] = otp
+            return True
+
+        monkeypatch.setattr("app.routers.auth.send_access_otp_sms", fake_sms)
+
+        payload = {
+            "employee_id": "NEW101",
+            "full_name": "New Staff User",
+            "email": "new101@tims.example.com",
+            "mobile_number": "9876543210",
+            "password": "NewStaff@123",
+            "department": "Maintenance",
+            "requested_role": "maintenance_staff",
+            "reason": "Integration test request",
+        }
+
+        blocked = client.post("/api/auth/signup", json=payload)
+        assert blocked.status_code == 400
+        assert "verified" in blocked.json()["detail"].lower()
+
+        sent = client.post("/api/auth/access-otp/send", json=payload)
+        assert sent.status_code == 200, sent.text
+        req = db.query(AccessRequest).filter(AccessRequest.employee_id == "NEW101").first()
+        assert req
+        assert req.mobile_number == "9876543210"
+        assert req.requested_role == "maintenance_staff"
+        assert req.status == "otp_pending"
+
+        bad = client.post("/api/auth/access-otp/verify", json={
+            "email": payload["email"],
+            "mobile_number": payload["mobile_number"],
+            "otp": "000000",
+        })
+        assert bad.status_code == 400
+
+        verified = client.post("/api/auth/access-otp/verify", json={
+            "email": payload["email"],
+            "mobile_number": payload["mobile_number"],
+            "otp": captured["otp"],
+        })
+        assert verified.status_code == 200, verified.text
+        assert verified.json()["request"]["otp_verified"] is True
+
+        submitted = client.post("/api/auth/signup", json=payload)
+        assert submitted.status_code == 201, submitted.text
+        request_id = submitted.json()["request"]["request_id"]
+        assert submitted.json()["request"]["status"] == "pending"
+
+        adm_token = get_token(client, "ADM001", "Admin@123")
+        approved = client.put(f"/api/users/access-requests/{request_id}/approve", headers=auth(adm_token))
+        assert approved.status_code == 200, approved.text
+        assert approved.json()["user"]["role"] == "maintenance_staff"
+
+        created = db.query(User).filter(User.employee_id == "NEW101").first()
+        assert created
+        assert created.email == "new101@tims.example.com"
+
+        login = client.post("/api/auth/login", data={"username": "NEW101", "password": "NewStaff@123"})
+        assert login.status_code == 200
 
     def test_requester_cannot_open_admin_apis(self, client):
         token = get_token(client, "USR001", "User@123")

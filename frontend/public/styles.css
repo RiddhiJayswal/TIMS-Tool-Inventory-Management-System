@@ -8,7 +8,7 @@
 @import "./tokens/base.css";
 
 html {
-  zoom: 1.25;
+  zoom: 1;
 }
 
 * { box-sizing: border-box; }
@@ -26,11 +26,12 @@ html {
 button, input, select, textarea { max-width: 100%; }
 
 @media (max-width: 820px) {
-  #app { height: 100dvh; }
+  html, body, #app { height: 100dvh; overflow: hidden; }
 
   .tims-login {
     flex-direction: column !important;
-    overflow-y: auto !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
     min-height: 100dvh !important;
   }
 
@@ -49,7 +50,8 @@ button, input, select, textarea { max-width: 100%; }
   .tims-login-panel {
     justify-content: flex-start !important;
     padding: 22px 16px 28px !important;
-    overflow-y: visible !important;
+    overflow-y: auto !important;
+    min-height: 0 !important;
   }
 
   .tims-login-panel > div {
@@ -57,8 +59,14 @@ button, input, select, textarea { max-width: 100%; }
   }
 
   .tims-login-panel [style*="grid-template-columns:1fr 1fr"],
-  .tims-login-panel [style*="grid-template-columns: 1fr 1fr"] {
+  .tims-login-panel [style*="grid-template-columns: 1fr 1fr"],
+  .tims-login-panel [style*="grid-template-columns:1fr auto auto"],
+  .tims-login-panel [style*="grid-template-columns: 1fr auto auto"] {
     grid-template-columns: 1fr !important;
+  }
+
+  .tims-login-panel button {
+    min-height: 38px !important;
   }
 
   .tims-sidebar {
@@ -135,6 +143,9 @@ button, input, select, textarea { max-width: 100%; }
   .tims-main {
     padding: 14px !important;
     min-width: 0 !important;
+    min-height: 0 !important;
+    padding-bottom: 34px !important;
+    overflow-y: auto !important;
     overflow-x: hidden !important;
   }
 
@@ -251,14 +262,15 @@ button, input, select, textarea { max-width: 100%; }
 
   .tims-main {
     padding: 10px !important;
-    scrollbar-width: none !important;
-    -ms-overflow-style: none !important;
+    padding-bottom: 28px !important;
+    scrollbar-width: thin !important;
+    -ms-overflow-style: auto !important;
   }
 
   .tims-main::-webkit-scrollbar {
-    width: 0 !important;
-    height: 0 !important;
-    display: none !important;
+    width: 5px !important;
+    height: 5px !important;
+    display: initial !important;
   }
 
   .tims-sidebar nav {
@@ -330,17 +342,6 @@ button, input, select, textarea { max-width: 100%; }
   .tims-main [style*="flexWrap: 'wrap'"],
   .tims-main [style*="flexWrap:'wrap'"] {
     gap: 8px !important;
-  }
-
-  .tims-main * {
-    scrollbar-width: none !important;
-    -ms-overflow-style: none !important;
-  }
-
-  .tims-main *::-webkit-scrollbar {
-    width: 0 !important;
-    height: 0 !important;
-    display: none !important;
   }
 
   .tims-main [role="tablist"],

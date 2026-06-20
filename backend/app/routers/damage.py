@@ -11,7 +11,8 @@ from app.models.transaction import IssuanceLog, Requisition, User
 from app.schemas.damage import DamageAssessment, WriteOffPayload
 from app.services.audit import log_action
 from app.services.depreciation import calculate_penalty
-from app.services.stock import consume_stock, validate_writeoff_eligibility
+from app.services.stock import consume_stock, restore_stock, validate_writeoff_eligibility
+from app.routers.returns import _split_notes
 
 router = APIRouter(prefix="/damage", tags=["damage"])
 
@@ -105,6 +106,11 @@ def record_damage(
             400, f"Damage already recorded as '{log.damage_type}' for this issuance"
         )
 
+    if log.return_condition == "missing" and payload.damage_type != "theft":
+        raise HTTPException(400, "Missing tools can only be classified as theft/loss.")
+    if log.return_condition == "damaged" and payload.damage_type == "theft":
+        raise HTTPException(400, "Physically damaged tools cannot be classified as theft.")
+
     # Calculate penalty
     try:
         penalty = calculate_penalty(
@@ -127,12 +133,15 @@ def record_damage(
     # no penalty, but it is still written off rather than restored to available stock.
     tool = db.query(Tool).filter(Tool.id == log.tool_id).first()
     if tool:
-        affected_quantity = (
-            log.quantity_issued
-            if log.return_condition == "missing"
-            else (log.quantity_returned or log.quantity_issued)
-        )
-        consume_stock(db, str(tool.id), affected_quantity)
+        breakdown, _ = _split_notes(log.notes)
+        if log.return_condition == "missing":
+            affected_quantity = breakdown.get("missing", 0) or log.quantity_issued
+        else:
+            affected_quantity = breakdown.get("damaged", 0) or (log.quantity_returned or log.quantity_issued)
+        if payload.damage_type == "wear_and_tear":
+            restore_stock(db, str(tool.id), affected_quantity)
+        else:
+            consume_stock(db, str(tool.id), affected_quantity)
 
     # Requisition for borrower name and department
     req = db.query(Requisition).filter(Requisition.id == log.requisition_id).first()

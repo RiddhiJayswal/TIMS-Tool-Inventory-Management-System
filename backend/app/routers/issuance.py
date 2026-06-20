@@ -15,7 +15,13 @@ from app.services.audit import log_action
 from app.services.calibration_status import is_calibration_blocked, sync_calibration_statuses
 from app.services.depreciation import snapshot_value_at_issuance
 from app.services.notifications import notify_consumable_issued, notify_tool_issued
-from app.services.stock import consume_stock, get_tool_locked, reduce_stock
+from app.services.stock import (
+    consume_stock,
+    get_period_open_issued_quantity,
+    get_period_reserved_quantity,
+    get_tool_locked,
+    reduce_stock,
+)
 
 router = APIRouter(prefix="/issuance", tags=["issuance"])
 
@@ -41,6 +47,7 @@ def _issuance_to_dict(log: IssuanceLog, db: Session) -> dict:
         "issued_by": str(log.issued_by),
         "issuer_name": issuer.full_name if issuer else None,
         "quantity_issued": log.quantity_issued,
+        "remaining_quantity": max(int(log.quantity_issued or 0) - int(log.quantity_returned or 0), 0),
         "issued_at": log.issued_at,
         "expected_return_date": log.expected_return_date,
         "actual_return_date": log.actual_return_date,
@@ -50,7 +57,7 @@ def _issuance_to_dict(log: IssuanceLog, db: Session) -> dict:
         "damage_type": log.damage_type,
         "penalty_amount": float(log.penalty_amount) if log.penalty_amount else None,
         "depreciated_value_at_issue": (
-            float(log.depreciated_value_at_issue) if log.depreciated_value_at_issue else None
+            float(log.depreciated_value_at_issue) if log.depreciated_value_at_issue is not None else None
         ),
         "days_overdue": days_overdue,
         "notes": log.notes,
@@ -79,6 +86,13 @@ def issue_tool(
             raise HTTPException(404, "Requisition not found")
         if req.status != "approved":
             raise HTTPException(400, f"Requisition status is '{req.status}'; only 'approved' can be issued")
+        today = date.today()
+        if today < req.from_date:
+            raise HTTPException(400, f"Cannot issue before requested from date ({req.from_date.isoformat()})")
+        if today > req.to_date:
+            raise HTTPException(400, f"Cannot issue after requested to date ({req.to_date.isoformat()})")
+        if req.to_date < today:
+            raise HTTPException(400, "Cannot issue with an already overdue expected return date")
 
         # Fetch tool with row lock
         tool = get_tool_locked(db, str(req.tool_id))
@@ -93,11 +107,13 @@ def issue_tool(
         if tool.status in ("written_off", "damaged", "blocked"):
             raise HTTPException(400, f"Tool is not available (status: {tool.status})")
 
-        # Check 4: Stock availability (clear message before reduce_stock also validates)
-        if tool.available_quantity < req.quantity_requested:
+        overlapping = get_period_open_issued_quantity(db, tool.id, req.from_date, req.to_date)
+        reserved = get_period_reserved_quantity(db, tool.id, req.from_date, req.to_date, req.id)
+        period_available = max(int(tool.total_quantity or 0) - overlapping - reserved, 0)
+        if period_available < req.quantity_requested:
             raise HTTPException(
                 400,
-                f"Insufficient stock. Requested: {req.quantity_requested}, Available: {tool.available_quantity}",
+                f"Insufficient stock after approved reservations. Requested: {req.quantity_requested}, Available: {period_available}",
             )
 
         # Snapshot depreciation at time of issuance

@@ -299,24 +299,37 @@ function ReturnRecordDetailModal({ record, type, onClose }) {
 /* ── Main screen ───────────────────────────────────────────────────── */
 function ProcessReturnModal({ item, onClose, onConfirm }) {
   const { Modal, Button, Input, Select, Textarea } = NS_RET;
-  const [qtyReturned, setQtyReturned] = React.useState(item.qty);
+  const remaining = Number(item.remaining_quantity ?? Math.max(Number(item.qty || 0) - Number(item.quantity_returned || 0), 0));
+  const [qtyReturned, setQtyReturned] = React.useState(remaining);
   const [condition, setCondition] = React.useState('good');
+  const [split, setSplit] = React.useState({ good: remaining, damaged: 0, missing: 0 });
   const [notes, setNotes] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState('');
   const warn = condition === 'damaged' || condition === 'missing';
+  React.useEffect(() => {
+    const qty = Number(qtyReturned || 0);
+    if (condition === 'damaged') setSplit({ good: 0, damaged: qty, missing: 0 });
+    else if (condition === 'missing') setSplit({ good: 0, damaged: 0, missing: qty });
+    else setSplit({ good: qty, damaged: 0, missing: 0 });
+  }, [condition, qtyReturned]);
   const handleConfirm = async () => {
     setBusy(true);
     setErr('');
     try {
-      const returnedQty = condition === 'missing' ? 0 : Number(qtyReturned || 0);
-      const issuedQty = Number(item.qty || 0);
-      if (returnedQty < 0 || returnedQty > issuedQty) throw new Error('Returned quantity must be between 0 and issued quantity');
-      if (condition === 'damaged' && returnedQty !== issuedQty) throw new Error(`A damaged return must account for all ${issuedQty} issued unit(s)`);
+      const returnedQty = Number(qtyReturned || 0);
+      const conditionQuantities = {
+        good: Number(split.good || 0),
+        damaged: Number(split.damaged || 0),
+        missing: Number(split.missing || 0),
+      };
+      if (returnedQty < 0 || returnedQty > remaining) throw new Error(`Returned quantity must be between 0 and ${remaining}`);
+      if (conditionQuantities.good + conditionQuantities.damaged + conditionQuantities.missing !== returnedQty) throw new Error('Good, damaged, and missing quantities must add up to the returned quantity');
       if (warn && !notes.trim()) throw new Error('Notes are required for damaged or missing returns');
       await window.API.processReturn(item.id, {
         quantity_returned: returnedQty,
         return_condition: condition,
+        condition_quantities: conditionQuantities,
         notes: notes.trim() || null,
       });
       await Promise.all([window.API.loadDashboard(), window.API.loadIssuances(), window.API.loadRequisitions(), window.API.loadReports().catch(() => [])]);
@@ -332,17 +345,24 @@ function ProcessReturnModal({ item, onClose, onConfirm }) {
       footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button variant={warn ? 'danger' : 'primary'} loading={busy} onClick={handleConfirm}>Confirm Return</Button></>}>
       <div style={{ padding: '11px 14px', background: 'var(--surface-sunken)', borderRadius: 'var(--radius-md)', marginBottom: 16 }}>
         <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-strong)' }}>{item.tool_name}</div>
-        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'monospace' }}>{item.tool_code} - issued to {item.issued_to}</div>
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'monospace' }}>{item.tool_code} - issued to {item.issued_to} - remaining {remaining}</div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-        <Input label="Quantity returned" required type="number" value={condition === 'missing' ? 0 : qtyReturned} onChange={(e) => setQtyReturned(e.target.value)} min="0" max={item.qty} disabled={condition === 'missing'} />
+        <Input label="Quantity returned" required type="number" value={qtyReturned} onChange={(e) => setQtyReturned(e.target.value)} min="0" max={remaining} />
         <Select label="Condition" required value={condition} onChange={(e) => setCondition(e.target.value)}>
           <option value="good">Good</option>
-          <option value="partial">Partial</option>
+          <option value="partial">Partial - return some units now</option>
           <option value="damaged">Damaged</option>
           <option value="missing">Missing</option>
         </Select>
       </div>
+      {warn && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 14 }}>
+          {['good', 'damaged', 'missing'].map(key => (
+            <Input key={key} label={key.charAt(0).toUpperCase() + key.slice(1)} type="number" min="0" max={remaining} value={split[key]} onChange={(e) => setSplit(prev => ({ ...prev, [key]: e.target.value }))} />
+          ))}
+        </div>
+      )}
       <div style={{ marginTop: 14 }}><Textarea label="Notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any observations on the returned tool..." /></div>
       {warn && (
         <div style={{ display: 'flex', gap: 9, marginTop: 14, padding: '11px 13px', background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 'var(--radius-md)' }}>
@@ -359,7 +379,13 @@ function ProcessReturnModal({ item, onClose, onConfirm }) {
 
 function RecordDamageModal({ item, onClose, onConfirm }) {
   const { Modal, Button, RadioGroup, Input, Textarea } = NS_RET;
-  const [kind, setKind] = React.useState('mishandling');
+  const damageOptions = item.condition === 'missing'
+    ? [{ value: 'theft', label: 'Theft / Missing', hint: 'Full market-rate penalty (100%)' }]
+    : [
+        { value: 'mishandling', label: 'Mishandling', hint: 'Book-value penalty at time of issue' },
+        { value: 'wear_and_tear', label: 'Wear & tear', hint: 'No penalty - normal usage' },
+      ];
+  const [kind, setKind] = React.useState(damageOptions[0].value);
   const [marketRate, setMarketRate] = React.useState(item.current_value);
   const [notes, setNotes] = React.useState('');
   const [busy, setBusy] = React.useState(false);
@@ -392,11 +418,7 @@ function RecordDamageModal({ item, onClose, onConfirm }) {
         <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'monospace' }}>{item.tool_code} - returned {item.condition} by {item.returned_by}</div>
       </div>
       <RadioGroup name="dmg" value={kind} onChange={setKind} label="Damage type" layout="stack"
-        options={[
-          { value: 'theft', label: 'Theft / Missing', hint: 'Full market-rate penalty (100%)' },
-          { value: 'mishandling', label: 'Mishandling', hint: 'Book-value penalty at time of issue' },
-          { value: 'wear_and_tear', label: 'Wear & tear', hint: 'No penalty - normal usage' },
-        ]} />
+        options={damageOptions} />
       {kind !== 'wear_and_tear' && (
         <div style={{ marginTop: 16 }}>
           <Input label="Current market rate (Rs.)" type="number" value={marketRate} onChange={(e) => setMarketRate(e.target.value)} helper="Required for theft; book value is used for mishandling" />
@@ -538,6 +560,7 @@ function ReturnsScreen() {
           columns={[
             { key: 'tool_name', header: 'Tool', render: (r) => <div><div style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{r.tool_name}</div><div style={{ fontSize: 11.5, color: 'var(--text-subtle)', fontFamily: 'monospace' }}>{r.tool_code}</div></div> },
             { key: 'qty', header: 'Qty', align: 'right' },
+            { key: 'remaining_quantity', header: 'Remaining', align: 'right', render: (r) => Number(r.remaining_quantity ?? Math.max(Number(r.qty || 0) - Number(r.quantity_returned || 0), 0)) },
             { key: 'issued_to', header: 'Borrowed By', render: (r) => <div><div style={{ fontWeight: 500, color: 'var(--text-strong)' }}>{r.issued_to}</div><div style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>{r.dept}</div></div> },
             { key: 'issued_on', header: 'Issued On', nowrap: true, render: (r) => <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{r.issued_on}</span> },
             { key: 'due', header: 'Due', nowrap: true, render: (r) => <span style={{ color: r.state === 'overdue' ? 'var(--danger-text)' : 'var(--text-muted)', fontWeight: r.state === 'overdue' ? 600 : 400 }}>{r.due}</span> },

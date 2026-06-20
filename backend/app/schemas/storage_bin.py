@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
@@ -12,7 +12,7 @@ class StorageBinCreate(BaseModel):
     shelf_level: Optional[str] = None
     floor_area: Optional[str] = None
     description: Optional[str] = None
-    capacity: Optional[int] = None
+    capacity: Optional[int] = Field(default=None, gt=0)
 
 
 class StorageBinUpdate(BaseModel):
@@ -24,4 +24,4 @@ class StorageBinUpdate(BaseModel):
     shelf_level: Optional[str] = None
     floor_area: Optional[str] = None
     description: Optional[str] = None
-    capacity: Optional[int] = None
+    capacity: Optional[int] = Field(default=None, gt=0)

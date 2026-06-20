@@ -1,0 +1,7 @@
+node_modules
+dist
+.git
+*.log
+take_*screenshot*.mjs
+playwright-report
+test-results

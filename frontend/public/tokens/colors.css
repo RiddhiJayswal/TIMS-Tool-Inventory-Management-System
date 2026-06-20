@@ -1,4 +1,4 @@
-/* ============================================================
+/* ------------------------------------------------------------
    MTRS COLOR SYSTEM — UltraTech Cement / Aditya Birla Group
    ------------------------------------------------------------
    Brand tension resolved:
@@ -6,7 +6,7 @@
    - YELLOW is a sparing accent (active nav, focus, key figures)
    - RED is identity-only (logo / login) — in-app red ALWAYS = danger
    - Warm "concrete" grey neutral base nods to cement
-   ============================================================ */
+   ------------------------------------------------------------ */
 
 :root {
   /* ---- Brand / chrome -------------------------------------- */

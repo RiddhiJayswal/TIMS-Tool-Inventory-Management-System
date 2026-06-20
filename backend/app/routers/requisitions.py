@@ -3,7 +3,6 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Date
 from sqlalchemy.orm import Session
 
 from app.auth.roles import RequireAnyRole, RequireDeptHead, get_current_user
@@ -22,33 +21,37 @@ from app.services.notifications import (
 from app.services.requisition_number import generate_requisition_number
 from app.services.stock import get_pending_damage_by_tool
 from app.services.tool_visibility import user_can_access_tool
+from app.services.stock import (
+    get_pending_damage_by_tool,
+    get_period_open_issued_quantity,
+    get_period_reserved_quantity,
+)
+from app.services.tool_visibility import user_can_access_tool
 
 router = APIRouter(prefix="/requisitions", tags=["requisitions"])
 
 
 def _overlapping_issue_quantity(db: Session, tool_id: UUID, from_date: date, to_date: date) -> int:
-    rows = (
-        db.query(IssuanceLog)
-        .filter(
-            IssuanceLog.tool_id == tool_id,
-            IssuanceLog.actual_return_date == None,
-            IssuanceLog.issued_at.cast(Date) <= to_date,
-            IssuanceLog.expected_return_date >= from_date,
-        )
-        .all()
-    )
-    return sum(int(row.quantity_issued or 0) for row in rows)
+    return get_period_open_issued_quantity(db, tool_id, from_date, to_date)
 
 
-def _period_availability(db: Session, tool: Tool, from_date: date, to_date: date) -> dict:
+def _period_availability(
+    db: Session,
+    tool: Tool,
+    from_date: date,
+    to_date: date,
+    exclude_requisition_id: UUID | None = None,
+) -> dict:
     overlapping = _overlapping_issue_quantity(db, tool.id, from_date, to_date)
     pending_damage = get_pending_damage_by_tool(db).get(tool.id, 0)
-    available = max(int(tool.total_quantity or 0) - overlapping - pending_damage, 0)
+    reserved = get_period_reserved_quantity(db, tool.id, from_date, to_date, exclude_requisition_id)
+    available = max(int(tool.total_quantity or 0) - overlapping - pending_damage - reserved, 0)
     return {
         "tool_id": str(tool.id),
         "total_quantity": int(tool.total_quantity or 0),
         "overlapping_issued_quantity": overlapping,
         "pending_damage_quantity": pending_damage,
+        "reserved_quantity": reserved,
         "available_quantity": available,
         "available": available > 0,
     }
@@ -108,7 +111,7 @@ def create_requisition(
     if period["available_quantity"] < payload.quantity_requested:
         raise HTTPException(
             400,
-            "Tool is not available for the selected time period. Please choose a different time period.",
+            f"Tool is not available for the selected time period. Requested: {payload.quantity_requested}, Available after reservations: {period['available_quantity']}.",
         )
 
     # 4. Generate requisition number
@@ -257,12 +260,26 @@ def approve_requisition(
     if current_user.role == "dept_head" and req.requester_dept != current_user.department:
         raise HTTPException(403, "Cannot approve requisitions from a different department")
 
+    if req.from_date < date.today():
+        raise HTTPException(400, "Cannot approve a requisition whose from date is in the past")
+    if req.to_date < req.from_date:
+        raise HTTPException(400, "Cannot approve a requisition with an invalid date range")
+
+    tool = db.query(Tool).filter(Tool.id == req.tool_id).first()
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+    period = _period_availability(db, tool, req.from_date, req.to_date, exclude_requisition_id=req.id)
+    if period["available_quantity"] < req.quantity_requested:
+        raise HTTPException(
+            400,
+            f"Insufficient stock after existing issues and approved reservations. Requested: {req.quantity_requested}, Available: {period['available_quantity']}.",
+        )
+
     req.status = "approved"
     req.approved_by = current_user.id
     req.approved_at = datetime.utcnow()
 
     requester = db.query(User).filter(User.id == req.requested_by).first()
-    tool = db.query(Tool).filter(Tool.id == req.tool_id).first()
     if requester and tool:
         notify_requisition_approved(db, requester, req.requisition_number, tool.name)
         # Notify maintenance staff so they know to prepare for issuance (spec.md §6)

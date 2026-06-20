@@ -5,6 +5,7 @@ from datetime import date, timedelta
 # Must happen BEFORE any app imports so app.config reads the right values
 os.environ.setdefault("DATABASE_URL", "postgresql://tims_user:tims_pass@localhost:5432/tims_test")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-unit-tests-only")
+os.environ.setdefault("TIMS_DISABLE_SCHEDULER", "1")
 
 import pytest
 
@@ -39,6 +40,7 @@ def setup_test_db():
     """Create all tables in the test database once per session."""
     if not _INTEGRATION_READY:
         pytest.skip(f"Test DB not available: {_INTEGRATION_ERROR}")
+    Base.metadata.drop_all(bind=_engine)
     Base.metadata.create_all(bind=_engine)
     _seed_test_users()
     yield
@@ -51,11 +53,11 @@ def _seed_test_users():
     session = _TestingSessionLocal()
     try:
         users = [
-            ("ADM001", "Admin User",      "admin@tims.test",  "Admin@123", "maintenance_admin", "Maintenance"),
-            ("STF001", "Staff User",       "staff@tims.test",  "Staff@123", "maintenance_staff", "Maintenance"),
-            ("HD001",  "Head EI",          "head@tims.test",   "Head@123",  "dept_head",          "E&I"),
-            ("USR001", "Requester User",   "user@tims.test",   "User@123",  "requester",          "E&I"),
-            ("HD002",  "Head Mech",        "head2@tims.test",  "Head2@123", "dept_head",          "Mechanical"),
+            ("ADM001", "Admin User",      "admin@tims.example.com",  "Admin@123", "maintenance_admin", "Maintenance"),
+            ("STF001", "Staff User",       "staff@tims.example.com",  "Staff@123", "maintenance_staff", "Maintenance"),
+            ("HD001",  "Head EI",          "head@tims.example.com",   "Head@123",  "dept_head",          "E&I"),
+            ("USR001", "Requester User",   "user@tims.example.com",   "User@123",  "requester",          "E&I"),
+            ("HD002",  "Head Mech",        "head2@tims.example.com",  "Head2@123", "dept_head",          "Mechanical"),
         ]
         for emp_id, name, email, pwd, role, dept in users:
             if not session.query(User).filter(User.employee_id == emp_id).first():

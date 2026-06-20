@@ -1,7 +1,38 @@
 /* Data.jsx - live API adapter for TIMS runtime screens.
    Populates window.MOCK from backend endpoints so every screen reads one source. */
 
-const API_BASE = '/api';
+const configuredApiBase =
+  window.TIMS_API_BASE ||
+  document.querySelector('meta[name="tims-api-base"]')?.getAttribute('content') ||
+  '/api';
+const API_BASE = configuredApiBase.replace(/\/$/, '');
+const REQUEST_TIMEOUT_MS = 8000;
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function friendlyErrorMessage(err, fallback = 'Something went wrong. Please try again.') {
+  const raw = typeof err === 'string' ? err : (err && err.message) || '';
+  const hasConflictMarker = raw.includes('<'.repeat(7)) || raw.includes('>'.repeat(7));
+  if (!raw) return fallback;
+  if (/failed to fetch|networkerror|load failed|server unavailable/i.test(raw)) {
+    return 'Backend API is unreachable. Please check the live /api proxy or server DNS.';
+  }
+  if (hasConflictMarker || /unexpected token|babel|syntaxerror|stack|trace/i.test(raw)) {
+    return 'The application files could not be loaded correctly. Please reload the page.';
+  }
+  if (/invalid json|json/i.test(raw)) {
+    return 'The server returned an unexpected response. Please try again.';
+  }
+  return raw;
+}
 
 function getToken() {
   return localStorage.getItem('tims_token');
@@ -11,17 +42,22 @@ async function apiFetch(path, options = {}) {
   const token = getToken();
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(API_BASE + path, { ...options, headers });
+  let res;
+  try {
+    res = await fetchWithTimeout(API_BASE + path, { ...options, headers });
+  } catch (err) {
+    throw new Error(friendlyErrorMessage(err, 'Server unavailable. Please try again in a moment.'));
+  }
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    const err = await res.json().catch(() => ({ detail: res.status >= 500 ? 'Server error. Please try again in a moment.' : res.statusText }));
     const detail = err.detail;
     const message = Array.isArray(detail)
       ? detail.map(d => `${(d.loc || []).slice(1).join('.') || 'field'}: ${d.msg}`).join('; ')
       : detail && typeof detail === 'object'
         ? JSON.stringify(detail)
         : detail;
-    const error = new Error(message || `HTTP ${res.status}`);
-    if (token) {
+    const error = new Error(friendlyErrorMessage(message || `HTTP ${res.status}`));
+    if (token && res.status !== 403) {
       window.dispatchEvent(new CustomEvent('tims:api-error', {
         detail: { message: error.message, path, status: res.status },
       }));
@@ -87,6 +123,8 @@ function normalizeIssuance(i, toolById = {}) {
     tool_code: i.tool_code || tool.tool_code || '-',
     qty: quantity,
     quantity_issued: quantity,
+    quantity_returned: qty(i.quantity_returned),
+    remaining_quantity: qty(i.remaining_quantity ?? Math.max(quantity - qty(i.quantity_returned), 0)),
     issued_to_id: i.issued_to,
     issued_to: i.borrower_name || i.issued_to || '-',
     dept: i.borrower_dept || i.dept || '-',
@@ -121,6 +159,7 @@ function normalizeStockRow(r) {
     available: qty(r.available_quantity),
     total: qty(r.total_quantity),
     issued: qty(r.issued_quantity ?? r.currently_issued),
+    reserved: qty(r.reserved_quantity),
     unavailable: qty(r.unavailable_quantity),
     value: currentValue,
     unit_cost: unitCost,
@@ -153,6 +192,7 @@ function mapTool(t, binMap = {}) {
     available: qty(t.available_quantity),
     total: qty(t.total_quantity),
     issued: qty(t.issued_quantity ?? t.currently_issued),
+    reserved: qty(t.reserved_quantity),
     unavailable: qty(t.unavailable_quantity),
     status: t.status,
     bin: t.storage_bin_code || binMap[t.storage_bin_id] || '-',
@@ -225,16 +265,29 @@ function buildDamageHistory(assessments) {
 const API = {
   login: async (employeeId, password) => {
     const form = new URLSearchParams({ username: employeeId, password });
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: form,
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Login failed' }));
-      throw new Error(err.detail || 'Login failed');
+    let res;
+    try {
+      res = await fetchWithTimeout(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form,
+      });
+    } catch (err) {
+      throw new Error('Backend API is unreachable. Please check the live /api proxy or server DNS.');
     }
-    const data = await res.json();
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.status >= 500 ? 'Server error. Please try again in a moment.' : 'Invalid employee ID or password.' }));
+      const detail = Array.isArray(err.detail)
+        ? err.detail.map(e => e.msg || String(e)).join('. ')
+        : err.detail;
+      throw new Error(res.status === 401 ? 'Invalid employee ID or password.' : friendlyErrorMessage(detail || 'Login failed.'));
+    }
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      throw new Error('The server returned an unexpected response. Please try again.');
+    }
     localStorage.setItem('tims_token', data.access_token);
     localStorage.setItem('tims_user', JSON.stringify(data.user));
     window.MOCK.USER = {
@@ -252,13 +305,15 @@ const API = {
     localStorage.removeItem('tims_user');
   },
 
+  me: () => apiFetch('/auth/me'),
+
   forgotUsername: (identifier) =>
     apiFetch('/auth/forgot-username', { method: 'POST', body: JSON.stringify({ identifier }) }),
 
-  forgotPassword: (employeeId, email = '') =>
+  forgotPassword: (email) =>
     apiFetch('/auth/forgot-password', {
       method: 'POST',
-      body: JSON.stringify({ employee_id: employeeId, email: email || null }),
+      body: JSON.stringify({ email }),
     }),
 
   resetPassword: (token, newPassword) =>
@@ -385,6 +440,8 @@ const API = {
       shelf_level: b.shelf_level || '',
       floor_area: b.floor_area || '',
       capacity: b.capacity,
+      used_units: qty(b.used_units),
+      remaining_capacity: b.remaining_capacity == null ? null : qty(b.remaining_capacity),
       description: b.description || '',
     }));
   },
@@ -510,6 +567,8 @@ const API = {
       shelf_level: b.shelf_level || '',
       floor_area: b.floor_area || '',
       capacity: b.capacity,
+      used_units: qty(b.used_units),
+      remaining_capacity: b.remaining_capacity == null ? null : qty(b.remaining_capacity),
       description: b.description || '',
     }));
   },
@@ -611,6 +670,13 @@ const API = {
     apiFetch(`/users/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   toggleUserActive: (id) =>
     apiFetch(`/users/${id}/toggle-active`, { method: 'PUT' }),
+  sendAccessOtp: (payload) =>
+    apiFetch('/auth/access-otp/send', { method: 'POST', body: JSON.stringify(payload) }),
+  verifyAccessOtp: (email, mobileNumber, otp) =>
+    apiFetch('/auth/access-otp/verify', {
+      method: 'POST',
+      body: JSON.stringify({ email, mobile_number: mobileNumber, otp }),
+    }),
   submitAccessRequest: (payload) =>
     apiFetch('/auth/signup', { method: 'POST', body: JSON.stringify(payload) }),
   approveAccessRequest: (id) =>
@@ -657,6 +723,7 @@ Object.assign(window, {
   API,
   inr: (n) => 'Rs. ' + Number(n || 0).toLocaleString('en-IN'),
   sumIssuedUnits,
+  timsFriendlyError: friendlyErrorMessage,
   SELECTORS: {
     getToolById: (id) => (window.MOCK.TOOLS || []).find(t => t.id === id) || null,
     getUserById: (id) => (window.MOCK.USERS || []).find(u => u.id === id) || null,

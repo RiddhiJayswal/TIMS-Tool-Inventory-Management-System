@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Cache-Control" content="no-store" />
+<meta http-equiv="Pragma" content="no-cache" />
 <title>TIMS - Tools Inventory Management System</title>
 <link rel="icon" type="image/png" href="/assets/ultratech-logo.png" />
 <link rel="stylesheet" href="/styles.css" />
@@ -11,7 +13,7 @@
 <script src="/vendor/babel.min.js"></script>
 <script src="/_ds_bundle.js"></script>
 <style>
-  html, body { height: 100%; margin: 0; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
   #app { height: 100vh; }
   @keyframes _tims_spin { to { transform: rotate(360deg); } }
 </style>
@@ -20,10 +22,13 @@
 <div id="app"></div>
 
 <!-- Static scripts: no window.MOCK dependency at module level -->
-<script type="text/babel" src="/screens/Icons.jsx"></script>
-<script src="/screens/Data.jsx"></script>
-<script type="text/babel" src="/screens/AppShell.jsx"></script>
-<script type="text/babel" src="/screens/LoginScreen.jsx"></script>
+<script>
+  window.TIMS_ASSET_VERSION = String(Date.now());
+</script>
+<script type="text/babel" src="/screens/Icons.jsx?v=2026-06-20-live-cache-fix"></script>
+<script src="/screens/Data.jsx?v=2026-06-20-live-cache-fix"></script>
+<script type="text/babel" src="/screens/AppShell.jsx?v=2026-06-20-live-cache-fix"></script>
+<script type="text/babel" src="/screens/LoginScreen.jsx?v=2026-06-20-live-cache-fix"></script>
 
 <!-- App bootstrap: loads remaining screens dynamically after auth + data are ready -->
 <script type="text/babel">
@@ -53,10 +58,17 @@ async function loadAllScreens() {
   _screensPromise = (async () => {
     for (const src of files) {
       if (_loadedScreens.has(src)) continue;
-      const res  = await fetch(src);
+      const url = `${src}?v=${encodeURIComponent(window.TIMS_ASSET_VERSION || Date.now())}`;
+      const res  = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error(`Could not load ${src}`);
       const code = await res.text();
-      const compiled = Babel.transform(code, { presets: ['react'] }).code;
+      let compiled;
+      try {
+        compiled = Babel.transform(code, { presets: ['react'], filename: src }).code;
+      } catch (err) {
+        console.error(`Runtime JSX compile failed for ${src}:`, err);
+        throw new Error('The application files could not be loaded correctly. Please reload the page.');
+      }
       const el = document.createElement('script');
       el.text = compiled;
       document.body.appendChild(el);
@@ -64,6 +76,32 @@ async function loadAllScreens() {
     }
   })();
   return _screensPromise;
+}
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    console.error('TIMS runtime error:', error, info);
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div style={{ height:'100%', display:'grid', placeItems:'center', background:'var(--surface-page, #f5f6f8)', padding:24 }}>
+        <div role="alert" style={{ maxWidth:460, width:'100%', background:'var(--surface-card, #fff)', border:'1px solid var(--border-default, #d8dde3)', borderRadius:8, boxShadow:'var(--shadow-resting, 0 8px 24px rgba(0,0,0,.08))', padding:24, textAlign:'center', fontFamily:'var(--font-sans, sans-serif)' }}>
+          <div style={{ width:48, height:48, borderRadius:'50%', background:'var(--danger-bg, #fee2e2)', color:'var(--danger-solid, #dc2626)', display:'grid', placeItems:'center', margin:'0 auto 14px', fontWeight:800 }}>!</div>
+          <h1 style={{ margin:'0 0 8px', fontSize:22, color:'var(--text-strong, #111827)' }}>Something went wrong</h1>
+          <p style={{ margin:'0 0 18px', fontSize:13.5, lineHeight:1.55, color:'var(--text-muted, #6b7280)' }}>The application could not load this screen safely. Please reload the page.</p>
+          <button onClick={() => window.location.reload()} style={{ border:'none', background:'var(--brand-black, #181818)', color:'#fff', borderRadius:6, padding:'10px 18px', fontWeight:700, cursor:'pointer' }}>Reload</button>
+        </div>
+      </div>
+    );
+  }
 }
 
 /* ── Loading spinner ─────────────────────────────────────────────── */
@@ -133,14 +171,19 @@ function App() {
       _screensPromise = null;
       setAuthed(false);
       setReady(false);
-      throw e;
+      throw new Error(window.timsFriendlyError ? window.timsFriendlyError(e) : 'The application files could not be loaded correctly. Please reload the page.');
     }
   }, []);
 
   /* On page reload with existing token: resume session */
   React.useEffect(() => {
     if (!authed) return;
-    window.API.loadDashboard()
+    window.API.me()
+      .then((user) => {
+        localStorage.setItem('tims_user', JSON.stringify(user));
+        window.MOCK.USER = { id: user.id, employee_id: user.employee_id, full_name: user.full_name, department: user.department, role: user.role };
+      })
+      .then(() => window.API.loadDashboard())
       .then(() => window.API.loadNotifications().catch(() => {}))
       .then(() => loadAllScreens())
       .then(() => { setReady(true); setTick(t => t + 1); })
@@ -148,12 +191,14 @@ function App() {
         /* Token expired or backend down — go back to login */
         window.API.logout();
         setAuthed(false);
+        setReady(false);
       });
   }, []); // runs once on mount
 
   /* Refresh data whenever the user navigates to a route */
   React.useEffect(() => {
     if (!ready) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     window.API.loadForRoute(route)
       .then(() => setTick(t => t + 1))
       .catch(e => console.warn('Route refresh failed:', e));
@@ -199,7 +244,7 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+ReactDOM.createRoot(document.getElementById('app')).render(<ErrorBoundary><App /></ErrorBoundary>);
 </script>
 </body>
 </html>

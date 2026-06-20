@@ -1,21 +1,32 @@
+import logging
+import hashlib
+import secrets
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from jose import JWTError, jwt
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
 from uuid import UUID
 
 from app.database import get_db
-from app.models.transaction import User, Notification, AccessRequest
+from app.models.transaction import User, Notification, AccessRequest, PasswordResetToken
 from app.auth.roles import verify_password, create_access_token, get_current_user, hash_password
 from app.config import settings
-from app.services.email import send_password_reset_email
+from app.services.email import (
+    is_email_configured,
+    send_access_request_received_email,
+    send_password_reset_email,
+)
+from app.services.sms import send_access_otp_sms
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 RESET_TOKEN_MINUTES = 15
+OTP_MINUTES = 10
+OTP_MAX_ATTEMPTS = 5
+PUBLIC_REQUEST_ROLES = {"requester", "dept_head", "maintenance_staff"}
+logger = logging.getLogger(__name__)
 
 
 def _validate_password(value: str) -> str:
@@ -34,6 +45,7 @@ class SignupRequest(BaseModel):
     employee_id: str = Field(min_length=3, max_length=50)
     full_name: str = Field(min_length=2, max_length=200)
     email: EmailStr
+    mobile_number: str = Field(min_length=8, max_length=30)
     password: str = Field(min_length=6, max_length=128)
     department: str = Field(min_length=2, max_length=100)
     requested_role: str = "requester"
@@ -41,12 +53,21 @@ class SignupRequest(BaseModel):
 
 
 class ForgotPasswordRequest(BaseModel):
-    employee_id: str = Field(min_length=3, max_length=50)
-    email: EmailStr | None = None
+    email: EmailStr
 
 
 class ForgotUsernameRequest(BaseModel):
     identifier: str = Field(min_length=3, max_length=200)
+
+
+class AccessOtpSendRequest(SignupRequest):
+    pass
+
+
+class AccessOtpVerifyRequest(BaseModel):
+    email: EmailStr
+    mobile_number: str = Field(min_length=8, max_length=30)
+    otp: str = Field(min_length=4, max_length=10)
 
 
 class ResetPasswordRequest(BaseModel):
@@ -80,6 +101,7 @@ def _access_request_out(req: AccessRequest) -> dict:
         "name": req.full_name,
         "full_name": req.full_name,
         "email": req.email,
+        "mobile_number": req.mobile_number,
         "username": req.email,
         "employeeId": req.employee_id,
         "employee_id": req.employee_id,
@@ -89,6 +111,7 @@ def _access_request_out(req: AccessRequest) -> dict:
         "reason": req.reason,
         "notes": req.reason,
         "status": req.status,
+        "otp_verified": bool(req.otp_verified_at),
         "createdAt": req.created_at,
         "created_at": req.created_at,
         "approvedBy": str(req.approved_by) if req.approved_by else None,
@@ -99,14 +122,57 @@ def _access_request_out(req: AccessRequest) -> dict:
     }
 
 
-def _create_reset_token(user: User) -> str:
-    payload = {
-        "sub": user.employee_id,
-        "typ": "password_reset",
-        "pwd": user.hashed_password,
-        "exp": datetime.utcnow() + timedelta(minutes=RESET_TOKEN_MINUTES),
+def _reset_token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _create_reset_token(db: Session, user: User) -> str:
+    now = datetime.utcnow()
+    db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == user.id,
+        PasswordResetToken.used_at.is_(None),
+    ).update({"used_at": now}, synchronize_session=False)
+
+    token = secrets.token_urlsafe(32)
+    db.add(PasswordResetToken(
+        user_id=user.id,
+        token_hash=_reset_token_hash(token),
+        expires_at=now + timedelta(minutes=RESET_TOKEN_MINUTES),
+    ))
+    return token
+
+
+def _normalize_requested_role(role: str) -> str:
+    role_map = {
+        "requester": "requester",
+        "Requester": "requester",
+        "dept_head": "dept_head",
+        "Dept Head": "dept_head",
+        "head": "dept_head",
+        "staff": "maintenance_staff",
+        "maintenance_staff": "maintenance_staff",
+        "Maintenance Staff": "maintenance_staff",
+        "maintenance_admin": "maintenance_admin",
+        "Admin": "maintenance_admin",
     }
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return role_map.get(role, role)
+
+
+def _clean_mobile(value: str) -> str:
+    return "".join(ch for ch in value.strip() if ch.isdigit() or ch == "+")
+
+
+def _find_access_draft(db: Session, email: str, mobile_number: str) -> AccessRequest | None:
+    return (
+        db.query(AccessRequest)
+        .filter(
+            AccessRequest.email == email.strip().lower(),
+            AccessRequest.mobile_number == _clean_mobile(mobile_number),
+            AccessRequest.status == "otp_pending",
+        )
+        .order_by(AccessRequest.created_at.desc())
+        .first()
+    )
 
 
 @router.post("/login")
@@ -136,24 +202,21 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     employee_id = payload.employee_id.strip().upper()
     email = payload.email.strip().lower()
-    role_map = {
-        "requester": "requester",
-        "Requester": "requester",
-        "dept_head": "dept_head",
-        "Dept Head": "dept_head",
-        "maintenance_staff": "maintenance_staff",
-        "Maintenance Staff": "maintenance_staff",
-        "maintenance_admin": "maintenance_admin",
-        "Admin": "maintenance_admin",
-    }
-    requested_role = role_map.get(payload.requested_role, payload.requested_role)
+    mobile_number = _clean_mobile(payload.mobile_number)
+    requested_role = _normalize_requested_role(payload.requested_role)
 
     if db.query(User).filter(User.employee_id == employee_id).first():
         raise HTTPException(status_code=400, detail="Employee ID already exists")
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-    if requested_role not in {"requester", "dept_head", "maintenance_staff", "maintenance_admin"}:
+    if requested_role not in PUBLIC_REQUEST_ROLES:
         raise HTTPException(status_code=400, detail="Invalid requested role")
+
+    verified = _find_access_draft(db, email, mobile_number)
+    if not verified or not verified.otp_verified_at:
+        raise HTTPException(status_code=400, detail="Mobile number must be verified before submitting access request")
+    if verified.employee_id != employee_id:
+        raise HTTPException(status_code=400, detail="Verified OTP request does not match this employee ID")
 
     existing = (
         db.query(AccessRequest)
@@ -166,56 +229,136 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     if existing:
         return {"message": "Access request already pending", "request": _access_request_out(existing)}
 
-    count = db.query(AccessRequest).count() + 1
-    access_request = AccessRequest(
-        request_id=f"AR-{datetime.utcnow().year}-{count:04d}",
-        employee_id=employee_id,
-        full_name=payload.full_name.strip(),
-        email=email,
-        hashed_password=hash_password(payload.password),
-        department=payload.department.strip(),
-        requested_role=requested_role,
-        reason=(payload.reason or "").strip() or None,
-        status="pending",
-    )
-    db.add(access_request)
+    verified.full_name = payload.full_name.strip()
+    verified.email = email
+    verified.mobile_number = mobile_number
+    verified.employee_id = employee_id
+    verified.hashed_password = hash_password(payload.password)
+    verified.department = payload.department.strip()
+    verified.requested_role = requested_role
+    verified.reason = (payload.reason or "").strip() or None
+    verified.status = "pending"
+    verified.otp_hash = None
+    verified.otp_expires_at = None
+    verified.otp_attempt_count = 0
     db.flush()
 
     admins = db.query(User).filter(User.role == "maintenance_admin", User.is_active == True).all()
     for admin in admins:
         db.add(Notification(
             user_id=admin.id,
-            message=f"New access request {access_request.request_id}: {access_request.full_name} requested {requested_role.replace('_', ' ')} access.",
+            message=f"New access request {verified.request_id}: {verified.full_name} requested {requested_role.replace('_', ' ')} access.",
             is_read=False,
         ))
     db.commit()
+    db.refresh(verified)
+    send_access_request_received_email(verified.email, verified.full_name, verified.employee_id, requested_role)
+    return {"message": "Access request submitted", "request": _access_request_out(verified)}
+
+
+@router.post("/access-otp/send")
+def send_access_otp(payload: AccessOtpSendRequest, db: Session = Depends(get_db)):
+    employee_id = payload.employee_id.strip().upper()
+    email = payload.email.strip().lower()
+    mobile_number = _clean_mobile(payload.mobile_number)
+    requested_role = _normalize_requested_role(payload.requested_role)
+
+    if requested_role not in PUBLIC_REQUEST_ROLES:
+        raise HTTPException(status_code=400, detail="Invalid requested role")
+    if db.query(User).filter(User.employee_id == employee_id).first():
+        raise HTTPException(status_code=400, detail="Employee ID already exists")
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    access_request = _find_access_draft(db, email, mobile_number)
+    if not access_request:
+        count = db.query(AccessRequest).count() + 1
+        access_request = AccessRequest(
+            request_id=f"AR-{datetime.utcnow().year}-{count:04d}",
+            employee_id=employee_id,
+            full_name=payload.full_name.strip(),
+            email=email,
+            mobile_number=mobile_number,
+            hashed_password=hash_password(payload.password),
+            department=payload.department.strip(),
+            requested_role=requested_role,
+            reason=(payload.reason or "").strip() or None,
+            status="otp_pending",
+        )
+        db.add(access_request)
+
+    otp = f"{secrets.randbelow(1_000_000):06d}"
+    access_request.employee_id = employee_id
+    access_request.full_name = payload.full_name.strip()
+    access_request.email = email
+    access_request.mobile_number = mobile_number
+    access_request.hashed_password = hash_password(payload.password)
+    access_request.department = payload.department.strip()
+    access_request.requested_role = requested_role
+    access_request.reason = (payload.reason or "").strip() or None
+    access_request.otp_hash = hash_password(otp)
+    access_request.otp_expires_at = datetime.utcnow() + timedelta(minutes=OTP_MINUTES)
+    access_request.otp_verified_at = None
+    access_request.otp_attempt_count = 0
+
+    if not send_access_otp_sms(mobile_number, otp, OTP_MINUTES):
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not send OTP to the mobile number. Please contact admin.",
+        )
+
+    db.commit()
+    return {
+        "message": "OTP sent to the mobile number.",
+        "expires_in_minutes": OTP_MINUTES,
+        "request": _access_request_out(access_request),
+    }
+
+
+@router.post("/access-otp/verify")
+def verify_access_otp(payload: AccessOtpVerifyRequest, db: Session = Depends(get_db)):
+    email = payload.email.strip().lower()
+    mobile_number = _clean_mobile(payload.mobile_number)
+    access_request = _find_access_draft(db, email, mobile_number)
+    if not access_request or not access_request.otp_hash:
+        raise HTTPException(status_code=400, detail="OTP request not found. Please send OTP again.")
+    if not access_request.otp_expires_at or access_request.otp_expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="OTP expired. Please send OTP again.")
+    if int(access_request.otp_attempt_count or 0) >= OTP_MAX_ATTEMPTS:
+        raise HTTPException(status_code=400, detail="Too many OTP attempts. Please send OTP again.")
+
+    access_request.otp_attempt_count = int(access_request.otp_attempt_count or 0) + 1
+    if not verify_password(payload.otp.strip(), access_request.otp_hash):
+        db.commit()
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+
+    access_request.otp_verified_at = datetime.utcnow()
+    db.commit()
     db.refresh(access_request)
-    return {"message": "Access request submitted", "request": _access_request_out(access_request)}
+    return {"message": "Mobile number verified", "request": _access_request_out(access_request)}
 
 
 @router.post("/forgot-password")
 def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    employee_id = payload.employee_id.strip().upper()
-    email = payload.email.strip().lower() if payload.email else None
-    query = db.query(User).filter(User.employee_id == employee_id, User.is_active == True)
-    if email:
-        query = query.filter(User.email == email)
-    user = query.first()
+    email = payload.email.strip().lower()
+    user = db.query(User).filter(User.email == email, User.is_active == True).first()
+    email_configured = is_email_configured()
 
-    sent = False
-    reset_token = None
     if user:
-        reset_token = _create_reset_token(user)
-        sent = send_password_reset_email(user.email, user.full_name, reset_token, RESET_TOKEN_MINUTES)
+        reset_token = _create_reset_token(db, user)
+        db.commit()
+        send_password_reset_email(user.email, user.full_name, user.employee_id, reset_token, RESET_TOKEN_MINUTES)
 
-    response = {
-        "message": "If the employee ID and email match an active account, reset instructions have been sent to the registered email.",
+    return {
+        "message": (
+            "If this email is registered, reset instructions have been sent."
+            if email_configured
+            else "Email delivery is not configured. Please contact admin."
+        ),
         "expires_in_minutes": RESET_TOKEN_MINUTES,
+        "delivery_configured": email_configured,
     }
-    if user and not sent and not settings.SMTP_HOST:
-        response["reset_token"] = reset_token
-        response["message"] = "SMTP is not configured. Use the reset token shown here to set a new password."
-    return response
 
 
 @router.post("/forgot-username")
@@ -242,22 +385,23 @@ def forgot_username(payload: ForgotUsernameRequest, db: Session = Depends(get_db
 
 @router.post("/reset-password")
 def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
-    try:
-        token_data = jwt.decode(payload.token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-    except JWTError:
+    now = datetime.utcnow()
+    reset_token = (
+        db.query(PasswordResetToken)
+        .filter(PasswordResetToken.token_hash == _reset_token_hash(payload.token))
+        .first()
+    )
+    if not reset_token or reset_token.used_at or reset_token.expires_at < now:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
 
-    if token_data.get("typ") != "password_reset":
-        raise HTTPException(status_code=400, detail="Invalid reset token")
-
-    employee_id = token_data.get("sub")
-    user = db.query(User).filter(User.employee_id == employee_id, User.is_active == True).first()
-    if not user or token_data.get("pwd") != user.hashed_password:
+    user = db.query(User).filter(User.id == reset_token.user_id, User.is_active == True).first()
+    if not user:
         raise HTTPException(status_code=400, detail="Invalid or already used reset token")
 
     user.hashed_password = hash_password(payload.new_password)
+    reset_token.used_at = now
     db.commit()
-    return {"message": "Password reset successfully"}
+    return {"message": "Password reset successfully. Please log in again."}
 
 
 @router.post("/logout")

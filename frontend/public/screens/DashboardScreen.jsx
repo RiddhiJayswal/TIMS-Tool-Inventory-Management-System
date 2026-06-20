@@ -18,16 +18,16 @@ function CentrePanel({ title, subtitle, onClose, children }) {
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{
       position: 'fixed', inset: 0, zIndex: 60,
       background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: 28, animation: 'dpBg 0.18s ease',
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      padding: '44px 28px 28px', animation: 'dpBg 0.18s ease',
     }}>
       <div style={{
-        width: '90vw', maxWidth: 1100, height: '88vh',
+        width: '90vw', maxWidth: 1100, maxHeight: 'calc(100vh - 72px)', minHeight: 420,
         display: 'flex', flexDirection: 'column',
         background: 'var(--surface-page,#f5f6f8)',
         borderRadius: 'var(--radius-xl,16px)',
         boxShadow: '0 32px 80px rgba(0,0,0,0.26), 0 8px 24px rgba(0,0,0,0.12)',
-        overflow: 'hidden',
+        overflow: 'hidden', minHeight: 0,
         animation: 'dpBox 0.24s cubic-bezier(0.34,1.1,0.64,1)',
       }}>
         {/* Header */}
@@ -41,7 +41,7 @@ function CentrePanel({ title, subtitle, onClose, children }) {
           </button>
         </div>
         {/* Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 28, scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.12) transparent' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 28, scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.12) transparent' }}>
           {children}
         </div>
       </div>
@@ -102,12 +102,12 @@ function ToolDetailModal({ tool, onClose }) {
       padding: 48, animation: 'dpBg 0.15s ease',
     }}>
       <div style={{
-        width: 640, maxHeight: '78vh',
+        width: 640, maxHeight: 'calc(100vh - 72px)',
         display: 'flex', flexDirection: 'column',
         background: 'var(--surface-card)',
         borderRadius: 'var(--radius-xl,16px)',
         boxShadow: '0 24px 64px rgba(0,0,0,0.28)',
-        overflow: 'hidden',
+        overflow: 'hidden', minHeight: 0,
         animation: 'dpBox 0.2s cubic-bezier(0.34,1.1,0.64,1)',
       }}>
         {/* Header */}
@@ -131,7 +131,7 @@ function ToolDetailModal({ tool, onClose }) {
           </div>
         </div>
         {/* Unit rows */}
-        <div style={{ flex: 1, overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.1) transparent' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.1) transparent' }}>
           <SectionHead label="Basic information" />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14, padding: '16px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
             <Info label="Category" value={tool.category} />

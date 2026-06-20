@@ -92,6 +92,7 @@ function BinForm({ bin, onClose }) {
         description:    form.description.trim() || null,
       };
       if (!payload.bin_code || !payload.shelf_label) throw new Error('Bin Code and Shelf Label are required');
+      if (payload.capacity !== null && payload.capacity <= 0) throw new Error('Capacity must be greater than zero');
       if (editing) await window.API.updateBin(bin.id, payload);
       else         await window.API.createBin(payload);
       await Promise.all([window.API.loadBins(), window.API.loadDashboard()]);
@@ -114,7 +115,7 @@ function BinForm({ bin, onClose }) {
           <option value="">Select...</option>
           {BIN_DEPTS.map(d => <option key={d}>{d}</option>)}
         </Select>
-        <Input label="Capacity (tools)" type="number" placeholder="0" value={form.capacity} onChange={set('capacity')} />
+        <Input label="Capacity" required type="number" min="1" placeholder="1" value={form.capacity} onChange={set('capacity')} />
       </Section>
 
       <Section title="Physical Location">
@@ -183,8 +184,8 @@ function BinDetailModal({ bin, onClose, onEdit }) {
 
   return (
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(3px)', padding: 20 }}>
-      <div style={{ background: 'var(--surface-card)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 540, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(3px)', padding: '24px 20px' }}>
+      <div style={{ background: 'var(--surface-card)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 540, height: 'calc(100vh - 200px)', maxHeight: 620, minHeight: 420, display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
 
         {/* Header */}
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexShrink: 0 }}>
@@ -201,7 +202,7 @@ function BinDetailModal({ bin, onClose, onEdit }) {
         </div>
 
         {/* Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.1) transparent' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 24px', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.1) transparent' }}>
 
           {/* Capacity utilisation bar */}
           {capacity && (
@@ -305,7 +306,7 @@ function StorageBinsScreen() {
   /* Enrich each bin with live occupancy */
   const enriched = React.useMemo(() => allBins.map(b => ({
     ...b,
-    _occupied: binOccupancy(b.bin_code),
+    _occupied: Number(b.used_units ?? binOccupancy(b.bin_code) ?? 0),
   })), [allBins.length]);
 
   /* Stats */

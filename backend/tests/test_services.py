@@ -114,20 +114,13 @@ def test_get_tool_locked_requests_database_row_lock():
     query.with_for_update.assert_called_once_with()
 
 
-def test_damage_return_must_account_for_entire_issuance():
-    from fastapi import HTTPException
-
+def test_damage_return_quantities_are_validated_by_schema_breakdown():
     from app.services.stock import validate_damage_return
 
     validate_damage_return(3, 3, "damaged")
     validate_damage_return(3, 0, "missing")
-
-    for issued, returned, condition in ((3, 1, "damaged"), (3, 1, "missing")):
-        try:
-            validate_damage_return(issued, returned, condition)
-            assert False, f"Expected {condition} quantity validation to fail"
-        except HTTPException as exc:
-            assert exc.status_code == 400
+    validate_damage_return(3, 1, "damaged")
+    validate_damage_return(3, 1, "missing")
 
 
 def test_tool_visibility_scopes_non_maintenance_queries():
@@ -162,12 +155,14 @@ def test_period_availability_subtracts_only_overlaps_and_pending_damage():
             "app.routers.requisitions.get_pending_damage_by_tool",
             return_value={tool.id: 1},
         ),
+        patch("app.routers.requisitions.get_period_reserved_quantity", return_value=2),
     ):
         result = _period_availability(MagicMock(), tool, None, None)
 
     assert result["overlapping_issued_quantity"] == 3
     assert result["pending_damage_quantity"] == 1
-    assert result["available_quantity"] == 4
+    assert result["reserved_quantity"] == 2
+    assert result["available_quantity"] == 2
 
 
 def test_validate_consumable_return_full_return():
@@ -181,20 +176,42 @@ def test_validate_consumable_return_full_return():
     assert consumed == 0
 
 
-def test_validate_non_consumable_partial_return_raises():
+def test_validate_non_consumable_partial_return_allowed():
     from app.services.stock import validate_consumable_return
     from unittest.mock import MagicMock
-    from fastapi import HTTPException
 
     tool = MagicMock()
     tool.name = "Torque Wrench"
     tool.is_consumable = False
 
+    consumed = validate_consumable_return(tool, quantity_issued=2, quantity_returned=1)
+    assert consumed == 1
+
+
+def test_return_breakdown_parser_counts_damaged_and_missing():
+    from app.services.stock import _return_breakdown
+
+    notes = 'RETURN_BREAKDOWN:{"good":4,"damaged":1,"missing":0}\nHandle cracked'
+    assert _return_breakdown(notes) == {"good": 4, "damaged": 1, "missing": 0}
+
+
+def test_requisition_create_rejects_past_from_date():
+    from datetime import date, timedelta
+    from pydantic import ValidationError
+    from uuid import uuid4
+    from app.schemas.requisition import RequisitionCreate
+
     try:
-        validate_consumable_return(tool, quantity_issued=2, quantity_returned=1)
-        assert False, "Should have raised HTTPException"
-    except HTTPException as e:
-        assert e.status_code == 400
+        RequisitionCreate(
+            tool_id=uuid4(),
+            quantity_requested=1,
+            purpose_of_job="Valid job purpose",
+            from_date=date.today() - timedelta(days=1),
+            to_date=date.today(),
+        )
+        assert False, "Should have raised ValidationError"
+    except ValidationError as exc:
+        assert "from_date cannot be in the past" in str(exc)
 
 
 def test_snapshot_value_at_issuance_matches_current_value():

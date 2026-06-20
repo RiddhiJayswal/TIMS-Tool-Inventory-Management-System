@@ -40,7 +40,11 @@ def _activity_rows(db: Session, limit: int | None = None, log_date: date | None 
             "module": entry.entity,
             "entity_id": str(entry.entity_id),
             "entity_name": details.get("tool_name") or details.get("requisition_number") or details.get("name") or "",
-            "quantity": details.get("quantity_requested") or details.get("quantity_issued") or details.get("quantity_returned") or "",
+            "quantity": details.get("quantity")
+            or details.get("quantity_requested")
+            or details.get("quantity_issued")
+            or details.get("quantity_returned")
+            or "",
             "department": details.get("department") or details.get("requester_dept") or "",
             "status": "recorded",
             "details": details,
@@ -155,6 +159,7 @@ def report_stock(
                 "available_quantity": row["available_quantity"],
                 "currently_issued": row["currently_issued"],
                 "issued_quantity": row["issued_quantity"],
+                "reserved_quantity": row.get("reserved_quantity", 0),
                 "unavailable_quantity": row["unavailable_quantity"],
                 "status": t.status,
                 "storage_bin": storage_bin.bin_code if storage_bin else None,

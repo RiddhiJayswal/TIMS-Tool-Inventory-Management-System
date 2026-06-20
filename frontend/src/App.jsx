@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
 import { DataSyncProvider } from './data/DataSyncContext'
@@ -29,12 +30,21 @@ const MAINTENANCE_ROLES = ['maintenance_staff', 'maintenance_admin']
 const ADMIN_ROLES = ['maintenance_admin']
 const DEPT_HEAD_ROLES = ['dept_head', 'maintenance_admin']
 
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [pathname])
+  return null
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <ToastProvider>
         <DataSyncProvider>
           <BrowserRouter>
+            <ScrollToTop />
             <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />

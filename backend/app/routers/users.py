@@ -9,6 +9,7 @@ from typing import Optional
 from app.database import get_db
 from app.models.transaction import AccessRequest, Notification, User
 from app.auth.roles import RequireAdmin, get_current_user, hash_password
+from app.services.email import send_access_request_approved_email
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -57,6 +58,7 @@ def _access_request_out(req: AccessRequest) -> dict:
         "name": req.full_name,
         "full_name": req.full_name,
         "email": req.email,
+        "mobile_number": req.mobile_number,
         "username": req.email,
         "employeeId": req.employee_id,
         "employee_id": req.employee_id,
@@ -67,6 +69,7 @@ def _access_request_out(req: AccessRequest) -> dict:
         "reason": req.reason,
         "notes": req.reason,
         "status": req.status,
+        "otp_verified": bool(req.otp_verified_at),
         "createdAt": req.created_at,
         "created_at": req.created_at,
         "approvedBy": str(req.approved_by) if req.approved_by else None,
@@ -86,6 +89,26 @@ def _find_access_request(db: Session, request_id: str) -> AccessRequest | None:
     if parsed:
         return query.filter(AccessRequest.id == parsed).first()
     return query.filter(AccessRequest.request_id == request_id).first()
+
+
+def _active_admin_count(db: Session) -> int:
+    return db.query(User).filter(
+        User.role == "maintenance_admin",
+        User.is_active == True,
+    ).count()
+
+
+def _ensure_not_last_active_admin(db: Session, user: User, update_data: dict) -> None:
+    would_stop_being_admin = (
+        user.role == "maintenance_admin"
+        and user.is_active
+        and (
+            update_data.get("is_active") is False
+            or ("role" in update_data and update_data["role"] != "maintenance_admin")
+        )
+    )
+    if would_stop_being_admin and _active_admin_count(db) <= 1:
+        raise HTTPException(400, "At least one active administrator must remain.")
 
 
 @router.get("")
@@ -130,25 +153,22 @@ def approve_access_request(
         .first()
     )
     if existing:
-        existing.full_name = req.full_name.strip()
-        existing.email = req.email.strip().lower()
-        existing.role = req.requested_role
-        existing.department = req.department.strip()
-        existing.hashed_password = req.hashed_password
-        existing.is_active = True
-        user = existing
-    else:
-        user = User(
-            employee_id=employee_id,
-            full_name=req.full_name.strip(),
-            email=req.email.strip().lower(),
-            hashed_password=req.hashed_password,
-            role=req.requested_role,
-            department=req.department.strip(),
-            is_active=True,
+        raise HTTPException(
+            400,
+            "Cannot approve access request because a user with this email or employee ID already exists.",
         )
-        db.add(user)
-        db.flush()
+
+    user = User(
+        employee_id=employee_id,
+        full_name=req.full_name.strip(),
+        email=req.email.strip().lower(),
+        hashed_password=req.hashed_password,
+        role=req.requested_role,
+        department=req.department.strip(),
+        is_active=True,
+    )
+    db.add(user)
+    db.flush()
 
     req.status = "approved"
     req.approved_by = current_user.id
@@ -166,6 +186,7 @@ def approve_access_request(
     db.commit()
     db.refresh(req)
     db.refresh(user)
+    send_access_request_approved_email(user.email, user.full_name, user.employee_id)
     return {"request": _access_request_out(req), "user": _user_out(user)}
 
 
@@ -207,16 +228,19 @@ def create_user(
     if payload.role not in VALID_ROLES:
         raise HTTPException(400, f"Invalid role. Must be one of: {', '.join(sorted(VALID_ROLES))}")
 
-    if db.query(User).filter(User.employee_id == payload.employee_id).first():
-        raise HTTPException(400, f"Employee ID '{payload.employee_id}' already exists")
+    employee_id = payload.employee_id.strip().upper()
+    email = payload.email.strip().lower()
 
-    if db.query(User).filter(User.email == payload.email).first():
-        raise HTTPException(400, f"Email '{payload.email}' already registered")
+    if db.query(User).filter(User.employee_id == employee_id).first():
+        raise HTTPException(400, f"Employee ID '{employee_id}' already exists")
+
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(400, f"Email '{email}' already registered")
 
     new_user = User(
-        employee_id=payload.employee_id.strip().upper(),
+        employee_id=employee_id,
         full_name=payload.full_name.strip(),
-        email=payload.email.strip().lower(),
+        email=email,
         hashed_password=hash_password(payload.password),
         role=payload.role,
         department=payload.department.strip(),
@@ -243,6 +267,7 @@ def update_user(
         raise HTTPException(400, f"Invalid role. Must be one of: {', '.join(sorted(VALID_ROLES))}")
     if update_data.get("is_active") is False and str(user.id) == str(current_user.id):
         raise HTTPException(400, "Cannot deactivate your own account")
+    _ensure_not_last_active_admin(db, user, update_data)
     if "email" in update_data:
         existing = db.query(User).filter(User.email == str(update_data["email"]).strip().lower()).first()
         if existing and existing.id != user.id:
@@ -271,6 +296,8 @@ def toggle_user_active(
         raise HTTPException(404, "User not found")
     if str(user.id) == str(current_user.id):
         raise HTTPException(400, "Cannot deactivate your own account")
+    if user.is_active:
+        _ensure_not_last_active_admin(db, user, {"is_active": False})
     user.is_active = not user.is_active
     db.commit()
     return _user_out(user)

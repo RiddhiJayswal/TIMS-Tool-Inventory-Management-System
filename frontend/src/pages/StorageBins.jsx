@@ -85,7 +85,7 @@ function BinModal({ bin, onClose, onSaved }) {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Capacity</label>
-              <input type="number" min="0" value={form.capacity || ''} onChange={(e) => set('capacity', e.target.value)} className="input-control" />
+              <input type="number" min="1" value={form.capacity || ''} onChange={(e) => set('capacity', e.target.value)} className="input-control" />
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
@@ -180,7 +180,7 @@ export default function StorageBins() {
               <table className="data-table">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50">
-                    {['Bin Code', 'Shelf', 'Section', 'Department', 'Tools', 'Capacity', 'Actions'].map((h) => (
+                    {['Bin Code', 'Shelf', 'Section', 'Department', 'Tools', 'Occupancy', 'Actions'].map((h) => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -193,7 +193,9 @@ export default function StorageBins() {
                       <td className="px-4 py-3 text-gray-500">{bin.section || '-'}</td>
                       <td className="px-4 py-3 text-gray-500">{bin.department_category || 'All'}</td>
                       <td className="px-4 py-3">{bin.tool_count}</td>
-                      <td className="px-4 py-3 text-gray-500">{bin.capacity || '-'}</td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {bin.capacity ? `${bin.used_units || 0} / ${bin.capacity}` : `${bin.used_units || 0} / -`}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <button onClick={() => loadBinTools(bin)} className="btn-soft bg-blue-50 text-blue-700 hover:bg-blue-100">View Tools</button>

@@ -4,8 +4,9 @@ Requires a running PostgreSQL test database at DATABASE_URL.
 
 Run: cd backend && python -m pytest tests/test_integration.py -v --tb=short
 """
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
+import hashlib
 
 import pytest
 
@@ -92,6 +93,8 @@ def issue_tool(client, token, req_id):
 
 def return_tool(client, token, issuance_id, qty_returned=None, condition="good", notes=None):
     body = {"quantity_returned": qty_returned, "return_condition": condition}
+    if condition in ("damaged", "missing") and not notes:
+        notes = f"Integration test {condition} return"
     if notes:
         body["notes"] = notes
     res = client.post(f"/api/returns/{issuance_id}", json=body, headers=auth(token))
@@ -182,30 +185,133 @@ class TestAuth:
         assert str(other_department.id) in {row["id"] for row in admin_tools}
 
     def test_forgot_username_success_and_not_found(self, client):
-        res = client.post("/api/auth/forgot-username", json={"identifier": "user@tims.test"})
+        res = client.post("/api/auth/forgot-username", json={"identifier": "user@tims.example.com"})
         assert res.status_code == 200
         assert res.json()["employee_id"] == "USR001"
 
-        missing = client.post("/api/auth/forgot-username", json={"identifier": "missing@tims.test"})
+        missing = client.post("/api/auth/forgot-username", json={"identifier": "missing@tims.example.com"})
         assert missing.status_code == 404
 
-    def test_forgot_and_reset_password_demo_token(self, client):
-        reset = client.post("/api/auth/forgot-password", json={"employee_id": "USR001", "email": "user@tims.test"})
+    def test_forgot_and_reset_password_email_token_lifecycle(self, client, monkeypatch):
+        captured = {}
+
+        def fake_reset_email(to_email, full_name, employee_id, reset_token, expires_minutes):
+            captured["token"] = reset_token
+            return True
+
+        monkeypatch.setattr("app.routers.auth.is_email_configured", lambda: True)
+        monkeypatch.setattr("app.routers.auth.send_password_reset_email", fake_reset_email)
+        reset = client.post("/api/auth/forgot-password", json={"email": "user@tims.example.com"})
         assert reset.status_code == 200
-        token = reset.json().get("reset_token")
-        assert token, "Test config has no SMTP, so API should return a demo reset token"
+        assert reset.json()["message"] == "If this email is registered, reset instructions have been sent."
+        assert reset.json()["delivery_configured"] is True
+        assert "reset_token" not in reset.json()
+        token = captured["token"]
 
         changed = client.post("/api/auth/reset-password", json={"token": token, "new_password": "NewUser@123"})
         assert changed.status_code == 200
 
+        reused = client.post("/api/auth/reset-password", json={"token": token, "new_password": "OtherUser@123"})
+        assert reused.status_code == 400
+
         login = client.post("/api/auth/login", data={"username": "USR001", "password": "NewUser@123"})
         assert login.status_code == 200
 
-        restore = client.post("/api/auth/forgot-password", json={"employee_id": "USR001", "email": "user@tims.test"})
-        restore_token = restore.json().get("reset_token")
-        assert restore_token
+        old_login = client.post("/api/auth/login", data={"username": "USR001", "password": "User@123"})
+        assert old_login.status_code == 401
+
+        restore = client.post("/api/auth/forgot-password", json={"email": "user@tims.example.com"})
+        restore_token = captured["token"]
         restored = client.post("/api/auth/reset-password", json={"token": restore_token, "new_password": "User@123"})
         assert restored.status_code == 200
+
+    def test_forgot_password_unregistered_email_is_generic(self, client):
+        res = client.post("/api/auth/forgot-password", json={"email": "missing@tims.example.com"})
+        assert res.status_code == 200
+        assert res.json()["message"] == "Email delivery is not configured. Please contact admin."
+        assert res.json()["delivery_configured"] is False
+        assert "reset_token" not in res.json()
+
+    def test_reset_password_expired_token_fails_cleanly(self, client, db):
+        from app.models.transaction import PasswordResetToken, User
+
+        user = db.query(User).filter(User.employee_id == "USR001").first()
+        token = "expired-reset-token"
+        db.add(PasswordResetToken(
+            user_id=user.id,
+            token_hash=hashlib.sha256(token.encode("utf-8")).hexdigest(),
+            expires_at=datetime.utcnow() - timedelta(minutes=1),
+        ))
+        db.commit()
+        res = client.post("/api/auth/reset-password", json={"token": token, "new_password": "NewUser@123"})
+        assert res.status_code == 400
+        assert "expired" in res.json()["detail"].lower() or "invalid" in res.json()["detail"].lower()
+
+    def test_request_access_role_mobile_otp_and_admin_approval(self, client, db, monkeypatch):
+        from app.models.transaction import AccessRequest, User
+
+        captured = {}
+
+        def fake_sms(mobile_number, otp, expires_minutes):
+            captured["otp"] = otp
+            return True
+
+        monkeypatch.setattr("app.routers.auth.send_access_otp_sms", fake_sms)
+
+        payload = {
+            "employee_id": "NEW101",
+            "full_name": "New Staff User",
+            "email": "new101@tims.example.com",
+            "mobile_number": "9876543210",
+            "password": "NewStaff@123",
+            "department": "Maintenance",
+            "requested_role": "maintenance_staff",
+            "reason": "Integration test request",
+        }
+
+        blocked = client.post("/api/auth/signup", json=payload)
+        assert blocked.status_code == 400
+        assert "verified" in blocked.json()["detail"].lower()
+
+        sent = client.post("/api/auth/access-otp/send", json=payload)
+        assert sent.status_code == 200, sent.text
+        req = db.query(AccessRequest).filter(AccessRequest.employee_id == "NEW101").first()
+        assert req
+        assert req.mobile_number == "9876543210"
+        assert req.requested_role == "maintenance_staff"
+        assert req.status == "otp_pending"
+
+        bad = client.post("/api/auth/access-otp/verify", json={
+            "email": payload["email"],
+            "mobile_number": payload["mobile_number"],
+            "otp": "000000",
+        })
+        assert bad.status_code == 400
+
+        verified = client.post("/api/auth/access-otp/verify", json={
+            "email": payload["email"],
+            "mobile_number": payload["mobile_number"],
+            "otp": captured["otp"],
+        })
+        assert verified.status_code == 200, verified.text
+        assert verified.json()["request"]["otp_verified"] is True
+
+        submitted = client.post("/api/auth/signup", json=payload)
+        assert submitted.status_code == 201, submitted.text
+        request_id = submitted.json()["request"]["request_id"]
+        assert submitted.json()["request"]["status"] == "pending"
+
+        adm_token = get_token(client, "ADM001", "Admin@123")
+        approved = client.put(f"/api/users/access-requests/{request_id}/approve", headers=auth(adm_token))
+        assert approved.status_code == 200, approved.text
+        assert approved.json()["user"]["role"] == "maintenance_staff"
+
+        created = db.query(User).filter(User.employee_id == "NEW101").first()
+        assert created
+        assert created.email == "new101@tims.example.com"
+
+        login = client.post("/api/auth/login", data={"username": "NEW101", "password": "NewStaff@123"})
+        assert login.status_code == 200
 
     def test_requester_cannot_open_admin_apis(self, client):
         token = get_token(client, "USR001", "User@123")
@@ -419,11 +525,15 @@ class TestBlockScenarios:
         hd_token  = get_token(client, "HD001",  "Head@123")
         stf_token = get_token(client, "STF001", "Staff@123")
 
-        req = raise_req(client, usr_token, tool.id)
-        approve_req(client, hd_token, req["id"])
+        req = TestWorkflowFixRegressions()._manual_approved_req(
+            db,
+            tool,
+            from_date=date.today(),
+            to_date=date.today() + timedelta(days=3),
+        )
 
         # Issuance must fail because calibration is overdue
-        res = client.post("/api/issuance", json={"requisition_id": req["id"]}, headers=auth(stf_token))
+        res = client.post("/api/issuance", json={"requisition_id": str(req.id)}, headers=auth(stf_token))
         assert res.status_code == 400, f"Expected 400, got {res.status_code}: {res.text}"
         assert "calibration" in res.json()["detail"].lower()
 
@@ -435,27 +545,30 @@ class TestBlockScenarios:
         TOTAL = 3
         tool = make_tool(db, quantity=TOTAL)
 
-        usr_token = get_token(client, "USR001", "User@123")
-        hd_token  = get_token(client, "HD001",  "Head@123")
         stf_token = get_token(client, "STF001", "Staff@123")
 
-        # Raise and approve TOTAL+1 requisitions
-        req_ids = []
-        for _ in range(TOTAL + 1):
-            req = raise_req(client, usr_token, tool.id, qty=1)
-            approve_req(client, hd_token, req["id"])
-            req_ids.append(req["id"])
-
-        # Issue TOTAL successfully
-        for req_id in req_ids[:TOTAL]:
-            issue_tool(client, stf_token, req_id)
+        issued_req_ids = []
+        for _ in range(TOTAL):
+            req = TestWorkflowFixRegressions()._manual_approved_req(
+                db,
+                tool,
+                from_date=date.today(),
+                to_date=date.today() + timedelta(days=3),
+            )
+            issue_tool(client, stf_token, str(req.id))
+            issued_req_ids.append(str(req.id))
 
         # Verify stock is now 0
         db.refresh(tool)
         assert tool.available_quantity == 0
 
-        # The (TOTAL+1)-th issuance must fail
-        res = client.post("/api/issuance", json={"requisition_id": req_ids[TOTAL]}, headers=auth(stf_token))
+        extra = TestWorkflowFixRegressions()._manual_approved_req(
+            db,
+            tool,
+            from_date=date.today(),
+            to_date=date.today() + timedelta(days=3),
+        )
+        res = client.post("/api/issuance", json={"requisition_id": str(extra.id)}, headers=auth(stf_token))
         assert res.status_code == 400, f"Expected 400 for over-stock issuance, got {res.status_code}"
 
         # Verify stock is still 0, not -1
@@ -516,10 +629,9 @@ class TestBlockScenarios:
         )
         assert response.status_code == 201, response.text
 
-    def test_partial_return_blocked_for_non_consumable(self, client, db):
+    def test_partial_return_allowed_for_non_consumable(self, client, db):
         """
-        A non-consumable tool must return all units in good condition.
-        Returning fewer (condition=good) must be rejected.
+        A non-consumable tool can be returned over multiple good-condition returns.
         """
         tool = make_tool(db, quantity=2, is_consumable=False)
 
@@ -535,7 +647,15 @@ class TestBlockScenarios:
         res = client.post(f"/api/returns/{issued['id']}",
             json={"quantity_returned": 1, "return_condition": "good"},
             headers=auth(stf_token))
-        assert res.status_code == 400, f"Expected 400 for partial non-consumable return, got {res.status_code}"
+        assert res.status_code == 200, f"Expected durable partial return to work, got {res.status_code}: {res.text}"
+        assert res.json()["actual_return_date"] is None
+        assert res.json()["remaining_quantity"] == 1
+
+        res2 = client.post(f"/api/returns/{issued['id']}",
+            json={"quantity_returned": 1, "return_condition": "good"},
+            headers=auth(stf_token))
+        assert res2.status_code == 200
+        assert res2.json()["actual_return_date"] is not None
 
     def test_double_return_blocked(self, client, db):
         """Processing a return on an already-returned issuance must return 400."""
@@ -634,7 +754,7 @@ class TestPenalty:
         res = client.post(f"/api/damage/{issued['id']}",
             json={"damage_type": "theft"},  # market_rate_at_damage missing
             headers=auth(adm_token))
-        assert res.status_code == 400, f"Expected 400 (theft without market rate), got {res.status_code}"
+        assert res.status_code in (400, 422), f"Expected validation failure (theft without market rate), got {res.status_code}"
 
     def test_theft_with_market_rate(self, client, db):
         """Theft penalty must equal the market rate provided by admin."""
@@ -659,7 +779,9 @@ class TestPenalty:
         dmg = record_damage(client, adm_token, issued["id"], damage_type="wear_and_tear")
 
         assert dmg["penalty_amount"] == 0.0
-        assert dmg["tool_status"] == "written_off"
+        assert dmg["tool_status"] == "active"
+        db.refresh(tool)
+        assert tool.available_quantity == 1
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -963,3 +1085,237 @@ class TestDashboard:
         assert res.status_code == 200
         ids = [i["id"] for i in res.json()]
         assert issued["id"] in ids, "Issued tool not visible in requester's active issuances"
+
+
+class TestWorkflowFixRegressions:
+
+    def _manual_approved_req(self, db, tool, *, from_date, to_date, qty=1):
+        import uuid
+        from datetime import datetime
+        from app.models.transaction import Requisition, User
+
+        requester = db.query(User).filter(User.employee_id == "USR001").first()
+        approver = db.query(User).filter(User.employee_id == "HD001").first()
+        req = Requisition(
+            id=uuid.uuid4(),
+            requisition_number=f"FIX-{uuid.uuid4().hex[:10].upper()}",
+            tool_id=tool.id,
+            requested_by=requester.id,
+            requester_dept=requester.department,
+            quantity_requested=qty,
+            purpose_of_job="Regression test job",
+            from_date=from_date,
+            to_date=to_date,
+            status="approved",
+            approved_by=approver.id,
+            approved_at=datetime.utcnow(),
+        )
+        db.add(req)
+        db.commit()
+        db.refresh(req)
+        return req
+
+    def test_approved_requisition_reserves_stock_in_reports(self, client, db):
+        tool = make_tool(db, quantity=2)
+        usr_token = get_token(client, "USR001", "User@123")
+        hd_token = get_token(client, "HD001", "Head@123")
+        adm_token = get_token(client, "ADM001", "Admin@123")
+
+        req = raise_req(client, usr_token, tool.id, qty=1)
+        approve_req(client, hd_token, req["id"])
+
+        rows = client.get("/api/reports/stock", headers=auth(adm_token)).json()
+        row = next(r for r in rows if r["tool_code"] == tool.tool_code)
+        assert row["reserved_quantity"] == 1
+        assert row["available_quantity"] == 1
+
+    def test_over_approval_blocked_by_existing_approved_reservation(self, client, db):
+        tool = make_tool(db, quantity=1)
+        usr_token = get_token(client, "USR001", "User@123")
+        hd_token = get_token(client, "HD001", "Head@123")
+
+        req1 = raise_req(client, usr_token, tool.id, qty=1)
+        req2 = raise_req(client, usr_token, tool.id, qty=1)
+        approve_req(client, hd_token, req1["id"])
+        blocked = client.put(f"/api/requisitions/{req2['id']}/approve", headers=auth(hd_token))
+        assert blocked.status_code == 400
+        assert "reservation" in blocked.json()["detail"].lower() or "available" in blocked.json()["detail"].lower()
+
+    def test_issuance_blocked_before_from_date(self, client, db):
+        tool = make_tool(db, quantity=1)
+        req = self._manual_approved_req(
+            db,
+            tool,
+            from_date=date.today() + timedelta(days=2),
+            to_date=date.today() + timedelta(days=5),
+        )
+        stf_token = get_token(client, "STF001", "Staff@123")
+        res = client.post("/api/issuance", json={"requisition_id": str(req.id)}, headers=auth(stf_token))
+        assert res.status_code == 400
+        assert "before requested from date" in res.json()["detail"].lower()
+
+    def test_issuance_blocked_after_to_date_and_expired(self, client, db):
+        tool = make_tool(db, quantity=1)
+        req = self._manual_approved_req(
+            db,
+            tool,
+            from_date=date.today() - timedelta(days=5),
+            to_date=date.today() - timedelta(days=1),
+        )
+        stf_token = get_token(client, "STF001", "Staff@123")
+        res = client.post("/api/issuance", json={"requisition_id": str(req.id)}, headers=auth(stf_token))
+        assert res.status_code == 400
+        assert "after requested to date" in res.json()["detail"].lower()
+
+    def test_consumable_type_cannot_change_during_active_requisition_or_issuance(self, client, db):
+        tool = make_tool(db, quantity=2, is_consumable=False)
+        adm_token = get_token(client, "ADM001", "Admin@123")
+        usr_token = get_token(client, "USR001", "User@123")
+        hd_token = get_token(client, "HD001", "Head@123")
+        stf_token = get_token(client, "STF001", "Staff@123")
+
+        req = raise_req(client, usr_token, tool.id, qty=1)
+        blocked_pending = client.put(f"/api/tools/{tool.id}", json={"is_consumable": True}, headers=auth(adm_token))
+        assert blocked_pending.status_code == 400
+
+        approve_req(client, hd_token, req["id"])
+        issued = issue_tool(client, stf_token, req["id"])
+        blocked_open = client.put(f"/api/tools/{tool.id}", json={"is_consumable": True}, headers=auth(adm_token))
+        assert blocked_open.status_code == 400
+        assert "active requisitions or issuances" in blocked_open.json()["detail"]
+        assert issued["actual_return_date"] is None
+
+    def test_access_request_approval_cannot_overwrite_existing_user(self, client, db):
+        import uuid
+        from app.auth.roles import hash_password
+        from app.models.transaction import AccessRequest, User
+
+        existing = db.query(User).filter(User.employee_id == "USR001").first()
+        req = AccessRequest(
+            request_id=f"AR-{uuid.uuid4().hex[:8].upper()}",
+            full_name="Overwrite Attempt",
+            email=existing.email,
+            employee_id=existing.employee_id,
+            department="Maintenance",
+            requested_role="maintenance_admin",
+            reason="Regression test",
+            hashed_password=hash_password("Overwrite@123"),
+            status="pending",
+        )
+        db.add(req)
+        db.commit()
+        adm_token = get_token(client, "ADM001", "Admin@123")
+        res = client.put(f"/api/users/access-requests/{req.request_id}/approve", headers=auth(adm_token))
+        assert res.status_code == 400
+        db.refresh(existing)
+        assert existing.role == "requester"
+        assert existing.full_name == "Requester User"
+
+    def test_last_active_admin_cannot_be_demoted_or_deactivated(self, client, db):
+        from app.models.transaction import User
+
+        adm = db.query(User).filter(User.employee_id == "ADM001").first()
+        adm_token = get_token(client, "ADM001", "Admin@123")
+
+        demote = client.put(f"/api/users/{adm.id}", json={"role": "requester"}, headers=auth(adm_token))
+        assert demote.status_code == 400
+        assert "administrator" in demote.json()["detail"].lower()
+
+        deactivate = client.put(f"/api/users/{adm.id}", json={"is_active": False}, headers=auth(adm_token))
+        assert deactivate.status_code == 400
+
+    def test_mixed_condition_batch_return_updates_stock(self, client, db):
+        tool = make_tool(db, quantity=5)
+        usr_token = get_token(client, "USR001", "User@123")
+        hd_token = get_token(client, "HD001", "Head@123")
+        stf_token = get_token(client, "STF001", "Staff@123")
+
+        req = raise_req(client, usr_token, tool.id, qty=5)
+        approve_req(client, hd_token, req["id"])
+        issued = issue_tool(client, stf_token, req["id"])
+        res = client.post(
+            f"/api/returns/{issued['id']}",
+            json={
+                "quantity_returned": 5,
+                "return_condition": "damaged",
+                "condition_quantities": {"good": 4, "damaged": 1, "missing": 0},
+                "notes": "One unit cracked",
+            },
+            headers=auth(stf_token),
+        )
+        assert res.status_code == 200, res.text
+        db.refresh(tool)
+        assert tool.available_quantity == 4
+        assert res.json()["return_breakdown"]["damaged"] == 1
+
+    def test_impossible_damage_classifications_rejected(self, client, db):
+        tool = make_tool(db, quantity=2)
+        usr_token = get_token(client, "USR001", "User@123")
+        hd_token = get_token(client, "HD001", "Head@123")
+        stf_token = get_token(client, "STF001", "Staff@123")
+        adm_token = get_token(client, "ADM001", "Admin@123")
+
+        req = raise_req(client, usr_token, tool.id, qty=1)
+        approve_req(client, hd_token, req["id"])
+        issued = issue_tool(client, stf_token, req["id"])
+        return_tool(client, stf_token, issued["id"], qty_returned=1, condition="missing", notes="Missing")
+        bad_missing = client.post(f"/api/damage/{issued['id']}", json={"damage_type": "wear_and_tear"}, headers=auth(adm_token))
+        assert bad_missing.status_code == 400
+
+        req2 = raise_req(client, usr_token, tool.id, qty=1)
+        approve_req(client, hd_token, req2["id"])
+        issued2 = issue_tool(client, stf_token, req2["id"])
+        return_tool(client, stf_token, issued2["id"], qty_returned=1, condition="damaged", notes="Bent")
+        bad_damaged = client.post(
+            f"/api/damage/{issued2['id']}",
+            json={"damage_type": "theft", "market_rate_at_damage": 1000},
+            headers=auth(adm_token),
+        )
+        assert bad_damaged.status_code == 400
+
+    def test_storage_bin_capacity_enforced_by_physical_quantity(self, client):
+        adm_token = get_token(client, "ADM001", "Admin@123")
+        bin_res = client.post(
+            "/api/storage-bins",
+            json={"bin_code": f"CAP-{__import__('uuid').uuid4().hex[:6].upper()}", "shelf_label": "Capacity Shelf", "capacity": 3},
+            headers=auth(adm_token),
+        )
+        assert bin_res.status_code == 201, bin_res.text
+        bin_id = bin_res.json()["id"]
+        tool_res = client.post(
+            "/api/tools",
+            json={
+                "tool_code": f"CAP-T-{__import__('uuid').uuid4().hex[:6].upper()}",
+                "name": "Capacity Test Tool",
+                "tool_type": "general",
+                "is_consumable": False,
+                "total_quantity": 4,
+                "storage_bin_id": bin_id,
+            },
+            headers=auth(adm_token),
+        )
+        assert tool_res.status_code == 400
+        assert "capacity" in tool_res.json()["detail"].lower()
+
+    def test_reports_include_completed_consumable_quantities_and_activity_quantity(self, client, db):
+        tool = make_tool(db, quantity=10, is_consumable=True)
+        usr_token = get_token(client, "USR001", "User@123")
+        hd_token = get_token(client, "HD001", "Head@123")
+        stf_token = get_token(client, "STF001", "Staff@123")
+
+        req = raise_req(client, usr_token, tool.id, qty=3)
+        approve_req(client, hd_token, req["id"])
+        issued = issue_tool(client, stf_token, req["id"])
+        assert issued["actual_return_date"] is not None
+        assert issued["return_condition"] == "consumed"
+        assert issued["quantity_consumed"] == 3
+
+        util = client.get("/api/reports/utilization", headers=auth(stf_token))
+        assert util.status_code == 200
+        assert any(row["department"] == "E&I" and row["total_issued"] >= 3 for row in util.json())
+
+        activity = client.get("/api/reports/activity-logs", headers=auth(stf_token))
+        assert activity.status_code == 200
+        issue_rows = [r for r in activity.json() if r["action_type"] == "CONSUMABLE_ISSUED" and r["entity_id"] == issued["id"]]
+        assert issue_rows
+        assert issue_rows[0]["quantity"] == 3

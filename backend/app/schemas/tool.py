@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, condecimal, model_validator
+from pydantic import BaseModel, ConfigDict, Field, condecimal, model_validator
 from typing import Optional, Literal
 from datetime import date
 from uuid import UUID
@@ -28,8 +28,11 @@ class ToolCreate(BaseModel):
 
 
 class ToolUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: Optional[str] = None
     category: Optional[str] = None
+    tool_type: Optional[Literal["general", "specialized"]] = None
     department_access: Optional[str] = None
     is_consumable: Optional[bool] = None
     make: Optional[str] = None

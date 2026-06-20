@@ -13,8 +13,11 @@ class RequisitionCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_dates(self) -> "RequisitionCreate":
-        if self.to_date <= self.from_date:
-            raise ValueError("to_date must be after from_date")
+        today = date.today()
+        if self.from_date < today:
+            raise ValueError("from_date cannot be in the past")
+        if self.to_date < self.from_date:
+            raise ValueError("to_date must be after or equal to from_date")
         return self
 
 

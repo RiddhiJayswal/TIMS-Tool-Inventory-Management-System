@@ -41,6 +41,7 @@ def _tool_cal_dict(tool: Tool, today: date) -> dict:
         "next_calibration_due": tool.next_calibration_due,
         "days_until_due": days_until_due,
         "calibration_status": cal_status,
+        "status": tool.status,
         "service_partner": tool.service_partner,
         "tool_status": tool.status,
     }

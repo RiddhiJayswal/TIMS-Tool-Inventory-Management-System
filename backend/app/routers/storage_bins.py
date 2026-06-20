@@ -26,7 +26,15 @@ def _notify_maintenance(db: Session, message: str) -> None:
         db.add(Notification(user_id=user.id, message=message, is_read=False))
 
 
-def _bin_to_dict(bin_: StorageBin, tool_count: int = 0) -> dict:
+def _bin_used_units(db: Session, bin_id: UUID) -> int:
+    return sum(
+        int(t.total_quantity or 0)
+        for t in db.query(Tool).filter(Tool.storage_bin_id == bin_id).all()
+    )
+
+
+def _bin_to_dict(bin_: StorageBin, tool_count: int = 0, used_units: int = 0) -> dict:
+    remaining = None if bin_.capacity is None else max(int(bin_.capacity) - used_units, 0)
     return {
         "id": str(bin_.id),
         "bin_code": bin_.bin_code,
@@ -40,6 +48,8 @@ def _bin_to_dict(bin_: StorageBin, tool_count: int = 0) -> dict:
         "description": bin_.description,
         "capacity": bin_.capacity,
         "tool_count": tool_count,
+        "used_units": used_units,
+        "remaining_capacity": remaining,
         "created_at": bin_.created_at,
     }
 
@@ -57,7 +67,7 @@ def list_bins(
             db.query(Tool).filter(Tool.storage_bin_id == b.id),
             current_user,
         ).count()
-        result.append(_bin_to_dict(b, count))
+        result.append(_bin_to_dict(b, count, _bin_used_units(db, b.id)))
     return result
 
 
@@ -87,7 +97,7 @@ def create_bin(
     _notify_maintenance(db, f"Storage bin added: {bin_.bin_code} - {bin_.shelf_label} was created by {current_user.full_name}.")
     db.commit()
     db.refresh(bin_)
-    return _bin_to_dict(bin_, 0)
+    return _bin_to_dict(bin_, 0, 0)
 
 
 @router.put("/{bin_id}")
@@ -102,14 +112,23 @@ def update_bin(
     if not bin_:
         raise HTTPException(404, "Storage bin not found")
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    update_data = payload.model_dump(exclude_unset=True)
+    if "capacity" in update_data and update_data["capacity"] is not None:
+        used_units = _bin_used_units(db, bin_.id)
+        if update_data["capacity"] < used_units:
+            raise HTTPException(
+                400,
+                f"Capacity cannot be less than currently assigned units ({used_units})",
+            )
+
+    for field, value in update_data.items():
         setattr(bin_, field, value)
 
     _notify_maintenance(db, f"Storage bin updated: {bin_.bin_code} was edited by {current_user.full_name}.")
     db.commit()
     db.refresh(bin_)
     count = db.query(Tool).filter(Tool.storage_bin_id == bin_.id).count()
-    return _bin_to_dict(bin_, count)
+    return _bin_to_dict(bin_, count, _bin_used_units(db, bin_.id))
 
 
 @router.get("/{bin_id}/tools")

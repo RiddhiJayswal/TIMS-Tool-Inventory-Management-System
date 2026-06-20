@@ -13,6 +13,11 @@ const DAMAGE_TYPES = [
   { value: 'wear_and_tear', label: 'Wear & Tear', desc: 'No penalty — tool written off' },
 ]
 
+const DAMAGE_TYPES_BY_CONDITION = {
+  missing: DAMAGE_TYPES.filter((dt) => dt.value === 'theft'),
+  damaged: DAMAGE_TYPES.filter((dt) => dt.value !== 'theft'),
+}
+
 function fmtDate(d) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -42,8 +47,10 @@ function ModalShell({ onClose, children }) {
 function ReturnModal({ log, onClose, onReturned }) {
   const addToast = useToast()
   const { actions } = useDataSync()
-  const [qtyReturned, setQtyReturned] = useState(log.quantity_issued)
+  const remaining = log.remaining_quantity ?? Math.max((log.quantity_issued || 0) - (log.quantity_returned || 0), 0)
+  const [qtyReturned, setQtyReturned] = useState(remaining)
   const [condition, setCondition] = useState('good')
+  const [conditionQty, setConditionQty] = useState({ good: remaining, damaged: 0, missing: 0 })
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [err, setErr] = useState('')
@@ -52,8 +59,16 @@ function ReturnModal({ log, onClose, onReturned }) {
     e.preventDefault()
     setErr('')
     const qty = Number(qtyReturned)
-    if (isNaN(qty) || qty < 0 || qty > log.quantity_issued) {
-      setErr(`Quantity must be between 0 and ${log.quantity_issued}`)
+    if (isNaN(qty) || qty < 0 || qty > remaining) {
+      setErr(`Quantity must be between 0 and ${remaining}`)
+      return
+    }
+    const split = ['good', 'damaged', 'missing'].reduce((acc, key) => {
+      acc[key] = Number(conditionQty[key]) || 0
+      return acc
+    }, {})
+    if (split.good + split.damaged + split.missing !== qty) {
+      setErr('Good, damaged, and missing quantities must add up to the returned quantity')
       return
     }
     setSubmitting(true)
@@ -61,12 +76,13 @@ function ReturnModal({ log, onClose, onReturned }) {
       await actions.returnTool(log.id, {
         quantity_returned: qty,
         return_condition: condition,
+        condition_quantities: split,
         notes: notes.trim() || null,
       })
       if (condition === 'good') {
         addToast('Tool returned in good condition. Stock restored.')
       } else if (condition === 'partial') {
-        addToast(`Partial return recorded. ${log.quantity_issued - qty} unit(s) consumed.`)
+        addToast(`Partial return recorded. ${remaining - qty} unit(s) still open.`)
       } else {
         addToast('Return recorded. Damage assessment required — admin has been notified.', 'warning')
       }
@@ -81,6 +97,22 @@ function ReturnModal({ log, onClose, onReturned }) {
 
   const inputCls =
     'input-control'
+
+  const setSplit = (key, value) => {
+    const nextValue = Number(value) || 0
+    setConditionQty((prev) => ({ ...prev, [key]: nextValue }))
+  }
+
+  useEffect(() => {
+    const qty = Number(qtyReturned) || 0
+    if (condition === 'damaged') {
+      setConditionQty({ good: 0, damaged: qty, missing: 0 })
+    } else if (condition === 'missing') {
+      setConditionQty({ good: 0, damaged: 0, missing: qty })
+    } else {
+      setConditionQty({ good: qty, damaged: 0, missing: 0 })
+    }
+  }, [condition, qtyReturned])
 
   return (
     <ModalShell onClose={onClose}>
@@ -111,6 +143,10 @@ function ReturnModal({ log, onClose, onReturned }) {
                 <span className="font-medium">{log.quantity_issued}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-gray-500">Remaining</span>
+                <span className="font-medium">{remaining}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-gray-500">Due Date</span>
                 <span className="font-medium">{fmtDate(log.expected_return_date)}</span>
               </div>
@@ -123,14 +159,14 @@ function ReturnModal({ log, onClose, onReturned }) {
               <input
                 type="number"
                 min={0}
-                max={log.quantity_issued}
+                max={remaining}
                 value={qtyReturned}
                 onChange={(e) => setQtyReturned(e.target.value)}
                 className={inputCls}
                 required
               />
               <p className="text-xs text-gray-400 mt-1">
-                Max: {log.quantity_issued}. For consumables, enter actual quantity returned.
+                Max: {remaining}. Partial durable returns stay open until all units are accounted for.
               </p>
             </div>
 
@@ -144,11 +180,29 @@ function ReturnModal({ log, onClose, onReturned }) {
                 className={inputCls}
               >
                 <option value="good">Good — returned as issued</option>
-                <option value="partial">Partial — partially consumed (consumables only)</option>
+                <option value="partial">Partial — return some units now</option>
                 <option value="damaged">Damaged — tool returned damaged</option>
                 <option value="missing">Missing — tool not returned / lost</option>
               </select>
             </div>
+
+            {['damaged', 'missing'].includes(condition) && (
+              <div className="grid grid-cols-3 gap-3">
+                {['good', 'damaged', 'missing'].map((key) => (
+                  <div key={key}>
+                    <label className="block text-xs font-medium text-gray-600 mb-1 capitalize">{key}</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={remaining}
+                      value={conditionQty[key]}
+                      onChange={(e) => setSplit(key, e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
 
             {['damaged', 'missing'].includes(condition) && (
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2 text-sm text-amber-800">
@@ -244,6 +298,7 @@ function DamageModal({ log, onClose, onAssessed }) {
 
   const inputCls =
     'input-control focus:ring-red-400'
+  const damageOptions = DAMAGE_TYPES_BY_CONDITION[log.return_condition] || DAMAGE_TYPES
 
   return (
     <ModalShell onClose={onClose}>
@@ -283,7 +338,7 @@ function DamageModal({ log, onClose, onAssessed }) {
               Damage Type <span className="text-red-500">*</span>
             </label>
             <div className="space-y-2">
-              {DAMAGE_TYPES.map((dt) => (
+              {damageOptions.map((dt) => (
                 <label
                   key={dt.value}
                   className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -472,7 +527,7 @@ export default function Returns() {
                 <table className="data-table">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50">
-                      {['Tool', 'Borrower', 'Dept', 'Qty', 'Issued', 'Due', 'Action'].map((h) => (
+                      {['Tool', 'Borrower', 'Dept', 'Qty', 'Remaining', 'Issued', 'Due', 'Action'].map((h) => (
                         <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                           {h}
                         </th>
@@ -486,6 +541,7 @@ export default function Returns() {
                         <td className="px-4 py-3 text-gray-700">{log.borrower_name || '—'}</td>
                         <td className="px-4 py-3 text-gray-500">{log.borrower_dept || '—'}</td>
                         <td className="px-4 py-3">{log.quantity_issued}</td>
+                        <td className="px-4 py-3">{log.remaining_quantity ?? Math.max((log.quantity_issued || 0) - (log.quantity_returned || 0), 0)}</td>
                         <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{fmtDate(log.issued_at)}</td>
                         <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{fmtDate(log.expected_return_date)}</td>
                         <td className="px-4 py-3">

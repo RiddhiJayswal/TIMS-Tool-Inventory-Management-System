@@ -483,14 +483,14 @@ function UsersScreen() {
             <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 'var(--radius-pill)', background: 'var(--warning-bg)', color: 'var(--warning-text)' }}>{accessReqs.filter(r => r.status === 'pending').length} pending</span>
           )}
         </div>
-        {accessReqs.length === 0 ? (
+        {accessReqs.filter(r => r.status !== 'rejected').length === 0 ? (
           <div style={{ padding: '32px 0', textAlign: 'center', background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', color: 'var(--text-subtle)', fontSize: 13.5 }}>
             <Icon name="check_circle" size={24} color="var(--success-solid)" style={{ display: 'block', margin: '0 auto 8px' }} />
             No pending access requests
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {accessReqs.map(r => (
+            {accessReqs.filter(r => r.status !== 'rejected').map(r => (
               <AccessRequestCard key={r.id} req={r} onDecide={decideAccessRequest} />
             ))}
           </div>

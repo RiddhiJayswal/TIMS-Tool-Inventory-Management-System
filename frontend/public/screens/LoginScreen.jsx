@@ -435,7 +435,7 @@ function LoginScreen({ onLogin }) {
                     </div>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                       <Input label="Work Email" type="email" required placeholder="name@ultratech.com" value={accessForm.email} onChange={setAccess('email')} />
-                      <Input label={otpChannel === 'email' ? 'Mobile Number (optional)' : 'Mobile Number'} required={otpChannel === 'mobile'} placeholder="9876543210" value={accessForm.mobile_number} onChange={setAccess('mobile_number')} />
+                      <Input label={otpChannel === 'email' ? 'Mobile Number (optional)' : 'Mobile Number'} {...(otpChannel === 'mobile' && { required: true })} placeholder="9876543210" value={accessForm.mobile_number} onChange={setAccess('mobile_number')} />
                     </div>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                       <Select label="Department" value={accessForm.department} onChange={setAccess('department')} options={['Maintenance','Mechanical','E&I','Civil','Process']} />

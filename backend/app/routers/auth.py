@@ -46,7 +46,7 @@ class SignupRequest(BaseModel):
     employee_id: str = Field(min_length=3, max_length=50)
     full_name: str = Field(min_length=2, max_length=200)
     email: EmailStr
-    mobile_number: str = Field(min_length=8, max_length=30)
+    mobile_number: str | None = None
     password: str = Field(min_length=6, max_length=128)
     department: str = Field(min_length=2, max_length=100)
     requested_role: str = "requester"
@@ -67,7 +67,7 @@ class AccessOtpSendRequest(SignupRequest):
 
 class AccessOtpVerifyRequest(BaseModel):
     email: EmailStr
-    mobile_number: str = Field(min_length=8, max_length=30)
+    mobile_number: str | None = None
     otp: str = Field(min_length=4, max_length=10)
 
 
@@ -163,17 +163,17 @@ def _clean_mobile(value: str) -> str:
     return "".join(ch for ch in value.strip() if ch.isdigit() or ch == "+")
 
 
-def _find_access_draft(db: Session, email: str, mobile_number: str) -> AccessRequest | None:
-    return (
+def _find_access_draft(db: Session, email: str, mobile_number: str | None = None) -> AccessRequest | None:
+    q = (
         db.query(AccessRequest)
         .filter(
             AccessRequest.email == email.strip().lower(),
-            AccessRequest.mobile_number == _clean_mobile(mobile_number),
             AccessRequest.status == "otp_pending",
         )
-        .order_by(AccessRequest.created_at.desc())
-        .first()
     )
+    if mobile_number:
+        q = q.filter(AccessRequest.mobile_number == _clean_mobile(mobile_number))
+    return q.order_by(AccessRequest.created_at.desc()).first()
 
 
 @router.post("/login")
@@ -203,7 +203,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     employee_id = payload.employee_id.strip().upper()
     email = payload.email.strip().lower()
-    mobile_number = _clean_mobile(payload.mobile_number)
+    mobile_number = _clean_mobile(payload.mobile_number) if payload.mobile_number else None
     requested_role = _normalize_requested_role(payload.requested_role)
 
     if db.query(User).filter(User.employee_id == employee_id).first():
@@ -261,9 +261,12 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
 def send_access_otp(payload: AccessOtpSendRequest, db: Session = Depends(get_db)):
     employee_id = payload.employee_id.strip().upper()
     email = payload.email.strip().lower()
-    mobile_number = _clean_mobile(payload.mobile_number)
+    channel = payload.otp_channel if payload.otp_channel in ("mobile", "email") else "mobile"
+    mobile_number = _clean_mobile(payload.mobile_number) if payload.mobile_number else None
     requested_role = _normalize_requested_role(payload.requested_role)
 
+    if channel == "mobile" and not mobile_number:
+        raise HTTPException(status_code=400, detail="Mobile number is required for mobile OTP.")
     if requested_role not in PUBLIC_REQUEST_ROLES:
         raise HTTPException(status_code=400, detail="Invalid requested role")
     if db.query(User).filter(User.employee_id == employee_id).first():
@@ -302,35 +305,27 @@ def send_access_otp(payload: AccessOtpSendRequest, db: Session = Depends(get_db)
     access_request.otp_verified_at = None
     access_request.otp_attempt_count = 0
 
-    channel = payload.otp_channel if payload.otp_channel in ("mobile", "email") else "mobile"
+    delivery_configured = True
     if channel == "email":
-        if not is_email_configured():
-            db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Email delivery is not configured on this server. Use mobile OTP instead.",
-            )
         sent = send_access_otp_email(email, access_request.full_name, otp, OTP_MINUTES)
-        if not sent:
-            db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Could not send OTP to the email address. Please try mobile OTP or contact admin.",
-            )
-        msg = "OTP sent to your email address."
+        if sent:
+            msg = "OTP sent to your email address."
+        else:
+            delivery_configured = False
+            msg = f"Email is not configured on this server. Your OTP is: {otp}  (valid {OTP_MINUTES} min)"
     else:
-        if not send_access_otp_sms(mobile_number, otp, OTP_MINUTES):
-            db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Could not send OTP to the mobile number. Please contact admin.",
-            )
-        msg = "OTP sent to your mobile number."
+        sent = send_access_otp_sms(mobile_number, otp, OTP_MINUTES)
+        if sent:
+            msg = "OTP sent to your mobile number."
+        else:
+            delivery_configured = False
+            msg = f"SMS is not configured on this server. Your OTP is: {otp}  (valid {OTP_MINUTES} min)"
 
     db.commit()
     return {
         "message": msg,
         "channel": channel,
+        "delivery_configured": delivery_configured,
         "expires_in_minutes": OTP_MINUTES,
         "request": _access_request_out(access_request),
     }
@@ -339,7 +334,7 @@ def send_access_otp(payload: AccessOtpSendRequest, db: Session = Depends(get_db)
 @router.post("/access-otp/verify")
 def verify_access_otp(payload: AccessOtpVerifyRequest, db: Session = Depends(get_db)):
     email = payload.email.strip().lower()
-    mobile_number = _clean_mobile(payload.mobile_number)
+    mobile_number = _clean_mobile(payload.mobile_number) if payload.mobile_number else None
     access_request = _find_access_draft(db, email, mobile_number)
     if not access_request or not access_request.otp_hash:
         raise HTTPException(status_code=400, detail="OTP request not found. Please send OTP again.")

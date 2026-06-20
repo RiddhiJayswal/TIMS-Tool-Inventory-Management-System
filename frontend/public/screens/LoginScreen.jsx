@@ -27,6 +27,7 @@ function LoginScreen({ onLogin }) {
   const [otp, setOtp] = React.useState('');
   const [otpCooldown, setOtpCooldown] = React.useState(0);
   const [otpChannel, setOtpChannel] = React.useState('mobile');
+  const [otpDevMsg, setOtpDevMsg] = React.useState('');
   const [accessForm, setAccessForm] = React.useState({
     full_name: '',
     employee_id: '',
@@ -172,6 +173,7 @@ function LoginScreen({ onLogin }) {
     setOtpVerified(false);
     setOtp('');
     setReqError('');
+    setOtpDevMsg('');
   };
 
   const accessPayload = () => ({
@@ -186,8 +188,11 @@ function LoginScreen({ onLogin }) {
   });
 
   const validateAccessForm = () => {
-    if (!accessForm.full_name.trim() || !accessForm.employee_id.trim() || !accessForm.email.trim() || !accessForm.mobile_number.trim() || !accessForm.department || !accessForm.requested_role || !accessForm.password) {
+    if (!accessForm.full_name.trim() || !accessForm.employee_id.trim() || !accessForm.email.trim() || !accessForm.department || !accessForm.requested_role || !accessForm.password) {
       return 'Please complete all required fields.';
+    }
+    if (otpChannel === 'mobile' && !accessForm.mobile_number.trim()) {
+      return 'Mobile number is required for mobile OTP.';
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accessForm.email.trim())) return 'Enter a valid work email address.';
     if (accessForm.password !== accessForm.confirm_password) return 'Password and confirm password must match.';
@@ -204,10 +209,11 @@ function LoginScreen({ onLogin }) {
     setReqLoading(true);
     try {
       await ensureApi();
-      await window.API.sendAccessOtp({ ...accessPayload(), otp_channel: otpChannel });
+      const res = await window.API.sendAccessOtp({ ...accessPayload(), otp_channel: otpChannel });
       setOtpSent(true);
       setOtpVerified(false);
       setOtpCooldown(30);
+      setOtpDevMsg(res && res.delivery_configured === false ? res.message : '');
     } catch (err) {
       setReqError(friendly(err, 'Could not send OTP.'));
     } finally {
@@ -226,6 +232,7 @@ function LoginScreen({ onLogin }) {
       await ensureApi();
       await window.API.verifyAccessOtp(accessForm.email.trim(), accessForm.mobile_number.trim(), otp.trim());
       setOtpVerified(true);
+      setOtpDevMsg('');
     } catch (err) {
       setReqError(friendly(err, 'Could not verify OTP.'));
     } finally {
@@ -428,7 +435,7 @@ function LoginScreen({ onLogin }) {
                     </div>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                       <Input label="Work Email" type="email" required placeholder="name@ultratech.com" value={accessForm.email} onChange={setAccess('email')} />
-                      <Input label="Mobile Number" required placeholder="9876543210" value={accessForm.mobile_number} onChange={setAccess('mobile_number')} />
+                      <Input label={otpChannel === 'email' ? 'Mobile Number (optional)' : 'Mobile Number'} required={otpChannel === 'mobile'} placeholder="9876543210" value={accessForm.mobile_number} onChange={setAccess('mobile_number')} />
                     </div>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                       <Select label="Department" value={accessForm.department} onChange={setAccess('department')} options={['Maintenance','Mechanical','E&I','Civil','Process']} />
@@ -461,7 +468,8 @@ function LoginScreen({ onLogin }) {
                         </button>
                       </div>
                     </div>
-                    {otpSent && !otpVerified && <Notice tone="success">OTP sent to your {otpChannel === 'email' ? 'email address' : 'mobile number'}.</Notice>}
+                    {otpSent && !otpVerified && !otpDevMsg && <Notice tone="success">OTP sent to your {otpChannel === 'email' ? 'email address' : 'mobile number'}.</Notice>}
+                    {otpDevMsg && <div style={{ display:'flex', gap:9, padding:'10px 12px', background:'rgba(250,196,0,0.12)', border:'1px solid rgba(250,196,0,0.35)', borderRadius:'var(--radius-md)' }}><Icon name="alert_triangle" size={14} color="var(--brand-yellow)" style={{ flexShrink:0, marginTop:1 }} /><span style={{ fontSize:12.5, color:'var(--text-strong)', lineHeight:1.4, fontFamily:'monospace' }}>{otpDevMsg}</span></div>}
                     {otpVerified && <Notice tone="success">{otpChannel === 'email' ? 'Email address' : 'Mobile number'} verified.</Notice>}
                     {reqError && <Notice>{reqError}</Notice>}
                     <Btn style={{ marginTop:4 }} disabled={reqLoading || !otpVerified} onClick={submitAccessRequest}>{reqLoading ? 'Working...' : 'Submit Request'}</Btn>

@@ -11,7 +11,9 @@ function LoginScreen({ onLogin }) {
   const [ready, setReady] = React.useState(false);
 
   const [recoveryLoading, setRecoveryLoading] = React.useState(false);
+  const [recoveryKind, setRecoveryKind] = React.useState('password');
   const [resetEmail, setResetEmail] = React.useState('');
+  const [usernameIdentifier, setUsernameIdentifier] = React.useState('');
   const [resetToken, setResetToken] = React.useState('');
   const [newPassword, setNewPassword] = React.useState('');
   const [confirmNewPassword, setConfirmNewPassword] = React.useState('');
@@ -225,7 +227,7 @@ function LoginScreen({ onLogin }) {
       setOtpSent(true);
       setOtpVerified(false);
       setOtpCooldown(30);
-      setOtpDevMsg(res && res.delivery_configured === false ? res.message : '');
+      setOtpDevMsg('');
     } catch (err) {
       setReqError(friendly(err, 'Could not send OTP.'));
     } finally {
@@ -296,13 +298,29 @@ function LoginScreen({ onLogin }) {
       const res = await window.API.forgotPassword(resetEmail.trim());
       setResetToken('');
       setResetRequested(true);
-      if (res.delivery_configured === false) {
-        setResetErr(res.message || 'Email delivery is not configured. Please contact admin.');
-      } else {
-        setResetMsg(res.message || 'If this email is registered, reset instructions have been sent.');
-      }
+      setResetMsg(res.message || 'Reset instructions have been sent to your registered email.');
     } catch (err) {
       setResetErr(friendly(err, 'Could not start password reset.'));
+    } finally {
+      setRecoveryLoading(false);
+    }
+  };
+
+  const sendUsernameRecovery = async () => {
+    setResetErr('');
+    setResetMsg('');
+    if (!usernameIdentifier.trim()) {
+      setResetErr('Enter your registered email or employee ID.');
+      return;
+    }
+    setRecoveryLoading(true);
+    try {
+      await ensureApi();
+      const res = await window.API.forgotUsername(usernameIdentifier.trim());
+      setResetRequested(true);
+      setResetMsg(res.message || 'Your username has been sent to your registered email.');
+    } catch (err) {
+      setResetErr(friendly(err, 'Could not recover username.'));
     } finally {
       setRecoveryLoading(false);
     }
@@ -356,7 +374,7 @@ function LoginScreen({ onLogin }) {
   ];
 
   return (
-    <div className="tims-login" style={{ height:'100dvh', minHeight:0, display:'flex', borderTop:'var(--brand-accent-line)', overflow:'hidden' }}>
+    <div className="tims-login" style={{ minHeight:'100dvh', display:'flex', borderTop:'var(--brand-accent-line)', overflowX:'hidden' }}>
       <div className="tims-login-brand" style={{ width:'42%', minWidth:340, background:'var(--brand-black)', display:'flex', flexDirection:'column', padding:'52px 52px 36px', position:'relative', overflow:'hidden' }}>
         <div style={{ position:'absolute', top:-100, right:-100, width:360, height:360, borderRadius:'50%', background:'rgba(245,197,24,0.07)', animation:'lgnPulse 4.5s ease-in-out infinite' }} />
         <div style={{ position:'absolute', bottom:-80, left:-80, width:260, height:260, borderRadius:'50%', background:'rgba(245,197,24,0.05)', animation:'lgnPulse 5.5s ease-in-out 1s infinite' }} />
@@ -417,7 +435,7 @@ function LoginScreen({ onLogin }) {
                 </div>
                 {loginError && <Notice>{loginError}</Notice>}
                 <div style={{ textAlign:'right', marginTop:-6 }}>
-                  <button type="button" onClick={() => setMode('forgot')}
+                  <button type="button" onClick={() => { setMode('forgot'); setRecoveryKind('password'); setResetErr(''); setResetMsg(''); }}
                     style={{ border:'none', background:'transparent', color:'var(--text-muted)', fontSize:12.5, cursor:'pointer', fontFamily:'var(--font-sans)', textDecoration:'underline', textUnderlineOffset:3 }}>
                     Forgot username or password?
                   </button>
@@ -502,15 +520,31 @@ function LoginScreen({ onLogin }) {
                 style={{ border:'none', background:'transparent', color:'var(--text-muted)', fontSize:13, cursor:'pointer', fontFamily:'var(--font-sans)', display:'flex', alignItems:'center', gap:5, marginBottom:22, padding:0 }}>
                 Back to Sign In
               </button>
-              <h2 style={{ margin:'0 0 5px', fontSize:23, fontWeight:800, color:'var(--text-strong)', letterSpacing:'-0.02em' }}>Reset password</h2>
+              {!resetToken && (
+                <div style={{ display:'flex', background:'#e8eaed', borderRadius:10, padding:4, marginBottom:18, gap:4 }}>
+                  {[['password','Reset Password'],['username','Recover Username']].map(([kind, label]) => (
+                    <button key={kind} type="button" onClick={() => { setRecoveryKind(kind); setResetErr(''); setResetMsg(''); setResetRequested(false); }}
+                      style={{ flex:1, padding:'9px 6px', border:'none', borderRadius:8, cursor:'pointer', fontFamily:'var(--font-sans)', fontSize:12.5, fontWeight:recoveryKind===kind?700:500, color:recoveryKind===kind?'#fff':'var(--text-muted)', background:recoveryKind===kind?'var(--brand-black)':'transparent', transition:'all 0.2s', minHeight:36 }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <h2 style={{ margin:'0 0 5px', fontSize:23, fontWeight:800, color:'var(--text-strong)', letterSpacing:'-0.02em' }}>{resetToken || recoveryKind === 'password' ? 'Reset password' : 'Recover username'}</h2>
               <p style={{ margin:'0 0 22px', fontSize:13.5, color:'var(--text-muted)', lineHeight:1.55 }}>
-                {resetToken ? 'Create a new password from the secure reset link sent to your email.' : 'Enter your registered email. If it matches an active account, reset instructions will be sent.'}
+                {resetToken ? 'Create a new password from the secure reset link sent to your email.' : recoveryKind === 'password' ? 'Enter your registered email. Reset instructions will be sent only after email delivery succeeds.' : 'Enter your registered email or employee ID. Your username will be sent only after email delivery succeeds.'}
               </p>
               <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-                {!resetToken && (
+                {!resetToken && recoveryKind === 'password' && (
                   <>
                     <Input label="Registered Email" required type="email" value={resetEmail} onChange={e => { setResetEmail(e.target.value); setResetErr(''); }} error={resetErr && !resetRequested ? resetErr : ''} placeholder="name@ultratech.com" data-autofocus />
                     <Btn disabled={recoveryLoading} onClick={sendPasswordReset}>{recoveryLoading ? 'Sending...' : 'Send Reset Link'}</Btn>
+                  </>
+                )}
+                {!resetToken && recoveryKind === 'username' && (
+                  <>
+                    <Input label="Registered Email or Employee ID" required value={usernameIdentifier} onChange={e => { setUsernameIdentifier(e.target.value); setResetErr(''); }} error={resetErr && !resetRequested ? resetErr : ''} placeholder="name@ultratech.com or EMP1011" data-autofocus />
+                    <Btn disabled={recoveryLoading} onClick={sendUsernameRecovery}>{recoveryLoading ? 'Sending...' : 'Send Username'}</Btn>
                   </>
                 )}
                 {resetToken && (

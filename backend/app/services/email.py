@@ -34,6 +34,7 @@ def _send_email(to_email: str, subject: str, body: str) -> bool:
         logger.exception("Failed to send email to %s for subject %s", to_email, subject)
         return False
 
+    logger.info("Email accepted by SMTP server for %s subject=%s", to_email, subject)
     return True
 
 
@@ -52,6 +53,19 @@ Your employee ID is included here for your reference only:
 This token expires in {expires_minutes} minutes. If you did not request this reset, ignore this email.
 """
     return _send_email(to_email, "TIMS password reset", body)
+
+
+def send_username_recovery_email(to_email: str, full_name: str, employee_id: str) -> bool:
+    body = f"""Hello {full_name},
+
+We received a request to recover your TIMS username.
+
+Your TIMS employee ID / username is:
+{employee_id}
+
+If you did not request this, please contact your TIMS administrator.
+"""
+    return _send_email(to_email, "TIMS username recovery", body)
 
 
 def send_access_request_received_email(to_email: str, full_name: str, employee_id: str, requested_role: str) -> bool:

@@ -184,10 +184,11 @@ class TestAuth:
         admin_tools = client.get("/api/tools", headers=auth(admin_token)).json()
         assert str(other_department.id) in {row["id"] for row in admin_tools}
 
-    def test_forgot_username_success_and_not_found(self, client):
+    def test_forgot_username_success_and_not_found(self, client, monkeypatch):
+        monkeypatch.setattr("app.routers.auth.send_username_recovery_email", lambda *args: True)
         res = client.post("/api/auth/forgot-username", json={"identifier": "user@tims.example.com"})
         assert res.status_code == 200
-        assert res.json()["employee_id"] == "USR001"
+        assert res.json()["delivery_configured"] is True
 
         missing = client.post("/api/auth/forgot-username", json={"identifier": "missing@tims.example.com"})
         assert missing.status_code == 404
@@ -199,11 +200,9 @@ class TestAuth:
             captured["token"] = reset_token
             return True
 
-        monkeypatch.setattr("app.routers.auth.is_email_configured", lambda: True)
         monkeypatch.setattr("app.routers.auth.send_password_reset_email", fake_reset_email)
         reset = client.post("/api/auth/forgot-password", json={"email": "user@tims.example.com"})
         assert reset.status_code == 200
-        assert reset.json()["message"] == "If this email is registered, reset instructions have been sent."
         assert reset.json()["delivery_configured"] is True
         assert "reset_token" not in reset.json()
         token = captured["token"]
@@ -225,12 +224,9 @@ class TestAuth:
         restored = client.post("/api/auth/reset-password", json={"token": restore_token, "new_password": "User@123"})
         assert restored.status_code == 200
 
-    def test_forgot_password_unregistered_email_is_generic(self, client):
+    def test_forgot_password_unregistered_email_is_rejected(self, client):
         res = client.post("/api/auth/forgot-password", json={"email": "missing@tims.example.com"})
-        assert res.status_code == 200
-        assert res.json()["message"] == "Email delivery is not configured. Please contact admin."
-        assert res.json()["delivery_configured"] is False
-        assert "reset_token" not in res.json()
+        assert res.status_code == 404
 
     def test_reset_password_expired_token_fails_cleanly(self, client, db):
         from app.models.transaction import PasswordResetToken, User

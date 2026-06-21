@@ -54,7 +54,7 @@ function Sidebar({ route, onNavigate, collapsed, onToggle, user }) {
   return (
     <aside className={`tims-sidebar ${collapsed ? 'is-collapsed' : 'is-expanded'}`} style={{
       width: collapsed ? 64 : 224, flexShrink: 0, background: 'var(--brand-black)',
-      display: 'flex', flexDirection: 'column', height: '100%', borderTop: 'var(--brand-accent-line)',
+      display: 'flex', flexDirection: 'column', height: '100dvh', position: 'sticky', top: 0, alignSelf: 'flex-start', borderTop: 'var(--brand-accent-line)',
       transition: 'width 0.2s cubic-bezier(0.4,0,0.2,1)', overflow: 'hidden',
     }}>
       <div style={{
@@ -336,9 +336,9 @@ function AppShell({ user, route, onNavigate, notifs, onLogout, children }) {
   }, []);
 
   return (
-    <div className="tims-shell" style={{ display: 'flex', height: '100dvh', minHeight: 0, overflow: 'hidden', background: 'var(--surface-page)' }}>
+    <div className="tims-shell" style={{ display: 'flex', minHeight: '100dvh', width: '100%', overflowX: 'hidden', background: 'var(--surface-page)' }}>
       <Sidebar route={route} onNavigate={onNavigate} collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} user={user} />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: '100dvh' }}>
         <Navbar user={user} notifs={notifs} onLogout={onLogout} onNavigate={onNavigate} />
         {apiError && (
           <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: 'var(--danger-bg)', color: 'var(--danger-text)', borderBottom: '1px solid var(--danger-border, var(--border-default))', fontSize: 12.5 }}>
@@ -347,7 +347,7 @@ function AppShell({ user, route, onNavigate, notifs, onLogout, children }) {
             <button onClick={() => setApiError(null)} aria-label="Dismiss error" style={{ border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
           </div>
         )}
-        <main className="tims-main" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '24px 26px 48px', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.12) transparent' }}>{children}</main>
+        <main className="tims-main" style={{ flex: 1, minHeight: 0, overflowX: 'hidden', padding: '24px 26px 48px', scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.12) transparent' }}>{children}</main>
       </div>
     </div>
   );

@@ -178,12 +178,21 @@ FRONTEND_BASE_URL=http://localhost:3000
 Mobile OTPs require a real SMS gateway. Set:
 
 ```env
+SMS_PROVIDER=twilio
+TWILIO_ACCOUNT_SID=your-twilio-account-sid
+TWILIO_AUTH_TOKEN=your-twilio-auth-token
+TWILIO_FROM_NUMBER=+15551234567
+```
+
+The fallback SMS adapter can also post JSON with `to`, `message`, and optional `from` when these are set:
+
+```env
 SMS_API_URL=https://your-sms-provider.example/send
 SMS_API_KEY=your-sms-provider-api-key
 SMS_FROM=TIMS
 ```
 
-The default SMS adapter posts JSON with `to`, `message`, and optional `from`. If your provider uses a different contract, update `backend/app/services/sms.py`. Most Indian production SMS vendors require DLT sender/template approval before OTP delivery works.
+Most Indian production SMS vendors require DLT sender/template approval before OTP delivery works. Password reset, username recovery, and OTP success messages are shown only after the configured provider accepts the message.
 
 ### Tool Catalogue
 - Full tool master: code, name, category, type (General / Specialized), department access, make, model, serial number

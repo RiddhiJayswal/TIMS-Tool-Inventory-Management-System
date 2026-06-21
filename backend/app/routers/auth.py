@@ -1,5 +1,6 @@
 import logging
 import hashlib
+import re
 import secrets
 from datetime import datetime, timedelta
 
@@ -14,10 +15,10 @@ from app.models.transaction import User, Notification, AccessRequest, PasswordRe
 from app.auth.roles import verify_password, create_access_token, get_current_user, hash_password
 from app.config import settings
 from app.services.email import (
-    is_email_configured,
     send_access_otp_email,
     send_access_request_received_email,
     send_password_reset_email,
+    send_username_recovery_email,
 )
 from app.services.sms import send_access_otp_sms
 
@@ -26,6 +27,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 RESET_TOKEN_MINUTES = 15
 OTP_MINUTES = 10
 OTP_MAX_ATTEMPTS = 5
+OTP_RESEND_SECONDS = 30
 PUBLIC_REQUEST_ROLES = {"requester", "dept_head", "maintenance_staff"}
 logger = logging.getLogger(__name__)
 
@@ -163,6 +165,13 @@ def _clean_mobile(value: str) -> str:
     return "".join(ch for ch in value.strip() if ch.isdigit() or ch == "+")
 
 
+def _validate_mobile_number(value: str | None) -> str:
+    mobile = _clean_mobile(value or "")
+    if not re.fullmatch(r"\+?\d{10,15}", mobile):
+        raise HTTPException(status_code=400, detail="Enter a valid mobile number with 10 to 15 digits.")
+    return mobile
+
+
 def _find_access_draft(db: Session, email: str, mobile_number: str | None = None) -> AccessRequest | None:
     q = (
         db.query(AccessRequest)
@@ -265,8 +274,8 @@ def send_access_otp(payload: AccessOtpSendRequest, db: Session = Depends(get_db)
     mobile_number = _clean_mobile(payload.mobile_number) if payload.mobile_number else None
     requested_role = _normalize_requested_role(payload.requested_role)
 
-    if channel == "mobile" and not mobile_number:
-        raise HTTPException(status_code=400, detail="Mobile number is required for mobile OTP.")
+    if channel == "mobile":
+        mobile_number = _validate_mobile_number(payload.mobile_number)
     if requested_role not in PUBLIC_REQUEST_ROLES:
         raise HTTPException(status_code=400, detail="Invalid requested role")
     if db.query(User).filter(User.employee_id == employee_id).first():
@@ -298,6 +307,11 @@ def send_access_otp(payload: AccessOtpSendRequest, db: Session = Depends(get_db)
             status="otp_pending",
         )
         db.add(access_request)
+    elif access_request.otp_hash and access_request.otp_expires_at:
+        seconds_since_send = (OTP_MINUTES * 60) - int((access_request.otp_expires_at - datetime.utcnow()).total_seconds())
+        if seconds_since_send < OTP_RESEND_SECONDS:
+            retry_after = max(1, OTP_RESEND_SECONDS - seconds_since_send)
+            raise HTTPException(status_code=429, detail=f"Please wait {retry_after} seconds before requesting another OTP.")
 
     otp = f"{secrets.randbelow(1_000_000):06d}"
     access_request.employee_id = employee_id
@@ -313,27 +327,28 @@ def send_access_otp(payload: AccessOtpSendRequest, db: Session = Depends(get_db)
     access_request.otp_verified_at = None
     access_request.otp_attempt_count = 0
 
-    delivery_configured = True
     if channel == "email":
         sent = send_access_otp_email(email, access_request.full_name, otp, OTP_MINUTES)
         if sent:
             msg = "OTP sent to your email address."
         else:
-            delivery_configured = False
-            msg = f"Email is not configured on this server. Your OTP is: {otp}  (valid {OTP_MINUTES} min)"
+            db.rollback()
+            logger.error("Access OTP email delivery failed for %s", email)
+            raise HTTPException(status_code=503, detail="Email service is not configured. Please contact admin.")
     else:
         sent = send_access_otp_sms(mobile_number, otp, OTP_MINUTES)
         if sent:
             msg = "OTP sent to your mobile number."
         else:
-            delivery_configured = False
-            msg = f"SMS is not configured on this server. Your OTP is: {otp}  (valid {OTP_MINUTES} min)"
+            db.rollback()
+            logger.error("Access OTP SMS delivery failed for %s", mobile_number)
+            raise HTTPException(status_code=503, detail="SMS service is not configured. Please contact admin.")
 
     db.commit()
     return {
         "message": msg,
         "channel": channel,
-        "delivery_configured": delivery_configured,
+        "delivery_configured": True,
         "expires_in_minutes": OTP_MINUTES,
         "request": _access_request_out(access_request),
     }
@@ -368,21 +383,21 @@ def verify_access_otp(payload: AccessOtpVerifyRequest, db: Session = Depends(get
 def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
     email = payload.email.strip().lower()
     user = db.query(User).filter(User.email == email, User.is_active == True).first()
-    email_configured = is_email_configured()
+    if not user:
+        raise HTTPException(status_code=404, detail="No active account matched the provided email.")
 
-    if user:
-        reset_token = _create_reset_token(db, user)
-        db.commit()
-        send_password_reset_email(user.email, user.full_name, user.employee_id, reset_token, RESET_TOKEN_MINUTES)
+    reset_token = _create_reset_token(db, user)
+    sent = send_password_reset_email(user.email, user.full_name, user.employee_id, reset_token, RESET_TOKEN_MINUTES)
+    if not sent:
+        db.rollback()
+        logger.error("Password reset email delivery failed for user_id=%s email=%s", user.id, user.email)
+        raise HTTPException(status_code=503, detail="Email service is not configured. Please contact admin.")
+    db.commit()
 
     return {
-        "message": (
-            "If this email is registered, reset instructions have been sent."
-            if email_configured
-            else "Email delivery is not configured. Please contact admin."
-        ),
+        "message": "Reset instructions have been sent to your registered email.",
         "expires_in_minutes": RESET_TOKEN_MINUTES,
-        "delivery_configured": email_configured,
+        "delivery_configured": True,
     }
 
 
@@ -400,11 +415,13 @@ def forgot_username(payload: ForgotUsernameRequest, db: Session = Depends(get_db
     )
     if not user:
         raise HTTPException(status_code=404, detail="No active account matched the provided details")
+    sent = send_username_recovery_email(user.email, user.full_name, user.employee_id)
+    if not sent:
+        logger.error("Username recovery email delivery failed for user_id=%s email=%s", user.id, user.email)
+        raise HTTPException(status_code=503, detail="Email service is not configured. Please contact admin.")
     return {
-        "message": "Username found",
-        "employee_id": user.employee_id,
-        "full_name": user.full_name,
-        "email": user.email,
+        "message": "Your username has been sent to your registered email.",
+        "delivery_configured": True,
     }
 
 

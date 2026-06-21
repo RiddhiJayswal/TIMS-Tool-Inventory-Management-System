@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     SMS_API_URL: str | None = None
     SMS_API_KEY: str | None = None
     SMS_FROM: str | None = None
+    SMS_PROVIDER: str | None = None
+    TWILIO_ACCOUNT_SID: str | None = None
+    TWILIO_AUTH_TOKEN: str | None = None
+    TWILIO_FROM_NUMBER: str | None = None
 
     class Config:
         env_file = ".env"

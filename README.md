@@ -128,26 +128,48 @@ All seed accounts use `password123` unless noted otherwise.
 
 ## Roles & Permissions
 
-| Action | Admin | Staff | Dept Head | Requester |
-|---|---|---|---|---|
-| Login / logout | ✅ | ✅ | ✅ | ✅ |
-| Forgot username / password | ✅ | ✅ | ✅ | ✅ |
-| Request access (public) | ✅ | ✅ | ✅ | ✅ |
-| Approve / reject access requests | ✅ | — | — | — |
-| View tool catalogue | ✅ | ✅ | ✅ | ✅ |
-| Add / edit / write off tools | ✅ | ✅ | — | — |
-| Raise tool requisition | ✅ | ✅ | ✅ | ✅ |
-| Approve requisitions | ✅ | — | Own dept only | — |
-| Issue tools | ✅ | ✅ | — | — |
-| Process returns | ✅ | ✅ | — | — |
-| Damage assessment | ✅ | ✅ | — | — |
-| Manage storage bins | ✅ | ✅ | — | — |
-| Calibration schedule / history | ✅ | ✅ | — | — |
-| Record calibration completion | ✅ | — | — | — |
-| User management | ✅ | — | — | — |
-| Reports & CSV exports | ✅ | ✅ | — | — |
+The matrix below follows the FastAPI guards in `backend/app/routers/*`. Backend role checks are the source of truth; the frontend only hides restricted actions for convenience.
 
-> All role checks are enforced at the **API layer**. Frontend hides restricted routes, but backend returns HTTP 403 for any unauthorised attempt.
+| Action / endpoint area | Admin | Staff | Dept Head | Requester |
+|---|---|---|---|---|
+| Login, logout, current user profile | Yes | Yes | Yes | Yes |
+| Forgot username / forgot password / reset password | Public | Public | Public | Public |
+| Request access and verify OTP | Public | Public | Public | Public |
+| Approve / reject access requests | Yes | No | No | No |
+| User management | Yes | No | No | No |
+| Dashboard summary | Yes | Yes | Dept scoped | Own / requestable scoped |
+| Notifications | Own only | Own only | Own only | Own only |
+| View tool catalogue and tool details | Yes | Yes | Dept/shared scoped | Dept/shared scoped |
+| Create tools | Yes | Yes | No | No |
+| Edit tools | Yes | Yes | No | No |
+| Write off tools | Yes | No | No | No |
+| View storage bins and bin tools | Yes | Yes | Yes, scoped tool counts | Yes, scoped tool counts |
+| Create / edit storage bins | Yes | Yes | No | No |
+| Raise tool requisition | Yes | Yes | Yes | Yes |
+| Check requisition availability | Yes | Yes | Visible tools only | Visible tools only |
+| View requisitions | All | All | Own department only | Own only |
+| Approve / reject requisitions | Any department except own request | No | Own department except own request | No |
+| Cancel requisition | Any pending request | Own pending request only | Own pending request only | Own pending request only |
+| Ready-to-issue queue | Yes | Yes | No | No |
+| Issue tools | Yes | Yes | No | No |
+| View issuance list | All | All | Department scoped | Own only |
+| View single issuance detail | Yes | Yes | Borrower only | Borrower only |
+| Overdue issuance endpoint | Yes | Yes | No | No |
+| Process returns | Yes | Yes | No | No |
+| Damage assessment | Yes | No | No | No |
+| Damage / manual write-off endpoint | Yes | No | No | No |
+| Calibration list / history / certificate download | Yes | Yes | No | No |
+| Record calibration completion | Yes | No | No | No |
+| Reports and CSV/export data | Yes | Yes | No | No |
+
+Guard definitions:
+
+- `RequireAdmin`: `maintenance_admin`
+- `RequireMaintenance`: `maintenance_admin`, `maintenance_staff`
+- `RequireDeptHead`: `maintenance_admin`, `dept_head`
+- `RequireAnyRole`: `maintenance_admin`, `maintenance_staff`, `dept_head`, `requester`
+
+> Important: some features have different view and write access. Calibration list/history/certificate download is available to Admin and Staff, but recording calibration completion is Admin-only. Tool create/edit is Admin and Staff, but write-off is Admin-only. Damage assessment and manual write-off are Admin-only.
 
 ---
 
@@ -221,13 +243,14 @@ Stock reduces in real-time; issuance log created
 - Available quantity reduces immediately and atomically on issue
 - Return captures: condition (Good / Damaged / Missing), quantity returned
 - Partial returns supported for consumables
-- Damage assessment: Theft / Mishandling / Wear & Tear with penalty calculation
+- Damage assessment: Admin-only Theft / Mishandling / Wear & Tear with penalty calculation
 
 ### Calibration & Scheduling
 - Background job checks calibration due dates daily
 - Alert sent 7 days before due date
 - Overdue calibration auto-blocks new issuances
-- Admin records completion; next due date recalculates automatically
+- Admin and Staff can view calibration schedule, history, and certificate downloads
+- Admin records calibration completion; next due date recalculates automatically
 
 ### Storage Bins
 - Create and manage physical bin locations (row, rack, shelf level, floor)
@@ -250,6 +273,7 @@ Stock reduces in real-time; issuance log created
 - Tool depreciation and value summary
 - All reports exportable to CSV
 - Activity audit backup and daily activity log download
+- Report endpoints are maintenance-only: Admin and Staff can access them; Department Head and Requester receive HTTP 403.
 
 ### Dashboard
 - Role-aware stats: total tools, available tools, issued, overdue, calibration due
@@ -262,17 +286,28 @@ Stock reduces in real-time; issuance log created
 
 | Rule | Enforcement Layer |
 |---|---|
+| API role guards are the source of truth for permissions | `backend/app/auth/roles.py` and router `Depends(...)` guards |
 | Requester cannot approve their own requisition | Backend requisition role checks |
-| Dept head approves own department only | Backend department checks |
+| Dept head approves/rejects own department only and cannot approve/reject own request | Backend requisition role and department checks |
+| Maintenance admin can approve/reject pending requisitions except their own request | `RequireDeptHead` plus own-request guard |
+| Approved requisitions reserve stock, but physical stock reduces only on issue | Requisition approval + stock service + issuance workflow |
+| Only Admin and Staff can view ready-to-issue queue and issue tools | `RequireMaintenance` on issuance queue and issue endpoints |
+| Only Admin and Staff can process returns | `RequireMaintenance` on returns endpoint |
+| Damage assessment and damage/manual write-off are Admin-only | `RequireAdmin` on damage router endpoints |
+| Tool create/edit is Admin and Staff; tool write-off is Admin-only | `RequireMaintenance` on create/update, `RequireAdmin` on delete/write-off |
+| Storage bin create/edit is Admin and Staff; bin viewing is available to authenticated users with scoped tool counts | Storage bin router guards and tool visibility scope |
+| Calibration list/history/certificate download is Admin and Staff; recording completion is Admin-only | `RequireMaintenance` for read/download, `RequireAdmin` for record completion |
+| Reports and export data are Admin and Staff only | `RequireMaintenance` on all reports endpoints |
 | Calibration-due tools blocked from issuance | Requisition and issue validation |
 | Stock cannot go below 0 | Stock service + HTTP 400 guard |
-| Stock reduces only at issuance (not approval) | Issuance workflow |
+| Stock reduces only at issuance, not approval | Issuance workflow |
 | Good returns restore stock fully | Return workflow |
 | Damaged / missing stock held pending assessment | Return + damage workflow |
 | Overlapping issue dates block new requisition | Availability endpoint check |
 | Mishandling penalty = depreciated value at issue time | Snapshotted at issuance |
-| Theft penalty = current market rate (admin-entered) | Damage assessment form |
-| Wear & tear = write off, no penalty | Damage assessment form |
+| Theft penalty = current market rate entered by admin | Admin-only damage assessment |
+| Wear and tear = no penalty; assessment decision is admin-only | Admin-only damage assessment |
+| Authenticated users can see only their own notifications | Notification endpoint filters by current user |
 
 ---
 

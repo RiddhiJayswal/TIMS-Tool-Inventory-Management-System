@@ -106,7 +106,8 @@ def _tool_to_dict(tool: Tool, db: Session | None = None, stock_row: dict | None 
     if db and tool.storage_bin_id:
         storage_bin = db.query(StorageBin).filter(StorageBin.id == tool.storage_bin_id).first()
 
-    available_quantity = stock_row["available_quantity"] if stock_row else tool.available_quantity
+    available_quantity = tool.available_quantity
+    requestable_available_quantity = stock_row["available_quantity"] if stock_row else tool.available_quantity
     currently_issued = (
         stock_row["currently_issued"]
         if stock_row
@@ -136,6 +137,7 @@ def _tool_to_dict(tool: Tool, db: Session | None = None, stock_row: dict | None 
         "current_value": float(current_val) if current_val is not None else None,
         "total_quantity": tool.total_quantity,
         "available_quantity": available_quantity,
+        "requestable_available_quantity": requestable_available_quantity,
         "currently_issued": currently_issued,
         "issued_quantity": currently_issued,
         "reserved_quantity": reserved_quantity,

@@ -19,8 +19,6 @@ from app.services.notifications import (
     notify_user,
 )
 from app.services.requisition_number import generate_requisition_number
-from app.services.stock import get_pending_damage_by_tool
-from app.services.tool_visibility import user_can_access_tool
 from app.services.stock import (
     get_pending_damage_by_tool,
     get_period_open_issued_quantity,
@@ -61,6 +59,23 @@ def _req_to_dict(req: Requisition, db: Session) -> dict:
     tool = db.query(Tool).filter(Tool.id == req.tool_id).first()
     requester = db.query(User).filter(User.id == req.requested_by).first()
     approver = db.query(User).filter(User.id == req.approved_by).first() if req.approved_by else None
+    today = date.today()
+    physical_available = int(tool.available_quantity or 0) if tool else 0
+    requested_quantity = int(req.quantity_requested or 0)
+    can_issue_today = req.status == "approved" and req.from_date <= today
+    issue_block_reason = None
+    issue_warning = None
+    if req.status == "approved" and today < req.from_date:
+        can_issue_today = False
+        issue_block_reason = f"Cannot issue before requested from date ({req.from_date.isoformat()})"
+    elif req.status == "approved" and physical_available < requested_quantity:
+        can_issue_today = False
+        issue_block_reason = (
+            f"Insufficient physical stock. Requested: {requested_quantity}, "
+            f"Available: {physical_available}"
+        )
+    elif req.status == "approved" and today > req.to_date:
+        issue_warning = f"Requested issue window expired on {req.to_date.isoformat()}; issuing late is allowed"
     return {
         "id": str(req.id),
         "requisition_number": req.requisition_number,
@@ -80,6 +95,11 @@ def _req_to_dict(req: Requisition, db: Session) -> dict:
         "approved_at": req.approved_at,
         "rejection_reason": req.rejection_reason,
         "created_at": req.created_at,
+        "can_issue_today": can_issue_today,
+        "issue_block_reason": issue_block_reason,
+        "issue_warning": issue_warning,
+        "physical_available_quantity": physical_available,
+        "available_to_issue_quantity": physical_available,
     }
 
 
@@ -319,6 +339,9 @@ def reject_requisition(
 
     if req.status != "pending":
         raise HTTPException(400, f"Cannot reject requisition with status '{req.status}'")
+
+    if req.requested_by == current_user.id:
+        raise HTTPException(403, "Cannot reject your own requisition")
 
     if current_user.role == "dept_head" and req.requester_dept != current_user.department:
         raise HTTPException(403, "Cannot reject requisitions from a different department")

@@ -54,7 +54,7 @@ function Sidebar({ route, onNavigate, collapsed, onToggle, user }) {
   return (
     <aside className={`tims-sidebar ${collapsed ? 'is-collapsed' : 'is-expanded'}`} style={{
       width: collapsed ? 64 : 224, flexShrink: 0, background: 'var(--brand-black)',
-      display: 'flex', flexDirection: 'column', height: '100dvh', position: 'sticky', top: 0, alignSelf: 'flex-start', borderTop: 'var(--brand-accent-line)',
+      display: 'flex', flexDirection: 'column', height: '100dvh', position: 'fixed', top: 0, left: 0, zIndex: 30, borderTop: 'var(--brand-accent-line)',
       transition: 'width 0.2s cubic-bezier(0.4,0,0.2,1)', overflow: 'hidden',
     }}>
       <div style={{
@@ -81,7 +81,7 @@ function Sidebar({ route, onNavigate, collapsed, onToggle, user }) {
           </>
         )}
       </div>
-      <nav style={{ flex: 1, overflowY: 'auto', padding: collapsed ? '14px 8px' : '14px 12px' }}>
+      <nav style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: collapsed ? '14px 8px' : '14px 12px' }}>
         {getNavGroups((user || {}).role || 'requester').map((g, i) => (
           <div key={g.label} style={{ marginBottom: collapsed ? 4 : 16 }}>
             {i > 0 && <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '0 0 10px' }} />}
@@ -336,9 +336,9 @@ function AppShell({ user, route, onNavigate, notifs, onLogout, children }) {
   }, []);
 
   return (
-    <div className="tims-shell" style={{ display: 'flex', minHeight: '100dvh', width: '100%', overflowX: 'hidden', background: 'var(--surface-page)' }}>
+    <div className={`tims-shell ${collapsed ? 'is-sidebar-collapsed' : 'is-sidebar-expanded'}`} style={{ '--tims-sidebar-width': collapsed ? '64px' : '224px', display: 'flex', minHeight: '100dvh', width: '100%', overflowX: 'hidden', background: 'var(--surface-page)' }}>
       <Sidebar route={route} onNavigate={onNavigate} collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} user={user} />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: '100dvh' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: '100dvh', marginLeft: 'var(--tims-sidebar-width)', transition: 'margin-left 0.2s cubic-bezier(0.4,0,0.2,1)' }}>
         <Navbar user={user} notifs={notifs} onLogout={onLogout} onNavigate={onNavigate} />
         {apiError && (
           <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: 'var(--danger-bg)', color: 'var(--danger-text)', borderBottom: '1px solid var(--danger-border, var(--border-default))', fontSize: 12.5 }}>

@@ -131,6 +131,20 @@ class TestAuth:
         res = client.post("/api/auth/login", data={"username": "ADM001", "password": "WrongPassword"})
         assert res.status_code == 401
 
+    def test_employee_id_login_is_case_sensitive(self, client):
+        assert client.post(
+            "/api/auth/login",
+            data={"username": "USR001", "password": "User@123"},
+        ).status_code == 200
+        assert client.post(
+            "/api/auth/login",
+            data={"username": "usr001", "password": "User@123"},
+        ).status_code == 401
+        assert client.post(
+            "/api/auth/login",
+            data={"username": "Usr001", "password": "User@123"},
+        ).status_code == 401
+
     def test_login_unknown_user(self, client):
         res = client.post("/api/auth/login", data={"username": "NOBODY", "password": "any"})
         assert res.status_code == 401
@@ -674,6 +688,40 @@ class TestBlockScenarios:
             headers=auth(stf_token))
         assert res.status_code == 400, f"Expected 400 for double-return, got {res.status_code}"
 
+    def test_good_return_notifies_heads_and_admins_that_stock_is_ready(self, client, db):
+        from app.models.transaction import Notification, User
+
+        tool = make_tool(db)
+        usr_token = get_token(client, "USR001", "User@123")
+        hd_token = get_token(client, "HD001", "Head@123")
+        stf_token = get_token(client, "STF001", "Staff@123")
+
+        req = raise_req(client, usr_token, tool.id)
+        approve_req(client, hd_token, req["id"])
+        issued = issue_tool(client, stf_token, req["id"])
+
+        returned = return_tool(client, stf_token, issued["id"], qty_returned=1, condition="good")
+        assert returned["return_condition"] == "good"
+
+        admin = db.query(User).filter(User.employee_id == "ADM001").first()
+        head = db.query(User).filter(User.employee_id == "HD001").first()
+        staff = db.query(User).filter(User.employee_id == "STF001").first()
+
+        admin_messages = [
+            n.message for n in db.query(Notification).filter(Notification.user_id == admin.id).all()
+        ]
+        head_messages = [
+            n.message for n in db.query(Notification).filter(Notification.user_id == head.id).all()
+        ]
+        staff_messages = [
+            n.message for n in db.query(Notification).filter(Notification.user_id == staff.id).all()
+        ]
+
+        expected_text = f"'{tool.name}' returned by Requester User"
+        assert any(expected_text in msg and "ready to issue again" in msg for msg in admin_messages)
+        assert any(expected_text in msg and "ready to issue again" in msg for msg in head_messages)
+        assert not any(expected_text in msg and "ready to issue again" in msg for msg in staff_messages)
+
     def test_double_damage_assessment_blocked(self, client, db):
         """Recording damage twice on the same issuance must return 400."""
         tool = make_tool(db)
@@ -700,6 +748,27 @@ class TestBlockScenarios:
 # ═══════════════════════════════════════════════════════════════════════════════
 # TEST GROUP 4 — Penalty calculations
 # ═══════════════════════════════════════════════════════════════════════════════
+
+    def test_staff_cannot_record_damage_assessment(self, client, db):
+        """Staff may record return intake, but only admin may assess damage/penalty."""
+        tool = make_tool(db)
+        hd_token = get_token(client, "HD001", "Head@123")
+        usr_token = get_token(client, "USR001", "User@123")
+        stf_token = get_token(client, "STF001", "Staff@123")
+
+        req = raise_req(client, usr_token, tool.id)
+        approve_req(client, hd_token, req["id"])
+        issued = issue_tool(client, stf_token, req["id"])
+        return_tool(client, stf_token, issued["id"], qty_returned=1, condition="damaged")
+
+        res = client.post(
+            f"/api/damage/{issued['id']}",
+            json={"damage_type": "wear_and_tear"},
+            headers=auth(stf_token),
+        )
+        assert res.status_code == 403
+        assert "insufficient permissions" in res.json()["detail"].lower()
+
 
 class TestPenalty:
 
@@ -997,6 +1066,13 @@ class TestCalibration:
             f"Tool {tool.tool_code} not found in overdue calibration list"
         )
 
+    def test_calibration_certificate_missing_returns_clean_404(self, client, db):
+        tool = make_tool(db, requires_calibration=True)
+        adm_token = get_token(client, "ADM001", "Admin@123")
+        res = client.get(f"/api/calibration/{tool.id}/certificate", headers=auth(adm_token))
+        assert res.status_code == 404
+        assert "certificate" in res.json()["detail"].lower()
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TEST GROUP 7 — Dashboard
@@ -1125,6 +1201,108 @@ class TestWorkflowFixRegressions:
         assert row["reserved_quantity"] == 1
         assert row["available_quantity"] == 1
 
+    def test_head_and_admin_cannot_approve_or_reject_own_request(self, client, db):
+        tool = make_tool(db, quantity=3)
+        hd_token = get_token(client, "HD001", "Head@123")
+        adm_token = get_token(client, "ADM001", "Admin@123")
+
+        head_req = raise_req(client, hd_token, tool.id, qty=1)
+        assert client.put(f"/api/requisitions/{head_req['id']}/approve", headers=auth(hd_token)).status_code == 403
+        assert client.put(
+            f"/api/requisitions/{head_req['id']}/reject",
+            json={"reason": "Own request"},
+            headers=auth(hd_token),
+        ).status_code == 403
+
+        admin_req = raise_req(client, adm_token, tool.id, qty=1)
+        assert client.put(f"/api/requisitions/{admin_req['id']}/approve", headers=auth(adm_token)).status_code == 403
+
+    def test_ready_to_issue_dashboard_count_matches_queue(self, client, db):
+        tool = make_tool(db, quantity=2)
+        usr_token = get_token(client, "USR001", "User@123")
+        hd_token = get_token(client, "HD001", "Head@123")
+        stf_token = get_token(client, "STF001", "Staff@123")
+
+        req = raise_req(client, usr_token, tool.id, qty=1)
+        approve_req(client, hd_token, req["id"])
+
+        dashboard = client.get("/api/dashboard/summary", headers=auth(stf_token))
+        queue = client.get("/api/issuance/queue", headers=auth(stf_token))
+
+        assert dashboard.status_code == 200
+        assert queue.status_code == 200
+        queue_ids = {row["id"] for row in queue.json()}
+        assert req["id"] in queue_ids
+        assert dashboard.json()["approved_queue_count"] == len(queue.json())
+
+    def test_approved_request_outside_issue_window_stays_visible_in_queue(self, client, db):
+        tool = make_tool(db, quantity=2)
+        req = self._manual_approved_req(
+            db,
+            tool,
+            from_date=date.today() + timedelta(days=1),
+            to_date=date.today() + timedelta(days=3),
+        )
+        stf_token = get_token(client, "STF001", "Staff@123")
+
+        queue = client.get("/api/issuance/queue", headers=auth(stf_token))
+        dashboard = client.get("/api/dashboard/summary", headers=auth(stf_token))
+
+        assert queue.status_code == 200
+        row = next(item for item in queue.json() if item["id"] == str(req.id))
+        assert row["can_issue_today"] is False
+        assert "before requested from date" in row["issue_block_reason"].lower()
+        assert dashboard.json()["approved_queue_count"] == len(queue.json())
+
+    def test_expired_approved_request_stays_issuable_with_warning(self, client, db):
+        tool = make_tool(db, quantity=2)
+        req = self._manual_approved_req(
+            db,
+            tool,
+            from_date=date.today() - timedelta(days=5),
+            to_date=date.today() - timedelta(days=3),
+        )
+        stf_token = get_token(client, "STF001", "Staff@123")
+
+        queue = client.get("/api/issuance/queue", headers=auth(stf_token))
+        row = next(item for item in queue.json() if item["id"] == str(req.id))
+        assert row["can_issue_today"] is True
+        assert "issuing late is allowed" in row["issue_warning"].lower()
+
+        issued = issue_tool(client, stf_token, str(req.id))
+        assert issued["expected_return_date"] == (date.today() + timedelta(days=2)).isoformat()
+
+    def test_approved_queue_blocks_when_physical_stock_is_exhausted(self, client, db):
+        tool = make_tool(db, quantity=3)
+        first = self._manual_approved_req(
+            db,
+            tool,
+            from_date=date.today(),
+            to_date=date.today() + timedelta(days=1),
+            qty=3,
+        )
+        second = self._manual_approved_req(
+            db,
+            tool,
+            from_date=date.today() - timedelta(days=5),
+            to_date=date.today() - timedelta(days=3),
+            qty=3,
+        )
+        stf_token = get_token(client, "STF001", "Staff@123")
+
+        issue_tool(client, stf_token, str(first.id))
+
+        queue = client.get("/api/issuance/queue", headers=auth(stf_token))
+        assert queue.status_code == 200
+        row = next(item for item in queue.json() if item["id"] == str(second.id))
+        assert row["can_issue_today"] is False
+        assert row["available_to_issue_quantity"] == 0
+        assert "insufficient physical stock" in row["issue_block_reason"].lower()
+
+        blocked = client.post("/api/issuance", json={"requisition_id": str(second.id)}, headers=auth(stf_token))
+        assert blocked.status_code == 400
+        assert "insufficient physical stock" in blocked.json()["detail"].lower()
+
     def test_over_approval_blocked_by_existing_approved_reservation(self, client, db):
         tool = make_tool(db, quantity=1)
         usr_token = get_token(client, "USR001", "User@123")
@@ -1150,7 +1328,7 @@ class TestWorkflowFixRegressions:
         assert res.status_code == 400
         assert "before requested from date" in res.json()["detail"].lower()
 
-    def test_issuance_blocked_after_to_date_and_expired(self, client, db):
+    def test_issuance_allows_late_issue_after_to_date(self, client, db):
         tool = make_tool(db, quantity=1)
         req = self._manual_approved_req(
             db,
@@ -1160,8 +1338,8 @@ class TestWorkflowFixRegressions:
         )
         stf_token = get_token(client, "STF001", "Staff@123")
         res = client.post("/api/issuance", json={"requisition_id": str(req.id)}, headers=auth(stf_token))
-        assert res.status_code == 400
-        assert "after requested to date" in res.json()["detail"].lower()
+        assert res.status_code == 201
+        assert res.json()["expected_return_date"] == (date.today() + timedelta(days=4)).isoformat()
 
     def test_consumable_type_cannot_change_during_active_requisition_or_issuance(self, client, db):
         tool = make_tool(db, quantity=2, is_consumable=False)

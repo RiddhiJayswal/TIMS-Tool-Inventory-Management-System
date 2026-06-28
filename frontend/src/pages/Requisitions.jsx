@@ -52,18 +52,41 @@ function RequisitionModal({ prefillTool, onClose, onCreated }) {
   const [toDate, setToDate] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [err, setErr] = useState('')
+  const [availability, setAvailability] = useState(null)
+  const [availabilityLoading, setAvailabilityLoading] = useState(false)
 
   const handleToolSelect = (tool) => {
     setSelectedTool(tool)
+    setAvailability(null)
     if (tool) setStep(2)
   }
+
+  useEffect(() => {
+    if (!selectedTool || !fromDate || !toDate || toDate < fromDate) {
+      setAvailability(null)
+      return
+    }
+    let cancelled = false
+    setAvailabilityLoading(true)
+    requisitionsAPI.availability({
+      tool_id: selectedTool.id,
+      from_date: fromDate,
+      to_date: toDate,
+      quantity: Number(quantity) || 1,
+    })
+      .then((res) => { if (!cancelled) setAvailability(res.data) })
+      .catch(() => { if (!cancelled) setAvailability(null) })
+      .finally(() => { if (!cancelled) setAvailabilityLoading(false) })
+    return () => { cancelled = true }
+  }, [selectedTool, fromDate, toDate, quantity])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setErr('')
     if (!selectedTool) { setErr('Please select a tool'); return }
     if (quantity < 1) { setErr('Quantity must be at least 1'); return }
-    if (quantity > selectedTool.available_quantity) { setErr(`Max available is ${selectedTool.available_quantity}`); return }
+    const maxAvailable = availability?.available_quantity ?? selectedTool.available_quantity
+    if (quantity > maxAvailable) { setErr(`Max available is ${maxAvailable}`); return }
     if (purpose.trim().length < 5) { setErr('Purpose must be at least 5 characters'); return }
     if (!fromDate) { setErr('From date is required'); return }
     if (!toDate) { setErr('To date is required'); return }
@@ -89,6 +112,7 @@ function RequisitionModal({ prefillTool, onClose, onCreated }) {
   }
 
   const inputCls = 'input-control'
+  const maxAvailable = availability?.available_quantity ?? selectedTool?.available_quantity ?? 0
 
   return (
     <ModalOverlay onClose={onClose}>
@@ -117,7 +141,8 @@ function RequisitionModal({ prefillTool, onClose, onCreated }) {
                 <div>
                   <div className="text-sm font-medium text-blue-900">{selectedTool.name}</div>
                   <div className="text-xs text-blue-600 mt-0.5">
-                    {selectedTool.tool_code} · {selectedTool.available_quantity} available
+                    {selectedTool.tool_code} · {maxAvailable} available
+                    {availabilityLoading ? ' (checking dates...)' : ''}
                   </div>
                 </div>
                 {!prefillTool && (
@@ -133,13 +158,15 @@ function RequisitionModal({ prefillTool, onClose, onCreated }) {
                 <input
                   type="number"
                   min={1}
-                  max={selectedTool.available_quantity}
+                  max={maxAvailable}
                   value={quantity}
                   onChange={e => setQuantity(e.target.value)}
                   className={inputCls}
                   required
                 />
-                <p className="text-xs text-gray-400 mt-1">Max: {selectedTool.available_quantity}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Max: {maxAvailable} available for the selected dates
+                </p>
               </div>
 
               <div>

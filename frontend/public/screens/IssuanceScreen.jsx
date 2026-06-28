@@ -2,6 +2,8 @@ const NS_ISS = window.MTRSDesignSystemUltraTechCement_660dc9;
 
 const PRIORITY_CFG = {
   ready:             { label: 'Ready to Issue',    bg: 'var(--success-bg)', fg: 'var(--success-text)' },
+  issue_window:      { label: 'Date Window',       bg: 'var(--warning-bg)', fg: 'var(--warning-text)' },
+  stock_blocked:     { label: 'Insufficient Stock', bg: 'var(--danger-bg)',  fg: 'var(--danger-text)'  },
   calibration_check: { label: 'Calibration Check', bg: 'var(--warning-bg)', fg: 'var(--warning-text)' },
   low_stock:         { label: 'Low Stock Warning',  bg: 'var(--danger-bg)',  fg: 'var(--danger-text)'  },
   high_qty:          { label: 'High Quantity',       bg: 'var(--warning-bg)', fg: 'var(--warning-text)' },
@@ -27,6 +29,7 @@ function IssueConfirmModal({ item, onClose, onConfirm }) {
   const [busy, setBusy] = React.useState(false);
   const inr = window.inr;
   const stockAfter = item.avail_stock - item.qty;
+  const insufficientStock = item.can_issue_today === false || stockAfter < 0;
   const stockLow = stockAfter <= 1;
 
   const InfoRow = ({ label, value, warn }) => (
@@ -37,6 +40,7 @@ function IssueConfirmModal({ item, onClose, onConfirm }) {
   );
 
   const handleConfirm = async () => {
+    if (insufficientStock) return;
     setBusy(true);
     try {
       await window.API.issueRequisition(item.id);
@@ -51,7 +55,7 @@ function IssueConfirmModal({ item, onClose, onConfirm }) {
 
   return (
     <Modal open onClose={onClose} title="Confirm Issue" width={480}
-      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button disabled={!ack} loading={busy} onClick={handleConfirm}>Confirm Issue</Button></>}>
+      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button disabled={!ack || insufficientStock} loading={busy} onClick={handleConfirm}>Confirm Issue</Button></>}>
       <div style={{ padding: '12px 14px', background: 'var(--surface-sunken)', borderRadius: 'var(--radius-md)', marginBottom: 18 }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-strong)' }}>{item.tool_name}</div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'monospace' }}>{item.tool_code} · {item.requisition_number}</div>
@@ -128,7 +132,7 @@ function IssuanceScreen() {
   const APPROVED_EXT = (window.MOCK?.APPROVED_QUEUE || []).map(r => ({
     ...r,
     expected_return: r.expected_return || r.due,
-  })).filter(r => Number(r.avail_stock || 0) >= Number(r.qty || 0) && !['calibration_check', 'blocked'].includes(r.priority));
+  }));
 
   const active = window.MOCK.ACTIVE_ISSUANCES || [];
   const activeUnits = active.reduce((sum, i) => sum + Number(i.qty || 0), 0);
@@ -199,6 +203,12 @@ function IssuanceScreen() {
                       <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 'var(--radius-pill)', background: p.bg, color: p.fg }}>{p.label}</span>
                       {highQty && <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 'var(--radius-pill)', background: 'var(--danger-bg)', color: 'var(--danger-text)' }}>High Qty</span>}
                     </div>
+                    {r.issue_block_reason && (
+                      <div style={{ marginTop: 4, fontSize: 11.5, lineHeight: 1.35, color: 'var(--warning-text)' }}>{r.issue_block_reason}</div>
+                    )}
+                    {r.issue_warning && (
+                      <div style={{ marginTop: 4, fontSize: 11.5, lineHeight: 1.35, color: 'var(--warning-text)' }}>{r.issue_warning}</div>
+                    )}
                   </div>
                 );
               }},
@@ -215,7 +225,7 @@ function IssuanceScreen() {
                   <Button size="sm" variant="secondary" onClick={() => setViewReq(r)}>Details</Button>
                   {issuedIds.includes(r.id)
                     ? <Button size="sm" variant="secondary" disabled icon={<Icon name="check_circle" size={13} />}>Issued</Button>
-                    : <Button size="sm" icon={<Icon name="arrow_right_circle" size={13} />} onClick={() => setIssue(r)}>Issue</Button>}
+                    : <Button size="sm" disabled={r.can_issue_today === false || ['calibration_check', 'blocked', 'stock_blocked'].includes(r.priority)} icon={<Icon name="arrow_right_circle" size={13} />} onClick={() => setIssue(r)}>Issue</Button>}
                 </div>
               )},
             ]}

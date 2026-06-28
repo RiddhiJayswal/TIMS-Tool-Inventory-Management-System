@@ -12,7 +12,7 @@ from app.models.transaction import IssuanceLog, Requisition, User
 from app.routers.issuance import _issuance_to_dict
 from app.schemas.issuance import ReturnCreate
 from app.services.audit import log_action
-from app.services.notifications import notify_user
+from app.services.notifications import notify_tool_returned_to_heads_and_admins, notify_user
 from app.services.stock import (
     consume_stock,
     restore_stock,
@@ -95,12 +95,6 @@ def process_return(
             raise HTTPException(400, "Condition quantities must add up to quantity_returned")
         if any(condition_quantities[k] for k in ("damaged", "missing")) and not (payload.notes or "").strip():
             raise HTTPException(400, "Notes are required for damaged or missing returns")
-        if (
-            current_user.role == "maintenance_staff"
-            and log.issued_to != current_user.id
-            and (condition_quantities["damaged"] > 0 or condition_quantities["missing"] > 0)
-        ):
-            raise HTTPException(403, "Only maintenance admin can record damaged or missing quantities for tools not issued to you")
         validate_damage_return(
             log.quantity_issued,
             payload.quantity_returned,
@@ -163,12 +157,24 @@ def process_return(
                 )
 
         borrower = db.query(User).filter(User.id == log.issued_to).first()
+        borrower_name = borrower.full_name if borrower else "Unknown"
         if borrower:
             notify_user(
                 db,
                 str(borrower.id),
                 f"Tool returned: '{tool.name}' return recorded with condition {log.return_condition}.",
             )
+
+        notify_tool_returned_to_heads_and_admins(
+            db,
+            tool_name=tool.name,
+            quantity_returned=payload.quantity_returned,
+            returned_by_name=borrower_name,
+            recorded_by_name=current_user.full_name,
+            good_quantity=usable_quantity,
+            return_condition=log.return_condition,
+            exclude_user_id=str(current_user.id),
+        )
 
         req = db.query(Requisition).filter(Requisition.id == log.requisition_id).first()
         if req and log.actual_return_date is not None:

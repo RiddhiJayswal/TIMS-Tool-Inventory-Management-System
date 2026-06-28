@@ -165,6 +165,21 @@ def get_period_reserved_quantity(
     return int(query.scalar() or 0)
 
 
+def get_ready_to_issue_requisitions(db: Session, current_user=None) -> list[Requisition]:
+    """
+    Single source of truth for the approved queue shown on dashboards and the
+    Issue Tool page. Approved requests must stay visible to maintenance even
+    when their date window has not opened yet or has expired; the issuance API
+    still enforces the actual issue window and returns the blocking reason.
+    """
+    query = db.query(Requisition).filter(
+        Requisition.status == "approved",
+    )
+    if current_user is not None and current_user.role == "dept_head":
+        query = query.filter(Requisition.requester_dept == current_user.department)
+    return query.order_by(Requisition.approved_at.desc(), Requisition.created_at.desc()).all()
+
+
 def get_period_open_issued_quantity(db: Session, tool_id, from_date: date, to_date: date) -> int:
     rows = (
         db.query(IssuanceLog)
@@ -246,7 +261,9 @@ def get_stock_summary(db: Session, include_written_off: bool = False) -> dict:
     return {
         "total_tool_types": len(rows),
         "total_quantity": sum(r["total_quantity"] for r in rows),
-        "available_quantity": sum(r["available_quantity"] for r in rows),
+        "available_quantity": sum(r["stored_available_quantity"] for r in rows),
+        "requestable_available_quantity": sum(r["available_quantity"] for r in rows),
+        "reserved_quantity": sum(r["reserved_quantity"] for r in rows),
         "currently_issued": sum(r["currently_issued"] for r in rows),
         "unavailable_quantity": sum(r["unavailable_quantity"] for r in rows),
     }

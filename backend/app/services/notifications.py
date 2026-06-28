@@ -63,6 +63,40 @@ def notify_calibration_due(db: Session, admin_users: list, tool_name: str, due_d
             f"CALIBRATION DUE: '{tool_name}' is due for calibration in {days_remaining} day(s) (due: {due_date}).")
 
 
+def notify_tool_returned_to_heads_and_admins(
+    db: Session,
+    *,
+    tool_name: str,
+    quantity_returned: int,
+    returned_by_name: str,
+    recorded_by_name: str,
+    good_quantity: int,
+    return_condition: str,
+    exclude_user_id: str | None = None,
+):
+    recipients = (
+        db.query(User)
+        .filter(
+            User.is_active == True,
+            User.role.in_(["maintenance_admin", "dept_head"]),
+        )
+        .all()
+    )
+    ready_text = (
+        f"{good_quantity} unit(s) are ready to issue again."
+        if good_quantity > 0
+        else "No units are ready to issue until damage/missing assessment is completed."
+    )
+    message = (
+        f"Tool returned: {quantity_returned} unit(s) of '{tool_name}' returned by {returned_by_name}. "
+        f"Return recorded by {recorded_by_name}. Status: {return_condition}. {ready_text}"
+    )
+    for user in recipients:
+        if exclude_user_id and str(user.id) == str(exclude_user_id):
+            continue
+        notify_user(db, str(user.id), message)
+
+
 # v2 email stubs — wire SMTP here when needed
 def send_email_notification(to_email: str, subject: str, body: str):
     pass

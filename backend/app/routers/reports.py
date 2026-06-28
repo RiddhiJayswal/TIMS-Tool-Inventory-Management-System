@@ -133,8 +133,9 @@ def report_stock(
             t.standard_life_months,
         ) if unit_cost is not None else None
         current_unit_value_f = float(current_unit_value) if current_unit_value is not None else unit_cost
+        physical_available = row.get("stored_available_quantity", row["available_quantity"])
         current_value = (
-            round(row["available_quantity"] * current_unit_value_f, 2)
+            round(physical_available * current_unit_value_f, 2)
             if current_unit_value_f is not None
             else None
         )
@@ -156,7 +157,8 @@ def report_stock(
                 "tool_type": t.tool_type,
                 "department_access": t.department_access,
                 "total_quantity": row["total_quantity"],
-                "available_quantity": row["available_quantity"],
+                "available_quantity": physical_available,
+                "requestable_available_quantity": row["available_quantity"],
                 "currently_issued": row["currently_issued"],
                 "issued_quantity": row["issued_quantity"],
                 "reserved_quantity": row.get("reserved_quantity", 0),

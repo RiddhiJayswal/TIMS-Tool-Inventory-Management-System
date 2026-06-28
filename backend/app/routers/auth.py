@@ -187,11 +187,12 @@ def _find_access_draft(db: Session, email: str, mobile_number: str | None = None
 
 @router.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.employee_id == form_data.username.strip().upper()).first()
+    employee_id = form_data.username.strip()
+    user = db.query(User).filter(User.employee_id == employee_id).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect employee ID or password",
+            detail="Invalid employee ID or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     if not user.is_active:

@@ -81,8 +81,16 @@ button, input, select, textarea { max-width: 100%; }
     width: 46px !important;
   }
 
+  .tims-shell.is-sidebar-collapsed {
+    --tims-sidebar-width: 46px !important;
+  }
+
   .tims-sidebar.is-expanded {
     width: min(216px, 72vw) !important;
+  }
+
+  .tims-shell.is-sidebar-expanded {
+    --tims-sidebar-width: min(216px, 72vw) !important;
   }
 
   .tims-navbar {
@@ -285,6 +293,10 @@ button, input, select, textarea { max-width: 100%; }
 
   .tims-sidebar.is-collapsed {
     width: 34px !important;
+  }
+
+  .tims-shell.is-sidebar-collapsed {
+    --tims-sidebar-width: 34px !important;
   }
 
   .tims-sidebar.is-collapsed button {

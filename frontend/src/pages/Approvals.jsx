@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { CheckSquare, Loader2, X } from 'lucide-react'
 import { requisitionsAPI } from '../api/client'
 import { useDataSync } from '../data/DataSyncContext'
 import { useToast } from '../contexts/ToastContext'
+import { useAuth } from '../auth/AuthContext'
 import Layout from '../components/Layout'
 import StatusBadge from '../components/StatusBadge'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -34,11 +36,16 @@ function ModalOverlay({ onClose, children }) {
 
 export default function Approvals() {
   const addToast = useToast()
+  const { user } = useAuth()
   const { actions, version } = useDataSync()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [reqs, setReqs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [tab, setTab] = useState('pending')
+  const initialStatus = TABS.some((t) => t.value === searchParams.get('status'))
+    ? searchParams.get('status')
+    : 'pending'
+  const [tab, setTab] = useState(initialStatus)
 
   // Approve
   const [approving, setApproving] = useState(null)
@@ -111,7 +118,10 @@ export default function Approvals() {
           {TABS.map(t => (
             <button
               key={t.value}
-              onClick={() => setTab(t.value)}
+              onClick={() => {
+                setTab(t.value)
+                setSearchParams({ status: t.value })
+              }}
               className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ease-in-out ${tab === t.value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
             >
               {t.label}
@@ -141,7 +151,9 @@ export default function Approvals() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {reqs.map(req => (
+                  {reqs.map(req => {
+                    const isOwnRequest = req.requested_by === user?.id
+                    return (
                     <tr key={req.id}>
                       <td className="px-4 py-3 font-mono text-xs text-gray-600">{req.requisition_number}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{req.tool_name}</td>
@@ -159,23 +171,31 @@ export default function Approvals() {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setApproving(req)}
+                              disabled={isOwnRequest}
+                              title={isOwnRequest ? 'You cannot approve your own requisition' : 'Approve requisition'}
                               className="btn-soft bg-green-600 text-white hover:bg-green-700"
                             >
                               Approve
                             </button>
                             <button
                               onClick={() => { setRejecting(req); setRejectReason(''); setRejectErr('') }}
+                              disabled={isOwnRequest}
+                              title={isOwnRequest ? 'You cannot reject your own requisition' : 'Reject requisition'}
                               className="btn-soft border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
                             >
                               Reject
                             </button>
                           </div>
+                          {isOwnRequest && (
+                            <div className="mt-1 text-xs text-gray-400">Own request: waiting for another approver</div>
+                          )}
                         </td>
                       ) : (
                         <td className="px-4 py-3"><StatusBadge status={req.status} /></td>
                       )}
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

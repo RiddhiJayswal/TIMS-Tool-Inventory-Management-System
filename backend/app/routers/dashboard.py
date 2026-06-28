@@ -10,7 +10,11 @@ from app.models.master import Tool
 from app.models.transaction import IssuanceLog, Requisition, User
 from app.routers.issuance import _issuance_to_dict
 from app.services.calibration_status import sync_calibration_statuses
-from app.services.stock import get_stock_summary, get_tool_stock_snapshot
+from app.services.stock import (
+    get_ready_to_issue_requisitions,
+    get_stock_summary,
+    get_tool_stock_snapshot,
+)
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -55,7 +59,9 @@ def get_dashboard_summary(
         stock = {
             "total_quantity": sum(row["total_quantity"] for row in visible_stock_rows),
             "total_tool_types": len(visible_stock_rows),
-            "available_quantity": sum(row["available_quantity"] for row in visible_stock_rows),
+            "available_quantity": sum(row["stored_available_quantity"] for row in visible_stock_rows),
+            "requestable_available_quantity": sum(row["available_quantity"] for row in visible_stock_rows),
+            "reserved_quantity": sum(row["reserved_quantity"] for row in visible_stock_rows),
             "currently_issued": sum(row["currently_issued"] for row in visible_stock_rows),
             "unavailable_quantity": sum(row["unavailable_quantity"] for row in visible_stock_rows),
         }
@@ -80,6 +86,8 @@ def get_dashboard_summary(
         "total_tools": stock["total_quantity"],
         "total_tool_types": stock["total_tool_types"],
         "available_tools": stock["available_quantity"],
+        "requestable_available_tools": stock.get("requestable_available_quantity", stock["available_quantity"]),
+        "reserved_tools": stock.get("reserved_quantity", 0),
         "tools_issued": stock["currently_issued"],
         "issued_count": stock["currently_issued"],
         "unavailable_tools": stock["unavailable_quantity"],
@@ -104,7 +112,7 @@ def get_dashboard_summary(
     my_open_logs = db.query(IssuanceLog).filter(
         IssuanceLog.issued_to == current_user.id,
         IssuanceLog.actual_return_date == None,
-    ).all()
+    ).order_by(IssuanceLog.issued_at.desc()).all()
     summary["my_active_issuances"] = [_issuance_to_dict(log, db) for log in my_open_logs]
 
     summary["my_pending_requests"] = db.query(Requisition).filter(
@@ -122,6 +130,7 @@ def get_dashboard_summary(
             Requisition.requester_dept == current_user.department,
             Requisition.status == "approved",
         ).count()
+        summary["ready_to_issue_count"] = len(get_ready_to_issue_requisitions(db, current_user))
 
     # Maintenance roles see the issuance queue and low-stock alerts
     if current_user.role in ("maintenance_staff", "maintenance_admin"):
@@ -129,19 +138,19 @@ def get_dashboard_summary(
             Requisition.status == "pending",
         ).count()
 
-        summary["approved_queue_count"] = db.query(Requisition).filter(
-            Requisition.status == "approved",
-        ).count()
+        summary["approved_queue_count"] = len(get_ready_to_issue_requisitions(db, current_user))
+        summary["ready_to_issue_count"] = summary["approved_queue_count"]
 
         low_stock = [
             row for row in get_tool_stock_snapshot(db)
-            if row["tool"].status == "active" and row["available_quantity"] <= 1
+            if row["tool"].status == "active" and row["stored_available_quantity"] <= 1
         ]
         summary["low_stock_tools"] = [
             {
                 "tool_code": row["tool"].tool_code,
                 "name": row["tool"].name,
-                "available_quantity": row["available_quantity"],
+                "available_quantity": row["stored_available_quantity"],
+                "requestable_available_quantity": row["available_quantity"],
                 "total_quantity": row["total_quantity"],
             }
             for row in low_stock
@@ -161,7 +170,7 @@ def get_my_issuances(
             IssuanceLog.issued_to == current_user.id,
             IssuanceLog.actual_return_date == None,
         )
-        .order_by(IssuanceLog.expected_return_date.asc())
+        .order_by(IssuanceLog.issued_at.desc())
         .all()
     )
     return [_issuance_to_dict(log, db) for log in logs]

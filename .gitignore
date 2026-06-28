@@ -12,8 +12,16 @@ frontend/.env
 frontend/take_screenshots.mjs/
 frontend/take_tools_screenshots.mjs/
 frontend/take_users_screenshots.mjs/
-PROJECT_FEATURE_WORKFLOW_REPORT.md/
-TIMS_FULL_TEST_CHECKLIST.md/
 
 screenshots/
-fix.md/
+
+# Local/editor/tooling files
+.claude/
+.vscode/
+frontend/debug.log
+
+# Local scratch/review Markdown files - do not publish
+PROJECT_FEATURE_WORKFLOW_REPORT.md
+TIMS_FULL_TEST_CHECKLIST.md
+fix.md
+docs/CLAUDE.md

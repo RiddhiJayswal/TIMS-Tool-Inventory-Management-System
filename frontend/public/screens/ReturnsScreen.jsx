@@ -436,6 +436,7 @@ function RecordDamageModal({ item, onClose, onConfirm }) {
 
 function ReturnsScreen() {
   const { PageHeader, Card, DataTable, StatusBadge, Button, Input, EmptyState } = NS_RET;
+  const isAdmin = (window.MOCK?.USER || {}).role === 'maintenance_admin';
   const [ret, setRet] = React.useState(null);
   const [dmg, setDmg] = React.useState(null);
   const [viewDmg, setViewDmg] = React.useState(null);
@@ -582,7 +583,7 @@ function ReturnsScreen() {
       </Card>
 
       {/* Pending Damage — only shown when there are items to resolve */}
-      {damageList.length > 0 && <div style={{ border: '1.5px solid var(--danger-border, var(--danger-bg))', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: '0 0 0 3px rgba(239,68,68,0.06)' }}>
+      {isAdmin && damageList.length > 0 && <div style={{ border: '1.5px solid var(--danger-border, var(--danger-bg))', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: '0 0 0 3px rgba(239,68,68,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', background: 'var(--danger-bg)', borderBottom: '1px solid var(--danger-border, var(--danger-bg))' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Icon name="alert_triangle" size={17} color="var(--danger-text)" />
@@ -674,7 +675,7 @@ function ReturnsScreen() {
         </Card>
       )}
       {ret && <ProcessReturnModal item={ret} onClose={() => setRet(null)} onConfirm={(id, extra) => { const found = activeList.find(i => i.id === id); setActiveList(window.MOCK.ACTIVE_ISSUANCES || []); setDamageList(window.MOCK.PENDING_DAMAGE || []); if (found) { setReturnHistory(h => [...h, { ...found, condition: extra?.condition || 'good', returnedOn: new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) }]); showSuccess(`Return for ${found.tool_name} confirmed successfully.`); } }} />}
-      {dmg && <RecordDamageModal item={dmg} onClose={() => setDmg(null)} onConfirm={(id) => { const found = damageList.find(i => i.id === id); setActiveList(window.MOCK.ACTIVE_ISSUANCES || []); setDamageList(window.MOCK.PENDING_DAMAGE || []); setDamageHistory(window.MOCK.DAMAGE_HISTORY || []); if (found) showSuccess(`Damage assessment for ${found.tool_name} recorded.`); }} />}
+      {isAdmin && dmg && <RecordDamageModal item={dmg} onClose={() => setDmg(null)} onConfirm={(id) => { const found = damageList.find(i => i.id === id); setActiveList(window.MOCK.ACTIVE_ISSUANCES || []); setDamageList(window.MOCK.PENDING_DAMAGE || []); setDamageHistory(window.MOCK.DAMAGE_HISTORY || []); if (found) showSuccess(`Damage assessment for ${found.tool_name} recorded.`); }} />}
       {viewDmg && <ViewDamageModal    item={viewDmg} onClose={() => setViewDmg(null)} />}
       {retHist && <ReturnHistoryModal item={retHist} onClose={() => setRetHist(null)} />}
       {selectedIssuance && <window.IssuanceDetailModal issuance={selectedIssuance} onClose={() => setSelectedIssuance(null)} />}

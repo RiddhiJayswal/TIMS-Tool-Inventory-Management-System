@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ArrowRightCircle, Loader2, X } from 'lucide-react'
-import { requisitionsAPI, issuanceAPI } from '../api/client'
+import { issuanceAPI } from '../api/client'
 import { useDataSync } from '../data/DataSyncContext'
 import { useToast } from '../contexts/ToastContext'
 import Layout from '../components/Layout'
@@ -140,7 +140,7 @@ export default function Issuance() {
     setError('')
     try {
       const [approvedRes, activeRes] = await Promise.all([
-        requisitionsAPI.list({ status: 'approved' }),
+        issuanceAPI.queue(),
         issuanceAPI.list({ status: 'open' }),
       ])
       setApproved(approvedRes.data)
@@ -233,10 +233,22 @@ export default function Issuance() {
                         <td className="px-4 py-3">
                           <button
                             onClick={() => setIssuingReq(req)}
+                            disabled={req.can_issue_today === false}
+                            title={req.issue_block_reason || 'Issue tool'}
                             className="btn-soft bg-blue-600 text-white hover:bg-blue-700"
                           >
                             Issue Tool
                           </button>
+                          {req.issue_block_reason && (
+                            <div className="mt-1 max-w-[12rem] text-xs text-amber-700">
+                              {req.issue_block_reason}
+                            </div>
+                          )}
+                          {req.issue_warning && (
+                            <div className="mt-1 max-w-[12rem] text-xs text-amber-700">
+                              {req.issue_warning}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}

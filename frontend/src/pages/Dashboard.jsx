@@ -83,8 +83,12 @@ export default function Dashboard() {
   }
 
   const s = summary || {}
+  const totalUnits = Number(s.total_tools || 0)
+  const availableUnits = Number(s.available_tools || 0)
+  const issuedUnits = Number(s.tools_issued || 0)
   const hasOverdue = (s.overdue_count || 0) > 0
   const hasCalDue = (s.calibration_due_count || 0) > 0
+  const isDeptHead = user?.role === 'dept_head'
 
   return (
     <Layout>
@@ -101,20 +105,19 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <SummaryCard
             label="Total Units"
-            value={s.total_tools}
+            value={totalUnits.toLocaleString()}
             icon={Wrench}
             color=""
-            subtext={s.total_tool_types != null ? `${s.total_tool_types} tool types` : undefined}
           />
           <SummaryCard
-            label="Available"
-            value={s.available_tools}
+            label="Available Tools"
+            value={availableUnits.toLocaleString()}
             icon={CheckCircle2}
             color=""
           />
           <SummaryCard
             label="Currently Issued"
-            value={s.tools_issued}
+            value={issuedUnits.toLocaleString()}
             icon={Package}
             color=""
           />
@@ -205,8 +208,8 @@ export default function Dashboard() {
               </Link>
             </div>
 
-            {/* dept_head: Pending Approvals */}
-            {(user?.role === 'dept_head' || isAdmin) && s.pending_approvals_count !== undefined && (
+            {/* dept_head/admin: Pending Approvals */}
+            {(isDeptHead || isAdmin) && s.pending_approvals_count !== undefined && (
               <div className={`card card-hover p-5 flex items-center justify-between ${(s.pending_approvals_count || 0) > 0 ? 'border-yellow-200 bg-yellow-50' : ''}`}>
                 <div>
                   <div className={`text-2xl font-bold ${(s.pending_approvals_count || 0) > 0 ? 'text-yellow-700' : 'text-gray-900'}`}>
@@ -219,6 +222,24 @@ export default function Dashboard() {
                   className="btn-soft bg-amber-50 text-amber-700 hover:bg-amber-100"
                 >
                   Review <ArrowRight size={12} />
+                </Link>
+              </div>
+            )}
+
+            {isDeptHead && s.approved_queue_count !== undefined && (
+              <div className={`card card-hover p-5 flex items-center justify-between ${(s.approved_queue_count || 0) > 0 ? 'border-blue-200 bg-blue-50' : ''}`}>
+                <div>
+                  <div className={`text-2xl font-bold ${(s.approved_queue_count || 0) > 0 ? 'text-blue-700' : 'text-gray-900'}`}>
+                    {s.approved_queue_count ?? 0}
+                  </div>
+                  <div className="text-sm text-gray-500 mt-0.5">Approved / Awaiting Issue</div>
+                  <div className="text-xs text-gray-400 mt-1">Department requests</div>
+                </div>
+                <Link
+                  to="/approvals?status=approved"
+                  className="btn-soft bg-blue-50 text-blue-700 hover:bg-blue-100"
+                >
+                  View <ArrowRight size={12} />
                 </Link>
               </div>
             )}

@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -19,9 +19,11 @@ from app.services.stock import (
     consume_stock,
     get_period_open_issued_quantity,
     get_period_reserved_quantity,
+    get_ready_to_issue_requisitions,
     get_tool_locked,
     reduce_stock,
 )
+from app.routers.requisitions import _req_to_dict
 
 router = APIRouter(prefix="/issuance", tags=["issuance"])
 
@@ -89,8 +91,6 @@ def issue_tool(
         today = date.today()
         if today < req.from_date:
             raise HTTPException(400, f"Cannot issue before requested from date ({req.from_date.isoformat()})")
-        if today > req.to_date:
-            raise HTTPException(400, f"Cannot issue after requested to date ({req.to_date.isoformat()})")
 
         # Fetch tool with row lock
         tool = get_tool_locked(db, str(req.tool_id))
@@ -104,6 +104,13 @@ def issue_tool(
         # Check 3: Tool not written off or damaged
         if tool.status in ("written_off", "damaged", "blocked"):
             raise HTTPException(400, f"Tool is not available (status: {tool.status})")
+
+        physical_available = int(tool.available_quantity or 0)
+        if physical_available < req.quantity_requested:
+            raise HTTPException(
+                400,
+                f"Insufficient physical stock. Requested: {req.quantity_requested}, Available: {physical_available}",
+            )
 
         overlapping = get_period_open_issued_quantity(db, tool.id, req.from_date, req.to_date)
         reserved = get_period_reserved_quantity(db, tool.id, req.from_date, req.to_date, req.id)
@@ -130,6 +137,11 @@ def issue_tool(
         if consumed_at_issue:
             consume_stock(db, str(tool.id), req.quantity_requested)
 
+        expected_return_date = req.to_date
+        if today > req.to_date:
+            requested_duration_days = max((req.to_date - req.from_date).days, 0)
+            expected_return_date = today + timedelta(days=requested_duration_days)
+
         # Create issuance log
         log = IssuanceLog(
             id=uuid.uuid4(),
@@ -138,7 +150,7 @@ def issue_tool(
             issued_to=req.requested_by,
             issued_by=current_user.id,
             quantity_issued=req.quantity_requested,
-            expected_return_date=req.to_date,
+            expected_return_date=expected_return_date,
             actual_return_date=date.today() if consumed_at_issue else None,
             return_condition="consumed" if consumed_at_issue else None,
             quantity_returned=0 if consumed_at_issue else None,
@@ -158,7 +170,7 @@ def issue_tool(
             if consumed_at_issue:
                 notify_consumable_issued(db, requester, tool.name, req.quantity_requested)
             else:
-                notify_tool_issued(db, requester, tool.name, req.to_date)
+                notify_tool_issued(db, requester, tool.name, expected_return_date)
 
         # Audit log
         log_action(db, str(current_user.id), "CONSUMABLE_ISSUED" if consumed_at_issue else "TOOL_ISSUED", "issuance_logs", str(log.id), {
@@ -167,6 +179,7 @@ def issue_tool(
             "issued_to": str(req.requested_by),
             "quantity": req.quantity_requested,
             "consumed_at_issue": consumed_at_issue,
+            "late_issue": today > req.to_date,
         })
 
         db.commit()
@@ -197,6 +210,15 @@ def get_overdue_issuances(
         .all()
     )
     return [_issuance_to_dict(log, db) for log in logs]
+
+
+@router.get("/queue")
+def get_ready_to_issue_queue(
+    current_user: User = Depends(RequireMaintenance),
+    db: Session = Depends(get_db),
+):
+    sync_calibration_statuses(db)
+    return [_req_to_dict(req, db) for req in get_ready_to_issue_requisitions(db, current_user)]
 
 
 @router.get("")

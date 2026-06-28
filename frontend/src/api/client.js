@@ -59,6 +59,7 @@ export const toolsAPI = {
 export const requisitionsAPI = {
   list: (params) => api.get('/requisitions', { params }),
   get: (id) => api.get(`/requisitions/${id}`),
+  availability: (params) => api.get('/requisitions/availability/check', { params }),
   create: (data) => api.post('/requisitions', data),
   approve: (id) => api.put(`/requisitions/${id}/approve`),
   reject: (id, reason) => api.put(`/requisitions/${id}/reject`, { reason }),
@@ -67,6 +68,7 @@ export const requisitionsAPI = {
 
 export const issuanceAPI = {
   list: (params) => api.get('/issuance', { params }),
+  queue: () => api.get('/issuance/queue'),
   overdue: () => api.get('/issuance/overdue'),
   issue: (data) => api.post('/issuance', data),
 }
@@ -94,6 +96,7 @@ export const calibrationAPI = {
   list: (params) => api.get('/calibration', { params }),
   record: (tool_id, data) => api.post(`/calibration/${tool_id}`, data),
   history: (tool_id) => api.get(`/calibration/${tool_id}/history`),
+  download: (tool_id) => api.get(`/calibration/${tool_id}/certificate`, { responseType: 'blob' }),
 }
 
 export const binsAPI = {

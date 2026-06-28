@@ -215,6 +215,8 @@ function DashboardScreen({ onNavigate }) {
   const s = window.MOCK.SUMMARY;
   const totalToolTypes = Number(s.total_tool_types || window.MOCK.TOOLS.length || 0);
   const totalUnits = Number(s.total_units ?? s.total_tools ?? 0);
+  const availableUnits = Number(s.available_tools || 0);
+  const issuedUnits = Number(s.tools_issued || 0);
   const userRole = (window.MOCK.USER || {}).role;
   const isMaintenanceUser = userRole === 'maintenance_admin' || userRole === 'maintenance_staff';
   const isDeptHead = userRole === 'dept_head';
@@ -393,14 +395,13 @@ function DashboardScreen({ onNavigate }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14 }}>
         <div onClick={() => openPanel('total')} className="tims-clickable-card" style={{ cursor: 'pointer' }}>
-          <MetricCard label={scopeLabels.tools} value={totalToolTypes.toLocaleString()} icon={<Icon name="wrench" size={19} />}
-            subtext={`${totalUnits.toLocaleString()} total units`} />
+          <MetricCard label={scopeLabels.tools} value={totalToolTypes.toLocaleString()} icon={<Icon name="wrench" size={19} />} subtext="" />
         </div>
         <div onClick={() => openPanel('available')} className="tims-clickable-card" style={{ cursor: 'pointer' }}>
-          <MetricCard label={scopeLabels.available} value={s.available_tools.toLocaleString()} icon={<Icon name="check_circle" size={19} />} subtext={' '} />
+          <MetricCard label={scopeLabels.available} value={availableUnits.toLocaleString()} icon={<Icon name="check_circle" size={19} />} subtext="" />
         </div>
         <div onClick={() => openPanel('issued')} className="tims-clickable-card" style={{ cursor: 'pointer' }}>
-          <MetricCard label={scopeLabels.issued} value={s.tools_issued} icon={<Icon name="package" size={19} />} subtext={' '} />
+          <MetricCard label={scopeLabels.issued} value={issuedUnits.toLocaleString()} icon={<Icon name="package" size={19} />} subtext="" />
         </div>
         <div onClick={() => onNavigate('returns')} className="tims-clickable-card" style={{ cursor: 'pointer' }}>
           <MetricCard label="Overdue Returns" value={s.overdue_count} icon={<Icon name="clock" size={19} />} subtext={' '} />

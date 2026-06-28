@@ -2,6 +2,13 @@ const NS_CAL = window.MTRSDesignSystemUltraTechCement_660dc9;
 
 const SERVICE_PARTNERS = ['Fluke India', 'Testronix Services', 'CalTech Solutions', 'Precision Lab'];
 
+function fmtCalDate(v) {
+  if (!v) return '-';
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return String(v);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
 /* Mock calibration history per tool id */
 const CAL_HISTORY = {
   51: [
@@ -109,12 +116,10 @@ function RecordCalibrationModal({ item, onClose }) {
         <Input label="Certificate Number" value={certNo} onChange={(e) => setCertNo(e.target.value)} placeholder="e.g. CERT-2026-0412" />
         <div>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-default)', marginBottom: 6 }}>Certificate Upload</div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: '1.5px dashed var(--border-default)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12.5, transition: 'border-color 0.15s' }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--brand-yellow)'}
-            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-default)'}>
+          <label title="Certificate file upload is not configured yet" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: '1.5px dashed var(--border-default)', borderRadius: 'var(--radius-md)', cursor: 'not-allowed', color: 'var(--text-subtle)', fontSize: 12.5, opacity: 0.65 }}>
             <Icon name="download" size={14} />
-            <span>Upload PDF / image</span>
-            <input type="file" accept=".pdf,.jpg,.png" style={{ display: 'none' }} />
+            <span>File upload not configured</span>
+            <input type="file" accept=".pdf,.jpg,.png" disabled style={{ display: 'none' }} />
           </label>
         </div>
         <div style={{ gridColumn: '1 / -1' }}>
@@ -138,7 +143,7 @@ function RecordCalibrationModal({ item, onClose }) {
 /* ── History Modal ─────────────────────────────────────────────────── */
 function HistoryModal({ item, onClose }) {
   const { Modal, Button } = NS_CAL;
-  const logs = CAL_HISTORY[item.id] || [];
+  const logs = item.history || [];
 
   return (
     <Modal open onClose={onClose} title="Calibration History" width={680}
@@ -178,7 +183,7 @@ function HistoryModal({ item, onClose }) {
                     <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{log.notes}</span>
                   </td>
                   <td style={{ padding: '10px 12px' }}>
-                    <button style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-muted)', border: '1px solid var(--border-default)', background: 'transparent', borderRadius: 'var(--radius-sm)', padding: '3px 8px', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
+                    <button disabled={!item.certificate_available} title={item.certificate_available ? 'Download latest certificate' : 'No calibration certificate uploaded'} onClick={() => item.onDownload && item.onDownload(item)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: item.certificate_available ? 'var(--text-muted)' : 'var(--text-subtle)', border: '1px solid var(--border-default)', background: 'transparent', borderRadius: 'var(--radius-sm)', padding: '3px 8px', cursor: item.certificate_available ? 'pointer' : 'not-allowed', fontFamily: 'var(--font-sans)', opacity: item.certificate_available ? 1 : 0.55 }}
                       onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-sunken)'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                       <Icon name="download" size={12} /> PDF
@@ -210,7 +215,7 @@ function CalibrationDetailModal({ item, onClose, onRecord, onHistory }) {
   };
   const st = STATE[safeState] || STATE.on_time;
   const absDays = Math.abs(Number(item.days || 0));
-  const logs = CAL_HISTORY[item.id] || [];
+  const logs = item.history || [];
 
   const F = ({ label, value, bold }) => (
     <div>
@@ -308,6 +313,7 @@ function CalibrationScreen() {
   const [rec, setRec] = React.useState(null);
   const [hist, setHist] = React.useState(null);
   const [selectedCal, setSelectedCal] = React.useState(null);
+  const [notice, setNotice] = React.useState('');
 
   /* Build from live MOCK data — evaluated at render time after data loads */
   const CAL_DATA = (window.MOCK?.CALIBRATION || []).map((c, i) => ({
@@ -329,6 +335,46 @@ function CalibrationScreen() {
 
   const cnt = (k) => CAL_DATA.filter(x => stateMap[k].includes(x.state)).length;
 
+  const downloadCertificate = async (item) => {
+    if (!item.certificate_available) {
+      setNotice('No calibration certificate uploaded for this tool.');
+      return;
+    }
+    try {
+      const { blob, filename } = await window.API.downloadCalibrationCertificate(item.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || `${item.tool_code || 'tool'}-calibration-certificate`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setNotice(e.message || 'No calibration certificate uploaded for this tool.');
+    }
+  };
+
+  const openHistory = async (item) => {
+    try {
+      const res = await window.API.getCalibrationHistory(item.id);
+      const history = (res.calibration_history || []).map((h) => {
+        const details = h.details || {};
+        return {
+          id: h.id,
+          date: fmtCalDate(details.calibration_date || h.timestamp),
+          partner: details.service_partner || item.service_partner || '-',
+          cert_no: details.certificate_number || details.certificate_no || details.certificate || '-',
+          by: h.performed_by || '-',
+          notes: details.notes || '-',
+        };
+      });
+      setHist({ ...item, history, onDownload: downloadCertificate });
+    } catch (e) {
+      setNotice(e.message || 'Could not load calibration history.');
+    }
+  };
+
   const summaryCards = [
     { label: 'Overdue',             value: cnt('overdue'),           icon: 'alert_triangle', color: 'var(--danger-text)',  bg: 'var(--danger-bg)' },
     { label: 'Due Soon',            value: cnt('due_soon'),          icon: 'clock',          color: 'var(--warning-text)', bg: 'var(--warning-bg)' },
@@ -339,6 +385,13 @@ function CalibrationScreen() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <PageHeader title="Calibration" subtitle="Calibration schedule, service records and compliance tracking" />
+
+      {notice && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--warning-bg)', color: 'var(--warning-text)', fontSize: 13, fontWeight: 600 }}>
+          <span>{notice}</span>
+          <button onClick={() => setNotice('')} style={{ border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer', fontWeight: 700 }}>×</button>
+        </div>
+      )}
 
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
@@ -403,8 +456,8 @@ function CalibrationScreen() {
             { key: 'actions', header: '', nowrap: true, render: (r) => (
               <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
                 <Button size="sm" variant={r.state === 'overdue' ? 'primary' : 'secondary'} onClick={() => setRec(r)}>Record</Button>
-                <Button size="sm" variant="secondary" onClick={() => setHist(r)}>History</Button>
-                <Button size="sm" variant="secondary"><Icon name="download" size={13} /></Button>
+                <Button size="sm" variant="secondary" onClick={() => openHistory(r)}>History</Button>
+                <Button size="sm" variant="secondary" disabled={!r.certificate_available} title={r.certificate_available ? 'Download certificate' : 'No calibration certificate uploaded'} onClick={() => downloadCertificate(r)}><Icon name="download" size={13} /></Button>
               </div>
             )},
           ]}
@@ -417,7 +470,7 @@ function CalibrationScreen() {
 
       {rec  && <RecordCalibrationModal item={rec}  onClose={() => setRec(null)}  />}
       {hist && <HistoryModal           item={hist} onClose={() => setHist(null)} />}
-      {selectedCal && <CalibrationDetailModal item={selectedCal} onClose={() => setSelectedCal(null)} onRecord={r => setRec(r)} onHistory={r => setHist(r)} />}
+      {selectedCal && <CalibrationDetailModal item={{ ...selectedCal, onDownload: downloadCertificate }} onClose={() => setSelectedCal(null)} onRecord={r => setRec(r)} onHistory={r => openHistory(r)} />}
     </div>
   );
 }

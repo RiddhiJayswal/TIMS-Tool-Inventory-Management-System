@@ -67,6 +67,25 @@ async function apiFetch(path, options = {}) {
   return res.json();
 }
 
+async function apiDownload(path) {
+  const token = getToken();
+  const headers = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  let res;
+  try {
+    res = await fetchWithTimeout(API_BASE + path, { headers }, REQUEST_TIMEOUT_MS);
+  } catch (err) {
+    throw new Error(friendlyErrorMessage(err, 'Server unavailable. Please try again in a moment.'));
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText || `HTTP ${res.status}` }));
+    throw new Error(friendlyErrorMessage(err.detail || `HTTP ${res.status}`));
+  }
+  const disposition = res.headers.get('content-disposition') || '';
+  const match = disposition.match(/filename="?([^"]+)"?/i);
+  return { blob: await res.blob(), filename: match ? match[1] : null };
+}
+
 function fmtDate(v) {
   if (!v) return '-';
   const d = new Date(v);
@@ -478,7 +497,7 @@ const API = {
 
   loadIssuances: async () => {
     const [queue, issuances, closedIssuances, damageAssessments] = await Promise.all([
-      apiFetch('/requisitions?status=approved').catch(() => []),
+      apiFetch('/issuance/queue').catch(() => []),
       apiFetch('/issuance?status=open').catch(() => []),
       apiFetch('/issuance?status=closed').catch(() => []),
       apiFetch('/reports/damage-penalty').catch(() => []),
@@ -489,9 +508,12 @@ const API = {
 
     window.MOCK.APPROVED_QUEUE = queue.map(r => {
       const tool = toolById[r.tool_id] || {};
-      const avail_stock = qty(tool.available);
+      const avail_stock = qty(r.available_to_issue_quantity ?? r.physical_available_quantity ?? tool.available);
       let priority = 'ready';
-      if (tool.status && tool.status !== 'active') priority = tool.status === 'calibration_due' ? 'calibration_check' : 'blocked';
+      if (r.can_issue_today === false) {
+        priority = /insufficient/i.test(r.issue_block_reason || '') ? 'stock_blocked' : 'issue_window';
+      }
+      else if (tool.status && tool.status !== 'active') priority = tool.status === 'calibration_due' ? 'calibration_check' : 'blocked';
       else if (avail_stock <= 1) priority = 'low_stock';
       else if (qty(r.quantity_requested) > 50) priority = 'high_qty';
       return {
@@ -509,6 +531,9 @@ const API = {
         purpose: r.purpose_of_job || 'Routine maintenance',
         avail_stock,
         priority,
+        can_issue_today: r.can_issue_today !== false,
+        issue_block_reason: r.issue_block_reason || '',
+        issue_warning: r.issue_warning || '',
       };
     });
 
@@ -551,6 +576,7 @@ const API = {
       service_partner: t.service_partner || '-',
       state: normalizeCalibrationState(t.calibration_status),
       days: t.days_until_due,
+      certificate_available: !!t.certificate_available,
     }));
   },
 
@@ -660,6 +686,10 @@ const API = {
     apiFetch(`/tools/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   recordCalibration: (toolId, payload) =>
     apiFetch(`/calibration/${toolId}`, { method: 'POST', body: JSON.stringify(payload) }),
+  getCalibrationHistory: (toolId) =>
+    apiFetch(`/calibration/${toolId}/history`),
+  downloadCalibrationCertificate: (toolId) =>
+    apiDownload(`/calibration/${toolId}/certificate`),
   createBin: (payload) =>
     apiFetch('/storage-bins', { method: 'POST', body: JSON.stringify(payload) }),
   updateBin: (id, payload) =>

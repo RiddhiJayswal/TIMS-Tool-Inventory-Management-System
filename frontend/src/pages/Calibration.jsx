@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Loader2, X, CheckCircle2 } from 'lucide-react'
+import { Download, Loader2, X, CheckCircle2 } from 'lucide-react'
 import { calibrationAPI } from '../api/client'
 import { useToast } from '../contexts/ToastContext'
 import { useDataSync } from '../data/DataSyncContext'
@@ -196,6 +196,7 @@ export default function Calibration() {
   const [error, setError] = useState('')
   const [filterTab, setFilterTab] = useState('all')
   const [recordingTool, setRecordingTool] = useState(null)
+  const addToast = useToast()
 
   const loadTools = async () => {
     setError('')
@@ -225,6 +226,22 @@ export default function Calibration() {
     if (filterTab === 'all') return tools
     return tools.filter((t) => t.calibration_status === filterTab)
   }, [tools, filterTab])
+
+  const handleDownload = async (tool) => {
+    try {
+      const res = await calibrationAPI.download(tool.id)
+      const url = window.URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${tool.tool_code || 'tool'}-calibration-certificate`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (ex) {
+      addToast(ex.response?.data?.detail || 'No certificate uploaded for this tool', 'error')
+    }
+  }
 
   if (loading) {
     return (
@@ -379,12 +396,22 @@ export default function Calibration() {
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => setRecordingTool(tool)}
-                          className="btn-soft border border-amber-200 bg-amber-100 text-amber-700 hover:bg-amber-200"
-                        >
-                          Record
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => setRecordingTool(tool)}
+                            className="btn-soft border border-amber-200 bg-amber-100 text-amber-700 hover:bg-amber-200"
+                          >
+                            Record
+                          </button>
+                          <button
+                            onClick={() => handleDownload(tool)}
+                            disabled={!tool.certificate_available}
+                            title={tool.certificate_available ? 'Download certificate' : 'No certificate uploaded'}
+                            className="btn-soft border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                          >
+                            <Download size={13} /> Certificate
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

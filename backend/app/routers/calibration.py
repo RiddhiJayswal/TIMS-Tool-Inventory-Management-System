@@ -1,8 +1,10 @@
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.auth.roles import RequireAdmin, RequireMaintenance
@@ -27,7 +29,7 @@ def _calibration_status(tool: Tool, today: date) -> str:
     return "ok"
 
 
-def _tool_cal_dict(tool: Tool, today: date) -> dict:
+def _tool_cal_dict(tool: Tool, today: date, db: Session | None = None) -> dict:
     cal_status = _calibration_status(tool, today)
     days_until_due = (
         (tool.next_calibration_due - today).days if tool.next_calibration_due else None
@@ -44,7 +46,27 @@ def _tool_cal_dict(tool: Tool, today: date) -> dict:
         "status": tool.status,
         "service_partner": tool.service_partner,
         "tool_status": tool.status,
+        "certificate_available": bool(db and _latest_certificate_path(db, tool.id)),
     }
+
+
+def _latest_certificate_path(db: Session, tool_id: UUID) -> str | None:
+    history = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.entity == "tools",
+            AuditLog.entity_id == tool_id,
+            AuditLog.action == "CALIBRATION_RECORDED",
+        )
+        .order_by(AuditLog.timestamp.desc())
+        .all()
+    )
+    for row in history:
+        details = row.details or {}
+        path = details.get("certificate_path") or details.get("certificate_file")
+        if path:
+            return path
+    return None
 
 
 @router.get("")
@@ -73,7 +95,7 @@ def list_calibration_tools(
         if not status and days_until_due is not None and days_until_due > days:
             continue
 
-        result.append(_tool_cal_dict(tool, today))
+        result.append(_tool_cal_dict(tool, today, db))
 
     return result
 
@@ -126,7 +148,7 @@ def record_calibration(
 
     today = date.today()
     return {
-        **_tool_cal_dict(tool, today),
+        **_tool_cal_dict(tool, today, db),
         "message": f"Calibration recorded. Next due: {tool.next_calibration_due}",
     }
 
@@ -167,3 +189,30 @@ def get_calibration_history(
             for h in history
         ],
     }
+
+
+@router.get("/{tool_id}/certificate")
+def download_calibration_certificate(
+    tool_id: UUID,
+    current_user: User = Depends(RequireMaintenance),
+    db: Session = Depends(get_db),
+):
+    tool = db.query(Tool).filter(Tool.id == tool_id).first()
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+
+    certificate_path = _latest_certificate_path(db, tool_id)
+    if not certificate_path:
+        raise HTTPException(404, "No calibration certificate uploaded for this tool")
+
+    path = Path(certificate_path)
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    if not path.exists() or not path.is_file():
+        raise HTTPException(404, "Calibration certificate file was not found on the server")
+
+    return FileResponse(
+        path,
+        filename=path.name,
+        media_type="application/octet-stream",
+    )

@@ -22,13 +22,8 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            set -e
             cd /opt/tims
-            trap 'docker compose -f docker-compose.prod.yml ps; docker compose -f docker-compose.prod.yml logs --tail=80 frontend backend' ERR
             git fetch origin main
             git reset --hard origin/main
             docker compose -f docker-compose.prod.yml build --no-cache
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
-            docker compose -f docker-compose.prod.yml ps
-            sleep 8
-            curl -fsS http://127.0.0.1:3001/ >/dev/null

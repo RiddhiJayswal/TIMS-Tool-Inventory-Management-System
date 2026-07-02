@@ -1199,7 +1199,8 @@ class TestWorkflowFixRegressions:
         rows = client.get("/api/reports/stock", headers=auth(adm_token)).json()
         row = next(r for r in rows if r["tool_code"] == tool.tool_code)
         assert row["reserved_quantity"] == 1
-        assert row["available_quantity"] == 1
+        assert row["available_quantity"] == 2
+        assert row["requestable_available_quantity"] == 1
 
     def test_head_and_admin_cannot_approve_or_reject_own_request(self, client, db):
         tool = make_tool(db, quantity=3)

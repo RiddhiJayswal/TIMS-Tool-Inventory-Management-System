@@ -1,4 +1,4 @@
-# TIMS Database Schema and Data Flow
+﻿# TIMS Database Schema and Data Flow
 
 This document is for developers and server operators only. TIMS must not expose raw database tables through the website UI, including admin screens or debug pages.
 

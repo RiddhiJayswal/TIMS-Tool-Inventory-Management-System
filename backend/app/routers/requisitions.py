@@ -3,6 +3,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth.roles import RequireAnyRole, RequireDeptHead, get_current_user
@@ -230,10 +231,11 @@ def list_requisitions(
         query = query.filter(Requisition.status == status)
     if department:
         query = query.filter(Requisition.requester_dept == department)
+    created_date = func.date(Requisition.created_at)
     if from_date:
-        query = query.filter(Requisition.created_at >= from_date)
+        query = query.filter(created_date >= from_date)
     if to_date:
-        query = query.filter(Requisition.created_at < to_date + timedelta(days=1))
+        query = query.filter(created_date <= to_date)
 
     reqs = query.order_by(Requisition.created_at.desc()).all()
     return [_req_to_dict(r, db) for r in reqs]

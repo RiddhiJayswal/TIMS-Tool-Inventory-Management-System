@@ -1,6 +1,6 @@
-<div align="center">
+﻿<div align="center">
 
-<img src="docs/AB_TIMS_logo.svg" height="120" alt="Aditya Birla × TIMS" />
+<img src="docs/AB_TIMS_logo.svg" height="120" alt="Aditya Birla Ã— TIMS" />
 <br/>
 <br/>
 
@@ -21,7 +21,7 @@
 
 <br/>
 
-🌐 **Live:** [tims.riddhijayswal.com](https://tims.riddhijayswal.com)
+ðŸŒ **Live:** [tims.riddhijayswal.com](https://tims.riddhijayswal.com)
 
 </div>
 
@@ -44,12 +44,12 @@
 
 ## Overview
 
-UltraTech Cement's Maintenance Department manages thousands of plant tools using paper registers and Excel. TIMS replaces this with a web-based, internet-accessible system that gives every role exactly what they need — nothing more, nothing less.
+UltraTech Cement's Maintenance Department manages thousands of plant tools using paper registers and Excel. TIMS replaces this with a web-based, internet-accessible system that gives every role exactly what they need N/A nothing more, nothing less.
 
 | Problem | TIMS Solution |
 |---|---|
 | No real-time stock visibility | Live available/issued counts per tool |
-| Tools taken without authorisation | Mandatory requisition → approval → issue workflow |
+| Tools taken without authorisation | Mandatory requisition -> approval -> issue workflow |
 | Calibration due dates missed | Background scheduler with auto-blocking |
 | No damage or penalty tracking | Structured damage assessment with depreciated value |
 | Physical location unknown | Storage bin management with occupancy tracking |
@@ -65,10 +65,10 @@ UltraTech Cement's Maintenance Department manages thousands of plant tools using
 | Database | PostgreSQL 15 (Docker) | ACID-compliant inventory transactions |
 | Auth | JWT bearer tokens + bcrypt | Role-based access, 8-hour session expiry |
 | Scheduler | APScheduler | Daily calibration checks, overdue reminders |
-| Frontend | React 18 (in-browser Babel) | SPA loaded via static file server |
-| Design System | TIMS DS bundle (`_ds_bundle.js`) | Shared UI components across all screens |
+| Frontend | React 18 + Vite | SPA served by Vite/Nginx |
+| UI | Tailwind CSS + React components | Shared layout, forms, tables, and status components |
 | Containerisation | Docker Compose | Backend + Frontend + DB as unified stack |
-| CI/CD | GitHub Actions → SSH deploy | Auto-deploy to Hetzner on push to `main` |
+| CI/CD | GitHub Actions -> SSH deploy | Auto-deploy to Hetzner on push to `main` |
 
 ---
 
@@ -228,13 +228,13 @@ Most Indian production SMS vendors require DLT sender/template approval before O
 ### Requisition Workflow
 ```
 Requester raises requisition
-        ↓
-Dept Head reviews → Approve / Reject
-        ↓ (Approved)
+        â†“
+Dept Head reviews -> Approve / Reject
+        â†“ (Approved)
 Appears in Maintenance issuance queue
-        ↓
+        â†“
 Staff issues tool physically
-        ↓
+        â†“
 Stock reduces in real-time; issuance log created
 ```
 
@@ -313,73 +313,36 @@ Stock reduces in real-time; issuance log created
 
 ## Project Structure
 
+```text
+.
+|-- backend/
+|   |-- app/
+|   |   |-- routers/          # Auth, tools, requisitions, issuance, returns, reports
+|   |   |-- schemas/          # Pydantic request/response models
+|   |   |-- services/         # Stock, depreciation, notifications, calibration logic
+|   |   |-- models/           # SQLAlchemy models
+|   |   `-- main.py           # FastAPI application entrypoint
+|   |-- alembic/              # Database migrations
+|   |-- tests/                # Pytest backend coverage
+|   `-- seed.py               # Demo/dev data seeding
+|-- frontend/
+|   |-- src/
+|   |   |-- pages/            # React route pages
+|   |   |-- components/       # Shared UI components
+|   |   |-- api/              # API client
+|   |   |-- auth/             # Auth context and guards
+|   |   `-- __tests__/        # Vitest frontend coverage
+|   |-- public/               # Static assets
+|   |-- index.html            # Vite app shell
+|   `-- vite.config.js
+|-- e2e/                      # Playwright browser workflow tests
+|-- docs/                     # Requirements, schema, manual QA, testing matrix
+|-- scripts/                  # Test runner scripts
+|-- test-results/             # Concise QA summaries retained for handoff
+|-- docker-compose.yml
+|-- docker-compose.prod.yml
+`-- README.md
 ```
-TIMS-Tool-Inventory-Management-System/
-├── backend/
-│   ├── app/
-│   │   ├── auth/
-│   │   │   └── roles.py              # JWT + role guards (RequireAdmin, RequireMaintenance, …)
-│   │   ├── models/
-│   │   │   ├── master.py             # Tool, StorageBin
-│   │   │   └── transaction.py        # Requisition, IssuanceLog, User, Notification, AuditLog
-│   │   ├── routers/
-│   │   │   ├── auth.py
-│   │   │   ├── tools.py
-│   │   │   ├── requisitions.py
-│   │   │   ├── issuance.py
-│   │   │   ├── returns.py
-│   │   │   ├── calibration.py
-│   │   │   ├── damage.py
-│   │   │   ├── storage_bins.py
-│   │   │   ├── users.py
-│   │   │   ├── reports.py
-│   │   │   └── dashboard.py
-│   │   ├── schemas/
-│   │   ├── services/
-│   │   │   ├── stock.py              # Real-time stock logic
-│   │   │   ├── depreciation.py       # Monthly value calculation
-│   │   │   ├── calibration_status.py
-│   │   │   └── notifications.py      # Calibration / overdue reminders
-│   │   └── main.py
-│   ├── tests/
-│   │   └── test_integration.py
-│   └── seed.py
-├── frontend/
-│   ├── index.html                    # App bootstrap, route guard, screen loader
-│   └── public/
-│       ├── screens/
-│       │   ├── AppShell.jsx          # Sidebar, Navbar, notification panel
-│       │   ├── Data.jsx              # window.API + window.MOCK data layer
-│       │   ├── DashboardScreen.jsx
-│       │   ├── ToolsScreen.jsx
-│       │   ├── RequisitionsScreen.jsx
-│       │   ├── ApprovalsScreen.jsx
-│       │   ├── IssuanceScreen.jsx
-│       │   ├── ReturnsScreen.jsx
-│       │   ├── CalibrationScreen.jsx
-│       │   ├── StorageBinsScreen.jsx
-│       │   ├── ReportsScreen.jsx
-│       │   ├── UsersScreen.jsx
-│       │   └── LoginScreen.jsx
-│       ├── _ds_bundle.js             # TIMS design-system component bundle
-│       ├── styles.css
-│       └── assets/
-│           └── ultratech-logo.png
-├── docs/
-│   ├── tims-logo.svg
-│   ├── spec.md
-│   ├── requirements.md
-│   └── CLAUDE.md
-├── .github/
-│   └── workflows/
-│       └── deploy.yml                # GitHub Actions → Hetzner SSH deploy
-├── docker-compose.yml
-├── docker-compose.prod.yml
-└── README.md
-```
-
----
-
 ## Useful Commands
 
 **Seed / reset demo data**
@@ -399,13 +362,10 @@ cd backend
 python -m compileall app alembic
 ```
 
-**Frontend JSX syntax check**
+**Frontend build check**
 ```powershell
 cd frontend
-Get-ChildItem public/screens -Filter *.jsx | ForEach-Object {
-  Get-Content -Raw $_.FullName |
-  & node_modules/.bin/esbuild.cmd --loader=jsx --format=iife --log-level=error | Out-Null
-}
+npm.cmd run build
 ```
 
 **Capture screenshots**
@@ -422,12 +382,12 @@ The project deploys automatically to a **Hetzner VPS** via GitHub Actions on eve
 
 ```
 git push origin main
-    ↓
+    â†“
 GitHub Actions: deploy.yml
-    ↓
+    â†“
 SSH into Hetzner server
-    ↓
-git pull → docker compose build --no-cache → docker compose up -d
+    â†“
+git pull -> docker compose build --no-cache -> docker compose up -d
 ```
 
 **Required GitHub Secrets:**
@@ -442,6 +402,6 @@ git pull → docker compose build --no-cache → docker compose up -d
 
 <div align="center">
 
-Built for **UltraTech Cement · Aditya Birla Group** · Maintenance Department
+Built for **UltraTech Cement - Aditya Birla Group** - Maintenance Department
 
 </div>

@@ -14,7 +14,8 @@ import pytest
 # even when the PostgreSQL test database is not available.
 try:
     from fastapi.testclient import TestClient
-    from sqlalchemy import create_engine
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.engine.url import make_url
     from sqlalchemy.orm import sessionmaker
 
     from app.main import app
@@ -24,7 +25,10 @@ try:
     from app.auth.roles import hash_password
 
     _DB_URL = os.environ["DATABASE_URL"]
-    _engine = create_engine(_DB_URL, pool_pre_ping=True)
+    _engine = create_engine(_DB_URL, pool_pre_ping=True, connect_args={"connect_timeout": 3})
+    # Probe the connection immediately so we can set _INTEGRATION_READY correctly.
+    with _engine.connect() as _probe:
+        _probe.execute(text("SELECT 1"))
     _TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
     _INTEGRATION_READY = True
     _INTEGRATION_ERROR = ""
@@ -40,7 +44,12 @@ def setup_test_db():
     """Create all tables in the test database once per session."""
     if not _INTEGRATION_READY:
         pytest.skip(f"Test DB not available: {_INTEGRATION_ERROR}")
-    Base.metadata.drop_all(bind=_engine)
+    db_name = make_url(_DB_URL).database or ""
+    if "test" not in db_name.lower():
+        raise RuntimeError(f"Refusing to reset non-test database: {db_name}")
+    with _engine.begin() as conn:
+        conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+        conn.execute(text("CREATE SCHEMA public"))
     Base.metadata.create_all(bind=_engine)
     _seed_test_users()
     yield

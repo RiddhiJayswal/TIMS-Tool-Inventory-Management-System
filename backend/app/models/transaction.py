@@ -39,8 +39,8 @@ class Requisition(Base):
     approved_by = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
     approved_at = Column(DateTime, nullable=True)
     rejection_reason = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class IssuanceLog(Base):
@@ -53,7 +53,7 @@ class IssuanceLog(Base):
     issued_to = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
     issued_by = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
     quantity_issued = Column(Integer, nullable=False)
-    issued_at = Column(DateTime, default=datetime.now)
+    issued_at = Column(DateTime, default=datetime.utcnow)
     expected_return_date = Column(Date, nullable=False)
     actual_return_date = Column(Date, nullable=True)
     return_condition = Column(String(30), nullable=True)
@@ -64,8 +64,8 @@ class IssuanceLog(Base):
     depreciated_value_at_issue = Column(Numeric(12, 2), nullable=True)
     market_rate_at_damage = Column(Numeric(12, 2), nullable=True)
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class AuditLog(Base):
@@ -77,7 +77,7 @@ class AuditLog(Base):
     entity = Column(String(50), nullable=False)
     entity_id = Column(Uuid(as_uuid=True), nullable=False)
     details = Column(JSON, nullable=True)
-    timestamp = Column(DateTime, default=datetime.now)
+    timestamp = Column(DateTime, default=datetime.utcnow)
 
 
 class Notification(Base):
@@ -88,7 +88,7 @@ class Notification(Base):
     user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
     message = Column(Text, nullable=False)
     is_read = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class AccessRequest(Base):
@@ -112,7 +112,7 @@ class AccessRequest(Base):
     approved_by = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
     approved_at = Column(DateTime, nullable=True)
     rejection_reason = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class PasswordResetToken(Base):

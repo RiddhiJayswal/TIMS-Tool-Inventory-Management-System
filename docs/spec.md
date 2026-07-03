@@ -1,6 +1,6 @@
-﻿# spec.md N/A Technical Specification
+# spec.md — Technical Specification
 # Tools Inventory Management System (TIMS)
-# UltraTech Cement N/A Single Plant Deployment
+# UltraTech Cement — Single Plant Deployment
 
 ---
 
@@ -9,18 +9,18 @@
 The Maintenance Department at UltraTech Cement currently manages thousands of plant maintenance tools using Excel spreadsheets and manual paper registers. The existing process has the following critical gaps:
 
 - No real-time visibility into tool availability across departments
-- Tool issuance recorded manually N/A prone to data entry errors and duplicate records
+- Tool issuance recorded manually — prone to data entry errors and duplicate records
 - No structured approval workflow; tools taken without formal authorization
-- Calibration and service due dates tracked informally N/A often missed
+- Calibration and service due dates tracked informally — often missed
 - No depreciation or penalty tracking for damaged or lost tools
-- Physical tool location (bin/shelf) not recorded N/A finding a tool takes significant time
+- Physical tool location (bin/shelf) not recorded — finding a tool takes significant time
 - No audit trail of who took what, when, and in what condition it was returned
 
 **Trigger for this project:** Manual Excel maintenance is no longer scalable as tool inventory grows. Low visibility causes production delays when a tool is unavailable or a calibration is missed.
 
 ---
 
-## 2. Proposed System N/A To-Be
+## 2. Proposed System — To-Be
 
 A web-based, role-aware Tools Inventory Management System with a PostgreSQL database, real-time stock tracking, approval workflows, calibration reminders, and damage/penalty handling.
 
@@ -31,22 +31,22 @@ The system is internet-accessible, hosted on company infrastructure, with the da
 ## 3. System Architecture
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚                  Browser (React)            â”‚
-â”‚   Dashboard | Requisition | Reports | Admin â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                   â”‚ HTTPS / REST API
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚             FastAPI Backend                 â”‚
-â”‚  Auth | Stock Service | Depreciation Engine â”‚
-â”‚  Notification Scheduler | Audit Logger      â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                   â”‚ SQLAlchemy ORM
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚           PostgreSQL Database               â”‚
-â”‚  tools | storage_bins | requisitions        â”‚
-â”‚  issuance_logs | users | audit_log          â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+┌─────────────────────────────────────────────┐
+│                  Browser (React)            │
+│   Dashboard | Requisition | Reports | Admin │
+└──────────────────┬──────────────────────────┘
+                   │ HTTPS / REST API
+┌──────────────────▼──────────────────────────┐
+│             FastAPI Backend                 │
+│  Auth | Stock Service | Depreciation Engine │
+│  Notification Scheduler | Audit Logger      │
+└──────────────────┬──────────────────────────┘
+                   │ SQLAlchemy ORM
+┌──────────────────▼──────────────────────────┐
+│           PostgreSQL Database               │
+│  tools | storage_bins | requisitions        │
+│  issuance_logs | users | audit_log          │
+└─────────────────────────────────────────────┘
 ```
 
 ---
@@ -69,10 +69,10 @@ Manages the complete catalogue of tools owned by the Maintenance Department.
 | Type | Description | Example |
 |---|---|---|
 | General | Any department can use | Ladder, screwdriver, plier |
-| Specialized N/A E&I | Electrical & Instrumentation only | Multimeter, insulation tester |
-| Specialized N/A Mechanical | Mechanical department only | Torque wrench, bearing puller |
-| Specialized N/A Civil | Civil department only | Paint brush, spirit level |
-| Specialized N/A Process | Process department only | Process-specific gauges |
+| Specialized — E&I | Electrical & Instrumentation only | Multimeter, insulation tester |
+| Specialized — Mechanical | Mechanical department only | Torque wrench, bearing puller |
+| Specialized — Civil | Civil department only | Paint brush, spirit level |
+| Specialized — Process | Process department only | Process-specific gauges |
 
 **Calibration requirement:**
 | Requires Calibration | Example |
@@ -103,17 +103,17 @@ Handles the request-approval workflow before any tool is physically issued.
 
 ```
 Requester raises requisition
-        â”‚
-        â–¼
-Department Head reviews -> Approve / Reject
-        â”‚ (Approved)
-        â–¼
+        │
+        ▼
+Department Head reviews → Approve / Reject
+        │ (Approved)
+        ▼
 Requisition appears in Maintenance Department queue
-        â”‚
-        â–¼
+        │
+        ▼
 Maintenance Staff issues tool physically
-        â”‚
-        â–¼
+        │
+        ▼
 Stock reduces in real-time; issuance log created
 ```
 
@@ -141,7 +141,7 @@ Records the physical handover of a tool from Maintenance to the requesting depar
 - Immediately reduces `available_quantity` in the tool master
 
 **Real-time visibility after issuance:**
-- Dashboard shows: "Ladder N/A 9 available | 1 with IT Dept (Ramesh Kumar) N/A Due: 15-Jun-2026"
+- Dashboard shows: "Ladder — 9 available | 1 with IT Dept (Ramesh Kumar) — Due: 15-Jun-2026"
 - Other requesters see accurate available count
 - Tool crib attendant sees full issuance board
 
@@ -157,9 +157,9 @@ Handles tool return with condition verification by the Maintenance Department.
 |---|---|
 | Full return, good condition | Stock restored fully, issuance closed |
 | Partial return (consumables only) | Quantity consumed recorded, remaining stock restored |
-| Returned damaged N/A mishandling | Penalty = depreciated book value at time of damage |
-| Returned damaged N/A theft | Penalty = current market rate (entered by admin) |
-| Returned damaged N/A wear & tear | Tool written off, no penalty |
+| Returned damaged — mishandling | Penalty = depreciated book value at time of damage |
+| Returned damaged — theft | Penalty = current market rate (entered by admin) |
+| Returned damaged — wear & tear | Tool written off, no penalty |
 | Not returned (overdue) | Flagged on dashboard, department head notified |
 
 **Consumable return example (welding rods):**
@@ -188,10 +188,10 @@ Calculates the declining book value of each tool monthly.
 
 ```
 monthly_depreciation = purchase_price / standard_life_months
-current_value = purchase_price - (months_elapsed Ã— monthly_depreciation)
+current_value = purchase_price - (months_elapsed × monthly_depreciation)
 ```
 
-- Value floored at â‚¹0
+- Value floored at ₹0
 - Tool flagged for write-off when current_value = 0
 - Depreciated value snapshotted at time of each issuance for accurate penalty reference
 
@@ -260,14 +260,14 @@ Delivery: Email (v1). In-app notification bell (v2).
 | Response time | < 2 seconds for all read operations |
 | Availability | 99% uptime during plant working hours |
 | Data ownership | PostgreSQL on company-controlled server |
-| Internet access | Required N/A no offline mode in v1 |
+| Internet access | Required — no offline mode in v1 |
 | Concurrent users | Up to 50 simultaneous users (single plant) |
 | Audit trail | All stock-modifying actions logged with user ID + timestamp |
 | Future | `plant_id` field on all tables for multi-plant expansion |
 
 ---
 
-## 8. Out of Scope N/A v1
+## 8. Out of Scope — v1
 
 - SAP PM / ERP integration
 - Mobile native app (responsive web only)

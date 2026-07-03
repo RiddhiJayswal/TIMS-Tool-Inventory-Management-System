@@ -202,9 +202,9 @@ def report_issuance_history(
     if tool_id:
         query = query.filter(IssuanceLog.tool_id == tool_id)
     if from_date:
-        query = query.filter(func.date(IssuanceLog.issued_at) >= from_date)
+        query = query.filter(IssuanceLog.issued_at >= from_date)
     if to_date:
-        query = query.filter(func.date(IssuanceLog.issued_at) <= to_date)
+        query = query.filter(IssuanceLog.issued_at < to_date + timedelta(days=1))
     if status == "open":
         query = query.filter(IssuanceLog.actual_return_date == None)
     elif status == "closed":
@@ -394,12 +394,11 @@ def report_utilization(
         from_date = today - timedelta(days=30)
     if not to_date:
         to_date = today
-    created_date = func.date(Requisition.created_at)
-    issued_date = func.date(IssuanceLog.issued_at)
+    to_date_exclusive = to_date + timedelta(days=1)
 
     departments = (
         db.query(Requisition.requester_dept)
-        .filter(created_date >= from_date, created_date <= to_date)
+        .filter(Requisition.created_at >= from_date, Requisition.created_at < to_date_exclusive)
         .distinct()
         .all()
     )
@@ -408,8 +407,8 @@ def report_utilization(
     for (dept,) in departments:
         base_req = db.query(Requisition).filter(
             Requisition.requester_dept == dept,
-            created_date >= from_date,
-            created_date <= to_date,
+            Requisition.created_at >= from_date,
+            Requisition.created_at < to_date_exclusive,
         )
         total_requests = base_req.count()
         approved_requests = base_req.filter(
@@ -421,8 +420,8 @@ def report_utilization(
             .join(Requisition, IssuanceLog.requisition_id == Requisition.id)
             .filter(
                 Requisition.requester_dept == dept,
-                issued_date >= from_date,
-                issued_date <= to_date,
+                IssuanceLog.issued_at >= from_date,
+                IssuanceLog.issued_at < to_date_exclusive,
             )
             .scalar()
         )
@@ -455,8 +454,8 @@ def report_utilization(
             .join(Requisition, IssuanceLog.requisition_id == Requisition.id)
             .filter(
                 Requisition.requester_dept == dept,
-                issued_date >= from_date,
-                issued_date <= to_date,
+                IssuanceLog.issued_at >= from_date,
+                IssuanceLog.issued_at < to_date_exclusive,
             )
             .group_by(Tool.name)
             .order_by(func.sum(IssuanceLog.quantity_issued).desc())

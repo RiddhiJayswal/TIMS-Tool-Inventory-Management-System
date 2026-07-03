@@ -1,6 +1,6 @@
-﻿# requirements.md N/A Functional & Non-Functional Requirements
+# requirements.md — Functional & Non-Functional Requirements
 # Tools Inventory Management System (TIMS)
-# UltraTech Cement N/A Single Plant
+# UltraTech Cement — Single Plant
 
 ---
 
@@ -105,9 +105,9 @@
 
 | ID | Requirement | Priority |
 |---|---|---|
-| FR-08.1 | System shall calculate current_value = purchase_price - (months_elapsed Ã— monthly_depreciation) | Must Have |
+| FR-08.1 | System shall calculate current_value = purchase_price - (months_elapsed × monthly_depreciation) | Must Have |
 | FR-08.2 | monthly_depreciation = purchase_price / standard_life_months | Must Have |
-| FR-08.3 | current_value shall be floored at â‚¹0; shall never go negative | Must Have |
+| FR-08.3 | current_value shall be floored at ₹0; shall never go negative | Must Have |
 | FR-08.4 | Tools with current_value = 0 shall be flagged for write-off review | Should Have |
 | FR-08.5 | depreciated_value_at_issue shall be calculated and stored at issuance time, not at return time | Must Have |
 
@@ -168,7 +168,7 @@
 | ID | Requirement | Target |
 |---|---|---|
 | NFR-01 | Response time for all read operations | < 2 seconds |
-| NFR-02 | System uptime during plant working hours (6 AM â€“ 10 PM) | â‰¥ 99% |
+| NFR-02 | System uptime during plant working hours (6 AM – 10 PM) | ≥ 99% |
 | NFR-03 | Database hosted on company-controlled infrastructure | PostgreSQL on own server |
 | NFR-04 | All data accessible via internet (not LAN-only) | HTTPS enforced |
 | NFR-05 | All stock-modifying operations atomic (no partial writes) | Database transactions |
@@ -188,7 +188,7 @@
 - No SAP integration in v1
 - No offline/mobile-native capability in v1
 - No barcode/RFID hardware in v1
-- Penalty amount recovery (payroll deduction) is out of scope N/A TIMS records it, HR acts on it separately
+- Penalty amount recovery (payroll deduction) is out of scope — TIMS records it, HR acts on it separately
 
 ---
 

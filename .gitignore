@@ -4,8 +4,6 @@ __pycache__/
 .venv/
 venv/
 .env
-*.log
-*.db
 frontend/node_modules/
 frontend/dist/
 frontend/build/
@@ -27,16 +25,3 @@ PROJECT_FEATURE_WORKFLOW_REPORT.md
 TIMS_FULL_TEST_CHECKLIST.md
 fix.md
 docs/CLAUDE.md
-
-# Test artifacts
-test-results/screenshots/
-test-results/videos/
-test-results/e2e-html-report/
-test-results/frontend-coverage/
-test-results/backend-pytest-output.txt
-test-results/frontend-vitest-output.txt
-test-results/e2e-playwright-output.txt
-test-results/e2e-results.json
-e2e/node_modules/
-e2e/test-results/
-e2e/playwright-report/

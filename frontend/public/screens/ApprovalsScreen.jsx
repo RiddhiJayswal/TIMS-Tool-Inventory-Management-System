@@ -107,14 +107,43 @@ function ViewDetailsModal({ req, onClose, effectiveStatus }) {
 }
 
 /* ── Main screen ─────────────────────────────────────────────────── */
+function RejectRequisitionModal({ req, busy, onClose, onReject }) {
+  const { Modal, Button, Textarea } = NS_APP;
+  const [reason, setReason] = React.useState('');
+  const [reasonErr, setReasonErr] = React.useState('');
+
+  const handleReject = () => {
+    const trimmed = reason.trim();
+    setReasonErr('');
+    if (!trimmed) {
+      setReasonErr('Rejection reason is required');
+      return;
+    }
+    onReject(trimmed, setReasonErr);
+  };
+
+  return (
+    <Modal open={!!req} onClose={onClose} title="Reject Requisition" width={460}
+      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button variant="danger" loading={busy} onClick={handleReject}>Reject Request</Button></>}>
+      {req && <>
+        <div style={{ padding:'10px 13px',background:'var(--surface-sunken)',borderRadius:'var(--radius-md)',marginBottom:14 }}>
+          <div style={{ fontWeight:600,color:'var(--text-strong)' }}>{req.tool_name}</div>
+          <div style={{ fontSize:12,color:'var(--text-muted)',marginTop:2,fontFamily:'monospace' }}>{req.requisition_number} - {req.requester}</div>
+        </div>
+        <Textarea label="Reason for rejection" required rows={3} value={reason} error={reasonErr}
+          onChange={(e) => { setReason(e.target.value); setReasonErr(''); }}
+          placeholder="Provide a clear reason so the requester can understand the decision..." data-autofocus />
+      </>}
+    </Modal>
+  );
+}
+
 function ApprovalsScreen() {
-  const { PageHeader, Card, Tabs, DataTable, Button, ConfirmDialog, Modal, Textarea, EmptyState, Input } = NS_APP;
+  const { PageHeader, Card, Tabs, DataTable, Button, ConfirmDialog, EmptyState, Input } = NS_APP;
   const [tab, setTab] = React.useState('pending');
   const [approving, setApproving] = React.useState(null);
   const [rejecting, setRejecting] = React.useState(null);
   const [viewing, setViewing] = React.useState(null);
-  const [reason, setReason] = React.useState('');
-  const [reasonErr, setReasonErr] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [deptFilter, setDeptFilter] = React.useState('all');
   const [search, setSearch] = React.useState('');
@@ -155,18 +184,16 @@ function ApprovalsScreen() {
       setBusy(false);
     }
   };
-  const doReject = async () => {
-    if (!reason.trim()) { setReasonErr('Rejection reason is required'); return; }
+  const doReject = async (reason, setRejectError) => {
     setBusy(true);
     try {
-      await window.API.rejectRequisition(rejecting.id, reason.trim());
+      await window.API.rejectRequisition(rejecting.id, reason);
       await Promise.all([window.API.loadRequisitions(), window.API.loadDashboard(), window.API.loadIssuances()]);
       setRejecting(null);
-      setReason('');
       setMessage({ tone: 'success', text: 'Request rejected successfully.' });
       setTimeout(() => setMessage(null), 4000);
     } catch (e) {
-      setReasonErr(e.message || 'Rejection failed');
+      setRejectError(e.message || 'Rejection failed');
     } finally {
       setBusy(false);
     }
@@ -257,7 +284,7 @@ function ApprovalsScreen() {
                     onMouseLeave={e => e.currentTarget.style.background = 'var(--success-solid)'}
                     style={{ height: 30, padding: '0 10px', border: '1px solid var(--success-solid)', borderRadius: 'var(--radius-md)', background: 'var(--success-solid)', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
                   >Approve</button>
-                  <Button size="sm" variant="danger" onClick={() => { setRejecting(r); setReason(''); setReasonErr(''); }}>
+                  <Button size="sm" variant="danger" onClick={() => setRejecting(r)}>
                     Reject
                   </Button>
                 </>}
@@ -279,19 +306,12 @@ function ApprovalsScreen() {
         title="Approve Requisition" tone="success" confirmLabel="Approve" loading={busy}
         message={approving ? `Approve '${approving.tool_name}' (×${approving.qty}) requested by ${approving.requester} (${approving.dept})?` : ''} />
 
-      <Modal open={!!rejecting} onClose={() => setRejecting(null)} title="Reject Requisition" width={460}
-        footer={<><Button variant="secondary" onClick={() => setRejecting(null)}>Cancel</Button><Button variant="danger" loading={busy} onClick={doReject}>Reject Request</Button></>}>
-        {rejecting && <>
-          <div style={{ padding:'10px 13px',background:'var(--surface-sunken)',borderRadius:'var(--radius-md)',marginBottom:14 }}>
-            <div style={{ fontWeight:600,color:'var(--text-strong)' }}>{rejecting.tool_name}</div>
-            <div style={{ fontSize:12,color:'var(--text-muted)',marginTop:2,fontFamily:'monospace' }}>{rejecting.requisition_number} · {rejecting.requester}</div>
-          </div>
-          <Textarea label="Reason for rejection" required rows={3} value={reason} error={reasonErr}
-            onChange={(e) => { setReason(e.target.value); setReasonErr(''); }}
-            placeholder="Provide a clear reason so the requester can understand the decision…" data-autofocus />
-        </>}
-      </Modal>
-
+      <RejectRequisitionModal
+        req={rejecting}
+        busy={busy}
+        onClose={() => setRejecting(null)}
+        onReject={doReject}
+      />
       {viewing && <ViewDetailsModal req={viewing} effectiveStatus={effectiveStatus(viewing)} onClose={() => setViewing(null)} />}
     </div>
   );

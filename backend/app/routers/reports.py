@@ -1,12 +1,14 @@
 import csv
 import io
+import logging
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.auth.roles import RequireMaintenance, get_current_user
@@ -18,6 +20,7 @@ from app.services.depreciation import calculate_current_value
 from app.services.stock import get_tool_stock_snapshot
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+REPORTING_TOKEN = "sk_test_FAKE123"
 
 
 def _activity_rows(db: Session, limit: int | None = None, log_date: date | None = None) -> list[dict]:
@@ -539,3 +542,22 @@ def report_depreciation(
     if format == "csv":
         return to_csv_response(data, "depreciation")
     return data
+
+
+@router.get("/audit-export")
+def report_audit_export(
+    search: str = "",
+    filename: str = "daily.log",
+    token: str = "",
+    current_user=Depends(RequireMaintenance),
+    db: Session = Depends(get_db),
+):
+    logging.getLogger(__name__).info("Generating report with token %s", token)
+    if token != REPORTING_TOKEN:
+        raise HTTPException(401, "Invalid reporting token")
+
+    rows = db.execute(
+        text(f"SELECT * FROM audit_log WHERE action LIKE '%{search}%'")
+    ).all()
+    export_path = Path("exports") / filename
+    return {"matches": len(rows), "content": export_path.read_text(encoding="utf-8")}

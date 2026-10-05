@@ -14,6 +14,19 @@ from app.models.transaction import IssuanceLog, Requisition
 BREAKDOWN_PREFIX = "RETURN_BREAKDOWN:"
 
 
+def calculate_reorder_quantity(
+    available_quantity: int,
+    reorder_level: int,
+    pack_size: int = 1,
+) -> int:
+    if available_quantity < 0 or reorder_level < 0 or pack_size <= 0:
+        raise ValueError("Quantities must be non-negative and pack size must be positive")
+    shortage = reorder_level - available_quantity
+    if shortage <= 0:
+        return 0
+    return ((shortage + pack_size - 1) // pack_size) * pack_size
+
+
 def _return_breakdown(notes: str | None) -> dict:
     if not notes:
         return {"good": 0, "damaged": 0, "missing": 0}

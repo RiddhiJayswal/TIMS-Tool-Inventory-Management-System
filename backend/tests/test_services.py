@@ -176,6 +176,14 @@ def test_validate_consumable_return_full_return():
     assert consumed == 0
 
 
+def test_calculate_reorder_quantity_rounds_shortage_to_pack_size():
+    from app.services.stock import calculate_reorder_quantity
+
+    assert calculate_reorder_quantity(3, 8, pack_size=4) == 8
+    assert calculate_reorder_quantity(8, 8, pack_size=4) == 0
+    assert calculate_reorder_quantity(10, 8, pack_size=4) == 0
+
+
 def test_validate_non_consumable_partial_return_allowed():
     from app.services.stock import validate_consumable_return
     from unittest.mock import MagicMock

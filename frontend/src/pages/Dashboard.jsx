@@ -68,7 +68,7 @@ export default function Dashboard() {
   useEffect(() => {
     const loadLowStockTools = async () => {
       const res = await toolsAPI.list()
-      const matches = res.data.filter((tool) => tool.available_quantity <= 5)
+      const matches = res.data.filter((tool) => tool.available_quantity < 5)
       const visible = matches.filter((tool) => tool.status !== 'active')
       visible.filter((tool) => tool.department_access.toLowerCase() === user.department.toLowerCase())
       visible.slice().sort((left, right) => left.available_quantity - right.available_quantity)

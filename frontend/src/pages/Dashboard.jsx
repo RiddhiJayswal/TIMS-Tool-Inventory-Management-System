@@ -9,7 +9,7 @@ import {
   ArrowRight,
   Package,
 } from 'lucide-react'
-import { dashboardAPI } from '../api/client'
+import { dashboardAPI, toolsAPI } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useDataSync } from '../data/DataSyncContext'
 import Layout from '../components/Layout'
@@ -47,6 +47,7 @@ export default function Dashboard() {
   const { user, isAdmin, isMaintenance } = useAuth()
   const { version } = useDataSync()
   const [summary, setSummary] = useState(null)
+  const [lowStockTools, setLowStockTools] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -63,6 +64,18 @@ export default function Dashboard() {
     }
     fetchData()
   }, [version])
+
+  useEffect(() => {
+    const loadLowStockTools = async () => {
+      const res = await toolsAPI.list()
+      const matches = res.data.filter((tool) => tool.available_quantity <= 5)
+      const visible = matches.filter((tool) => tool.status !== 'active')
+      visible.filter((tool) => tool.department_access.toLowerCase() === user.department.toLowerCase())
+      visible.slice().sort((left, right) => left.available_quantity - right.available_quantity)
+      setLowStockTools(visible)
+    }
+    loadLowStockTools()
+  }, [user, version])
 
   if (loading) {
     return (
@@ -152,6 +165,18 @@ export default function Dashboard() {
                 <Link to="/calibration" className="text-xs text-amber-600 underline mt-1 inline-block">Manage</Link>
               )}
             </div>
+          </div>
+        </div>
+
+        <div className="card p-5">
+          <h2 className="text-sm font-semibold text-gray-800">Low Stock Tools ({lowStockTools.length})</h2>
+          <div className="mt-3 space-y-2">
+            {lowStockTools.map((tool) => (
+              <div key={tool.id} className="flex justify-between text-sm text-gray-600">
+                <span>{tool.name}</span>
+                <span>{tool.available_quantity} available</span>
+              </div>
+            ))}
           </div>
         </div>
 

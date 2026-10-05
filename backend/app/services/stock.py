@@ -63,14 +63,15 @@ def get_tool_locked(db: Session, tool_id: str) -> Tool:
     return tool
 
 
-def reduce_stock(db: Session, tool_id: str, quantity: int) -> Tool:
+def reduce_stock(db: Session, tool_id: str, quantity: int, allow_partial: bool = False) -> Tool:
     """
     Called at issuance time.
-    Raises HTTP 400 if available_quantity < quantity (never allow negative stock).
+    Raises HTTP 400 if available_quantity < quantity (never allow negative stock),
+    unless allow_partial is set, in which case whatever is available is issued.
     Does NOT commit — caller commits after creating issuance log.
     """
     tool = get_tool_locked(db, tool_id)
-    if tool.available_quantity < quantity:
+    if tool.available_quantity < quantity and not allow_partial:
         raise HTTPException(
             status_code=400,
             detail=f"Insufficient stock. Requested: {quantity}, Available: {tool.available_quantity}"

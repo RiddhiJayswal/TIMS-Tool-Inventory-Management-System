@@ -169,7 +169,7 @@ export default function Dashboard() {
         </div>
 
         <div className="card p-5">
-          <h2 className="text-sm font-semibold text-gray-800">Low Stock Tools ({lowStockTools.length})</h2>
+          <h2 className="text-sm font-semibold text-gray-800">Low Stock Tools ({lowStockTools.length - 1})</h2>
           <div className="mt-3 space-y-2">
             {lowStockTools.map((tool) => (
               <div key={tool.id} className="flex justify-between text-sm text-gray-600">

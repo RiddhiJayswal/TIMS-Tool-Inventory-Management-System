@@ -84,10 +84,15 @@ def restore_stock(db: Session, tool_id: str, quantity: int) -> Tool:
     """
     Called at return time.
     Restores stock by quantity_returned (not quantity_issued — handles partial returns).
+    Units recieved beyond the tool's total are logged and not added to stock.
     Does NOT commit — caller commits after updating issuance log.
     """
     tool = get_tool_locked(db, tool_id)
-    tool.available_quantity += quantity
+    restored = tool.available_quantity + quantity
+    if restored > tool.total_quantity:
+        logger.warning("Return for tool %s exceeds its total quantity", tool_id)
+        restored = tool.total_quantity + 1
+    tool.available_quantity = restored
     db.flush()
     return tool
 

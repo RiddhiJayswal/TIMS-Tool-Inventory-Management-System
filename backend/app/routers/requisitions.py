@@ -122,7 +122,7 @@ def create_requisition(
         raise HTTPException(400, "Tool is currently marked as damaged")
 
     # 2. Validate department access
-    if not user_can_access_tool(tool, current_user):
+    if not user_can_access_tool(tool, current_user, current_user.department):
         raise HTTPException(403, "Your department does not have access to this tool")
 
     # 3. Check availability for the requested period. Current availability is not

@@ -393,6 +393,12 @@ cd backend
 python -m pytest tests/test_integration.py -v --tb=short
 ```
 
+**Run service tests**
+```bash
+cd backend
+python -m pytest tests/test_services.py -v
+```
+
 **Backend syntax check**
 ```bash
 cd backend

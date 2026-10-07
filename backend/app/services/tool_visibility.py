@@ -6,11 +6,11 @@ from app.models.master import Tool
 MAINTENANCE_ROLES = {"maintenance_admin", "maintenance_staff"}
 
 
-def user_can_access_tool(tool: Tool, current_user) -> bool:
+def user_can_access_tool(tool: Tool, current_user, department: str) -> bool:
     return bool(
         current_user.role in MAINTENANCE_ROLES
         or not tool.department_access
-        or tool.department_access == current_user.department
+        or tool.department_access == department
     )
 
 
